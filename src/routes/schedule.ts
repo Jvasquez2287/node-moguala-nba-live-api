@@ -1,6 +1,14 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
 import axios from 'axios';
+import {
+  GamesResponse,
+  GameSummary,
+  TeamSummary,
+  TopScorer,
+  GameLeaders,
+  GameLeader
+} from '../schemas/schedule';
 
 const router = express.Router();
 

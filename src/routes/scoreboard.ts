@@ -1,6 +1,17 @@
 import express from 'express';
 import { getScoreboard, getPlayByPlay } from '../services/scoreboard';
 import { dataCache } from '../services/dataCache';
+import {
+  BoxScoreResponse,
+  PlayByPlayResponse,
+  ScoreboardResponse,
+  Team,
+  GameLeaders,
+  PlayerStats,
+  PlayerBoxScoreStats,
+  TeamBoxScoreStats,
+  PlayByPlayEvent
+} from '../schemas/scoreboard';
 
 const router = express.Router();
 

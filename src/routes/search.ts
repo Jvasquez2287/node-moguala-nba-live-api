@@ -1,5 +1,6 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
+import { SearchResults, PlayerResult, TeamResult } from '../schemas/search';
 
 const router = express.Router();
 

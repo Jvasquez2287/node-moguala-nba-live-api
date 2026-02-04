@@ -44,23 +44,23 @@ export interface Game {
   homeTeam: Team;
   awayTeam: Team;
   gameLeaders?: {
-    homeLeaders: any;
-    awayLeaders: any;
+    homeLeaders: GameLeaderStats | null;
+    awayLeaders: GameLeaderStats | null;
   };
 }
 
 // Player stats for game leaders
 export interface GameLeaderStats {
-  personId?: number;
-  playerId?: number;
-  name: string;
-  jerseyNum?: string;
-  position?: string;
-  teamTricode?: string;
-  teamId?: number;
-  points: number;
-  rebounds: number;
-  assists: number;
+  personId?: number | null;
+  playerId?: number | null;
+  name: string | null;
+  jerseyNum?: string | null;
+  position?: string | null;
+  teamTricode?: string | null;
+  teamId?: number | null;
+  points: number | null;
+  rebounds: number | null;
+  assists: number | null;
 }
 
 export interface GameLeaders {

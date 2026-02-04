@@ -1,5 +1,7 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
+import { TeamDetailsResponse, TeamRoster } from '../schemas/team';
+import { Player, Coach } from '../schemas/player';
 
 const router = express.Router();
 

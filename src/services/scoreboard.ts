@@ -163,6 +163,64 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
 
     const games: LiveGame[] = [];
 
+      const transformedData: ScoreboardResponse = {
+          scoreboard: {
+            gameDate:  gameDate || new Date().toISOString().split('T')[0],
+            games: (rawGames || []).map((game: LiveGame) => ({
+              gameId: game.gameId,
+              gameStatus: game.gameStatus,
+              gameStatusText: game.gameStatusText,
+              period: game.period,
+              gameClock: game.gameClock || undefined,
+              gameTimeUTC: game.gameTimeUTC,
+              homeTeam: {
+                teamId: game.homeTeam.teamId,
+                teamName: game.homeTeam.teamName,
+                teamCity: game.homeTeam.teamCity,
+                teamTricode: game.homeTeam.teamTricode,
+                wins: game.homeTeam.wins,
+                losses: game.homeTeam.losses,
+                score: game.homeTeam.score,
+                timeoutsRemaining: game.homeTeam.timeoutsRemaining
+              },
+              awayTeam: {
+                teamId: game.awayTeam.teamId,
+                teamName: game.awayTeam.teamName,
+                teamCity: game.awayTeam.teamCity,
+                teamTricode: game.awayTeam.teamTricode,
+                wins: game.awayTeam.wins,
+                losses: game.awayTeam.losses,
+                score: game.awayTeam.score,
+                timeoutsRemaining: game.awayTeam.timeoutsRemaining
+              },
+              gameLeaders: game.gameLeaders ? {
+                homeLeaders: {
+                  personId: game.gameLeaders.homeLeaders.personId || null,
+                  name: game.gameLeaders.homeLeaders.name || null,
+                  jerseyNum: game.gameLeaders.homeLeaders.jerseyNum || null,
+                  position: game.gameLeaders.homeLeaders.position || null,
+                  teamTricode: game.gameLeaders.homeLeaders.teamTricode || null,
+                  points: game.gameLeaders.homeLeaders.points || null,
+                  rebounds: game.gameLeaders.homeLeaders.rebounds || null,
+                  assists: game.gameLeaders.homeLeaders.assists || null
+                },
+                awayLeaders: {
+                  personId: game.gameLeaders.awayLeaders.personId,
+                  name: game.gameLeaders.awayLeaders.name,
+                  jerseyNum: game.gameLeaders.awayLeaders.jerseyNum,
+                  position: game.gameLeaders.awayLeaders.position,
+                  teamTricode: game.gameLeaders.awayLeaders.teamTricode,
+                  points: game.gameLeaders.awayLeaders.points,
+                  rebounds: game.gameLeaders.awayLeaders.rebounds,
+                  assists: game.gameLeaders.awayLeaders.assists
+                }
+              } : undefined
+            }))
+          }
+        };
+
+
+
     // Process each game
     for (const game of rawGames) {
       try {
@@ -187,7 +245,7 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
           gameClock: game.gameClock || '',
           gameTimeUTC: game.gameTimeUTC,
           homeTeam,
-          awayTeam,
+          awayTeam, 
           gameLeaders,
         };
 

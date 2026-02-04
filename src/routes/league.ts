@@ -1,5 +1,6 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
+import { LeagueLeadersResponse, LeagueLeader } from '../schemas/league';
 
 const router = express.Router();
 

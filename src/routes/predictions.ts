@@ -1,5 +1,6 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
+import { PredictionsResponse, GamePrediction } from '../schemas/predictions';
 
 const router = express.Router();
 

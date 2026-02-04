@@ -1,5 +1,6 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
+import { StandingsResponse, StandingRecord } from '../schemas/standings';
 
 const router = express.Router();
 
