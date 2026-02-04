@@ -4,99 +4,35 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const dataCache_1 = require("../services/dataCache");
+const search_1 = require("../services/search");
+const search_2 = require("../schemas/search");
 const router = express_1.default.Router();
 // GET /api/v1/search - Search for players, teams, etc
 router.get('/search', async (req, res) => {
     try {
-        const query = (req.query.q || '').toLowerCase();
-        const type = (req.query.type || 'all').toLowerCase();
-        if (!query || query.length < 2) {
-            return res.json({
-                query,
-                results: [],
-                message: 'Search query must be at least 2 characters'
+        const { q: query } = req.query;
+        if (!query || typeof query !== 'string' || query.trim().length === 0) {
+            return res.status(400).json({ error: 'Query parameter "q" is required and must be non-empty' });
+        }
+        if (query.length < 2) {
+            return res.status(400).json({ error: 'Query must be at least 2 characters long',
+                example: '/api/v1/search?q=LeBron or /api/v1/search?q=Lakers'
             });
         }
-        const scoreboardData = await dataCache_1.dataCache.getScoreboard();
-        const scoreboard = scoreboardData?.scoreboard;
-        if (!scoreboard || !scoreboard.games) {
-            return res.json({
-                query,
-                results: []
-            });
+        const searchData = await (0, search_1.searchEntities)(query.trim());
+        if (!searchData) {
+            return res.status(500).json({ error: 'Search service unavailable' });
         }
-        const results = {
-            players: [],
-            teams: [],
-            games: []
-        };
-        // Search players
-        if (type === 'all' || type === 'player') {
-            const playersSet = new Set();
-            scoreboard.games.forEach((game) => {
-                [game.gameLeaders?.homeLeaders, game.gameLeaders?.awayLeaders].forEach((leader) => {
-                    if (leader?.name && leader.name.toLowerCase().includes(query) && !playersSet.has(leader.personId)) {
-                        playersSet.add(leader.personId);
-                        results.players.push({
-                            playerId: leader.personId,
-                            name: leader.name,
-                            team: leader.team || (game.homeTeam?.teamTricode === leader.teamTricode ? game.homeTeam?.teamTricode : game.awayTeam?.teamTricode),
-                            position: leader.position || 'Unknown'
-                        });
-                    }
-                });
-            });
+        // Validate response
+        const { error } = search_2.searchResultsSchema.validate(searchData);
+        if (error) {
+            console.log('Search validation error:', error);
+            return res.status(500).json({ error: 'Invalid search results' });
         }
-        // Search teams
-        if (type === 'all' || type === 'team') {
-            const teamsSet = new Set();
-            scoreboard.games.forEach((game) => {
-                [game.homeTeam, game.awayTeam].forEach((team) => {
-                    if (team && !teamsSet.has(team.teamId) &&
-                        (team.teamName.toLowerCase().includes(query) ||
-                            team.teamCity.toLowerCase().includes(query) ||
-                            team.teamTricode.toLowerCase().includes(query))) {
-                        teamsSet.add(team.teamId);
-                        results.teams.push({
-                            teamId: team.teamId,
-                            name: team.teamName,
-                            city: team.teamCity,
-                            tricode: team.teamTricode,
-                            wins: team.wins || 0,
-                            losses: team.losses || 0
-                        });
-                    }
-                });
-            });
-        }
-        // Search games
-        if (type === 'all' || type === 'game') {
-            scoreboard.games.forEach((game) => {
-                const matchesHome = game.homeTeam?.teamName.toLowerCase().includes(query) ||
-                    game.homeTeam?.teamCity.toLowerCase().includes(query);
-                const matchesAway = game.awayTeam?.teamName.toLowerCase().includes(query) ||
-                    game.awayTeam?.teamCity.toLowerCase().includes(query);
-                if (matchesHome || matchesAway) {
-                    results.games.push({
-                        gameId: game.gameId,
-                        awayTeam: game.awayTeam?.teamName,
-                        homeTeam: game.homeTeam?.teamName,
-                        status: game.gameStatus,
-                        statusText: game.gameStatusText
-                    });
-                }
-            });
-        }
-        res.json({
-            query,
-            type,
-            results,
-            total: results.players.length + results.teams.length + results.games.length
-        });
+        res.json(searchData);
     }
     catch (error) {
-        console.error('Error searching:', error);
+        console.log('Error performing search:', error);
         res.status(500).json({ error: 'Failed to perform search' });
     }
 });

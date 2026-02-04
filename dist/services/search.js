@@ -1,91 +1,70 @@
+"use strict";
 /**
  * Search service for NBA data operations.
  * Handles searching for players and teams by name.
  */
-
- 
-import axios from 'axios';
-import { SearchResults, PlayerResult, TeamResult } from '../schemas/search';
-
- 
-// Type definition for cache entries
-interface CacheEntry<T> {
-    data: T;
-    timestamp: number;
-}
-
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.searchEntities = searchEntities;
+const axios_1 = __importDefault(require("axios"));
 // Cache duration in milliseconds (1 hour)
 const CACHE_DURATION = 3600000;
-
 // Cache for search results
-const searchCache = new Map<string, CacheEntry<SearchResults>>();
-
+const searchCache = new Map();
 /**
  * Retry utility for NBA API calls with exponential backoff
  */
-async function retryAxiosRequest<T>(
-    requestFn: () => Promise<T>,
-    maxRetries: number = 3,
-    baseDelay: number = 1000
-): Promise<T> {
-    let lastError: Error;
-
+async function retryAxiosRequest(requestFn, maxRetries = 3, baseDelay = 1000) {
+    let lastError;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             return await requestFn();
-        } catch (error: any) {
+        }
+        catch (error) {
             lastError = error;
-
             // Don't retry on the last attempt
             if (attempt === maxRetries) {
                 break;
             }
-
             // Don't retry certain types of errors
             if (error.response?.status === 400 || error.response?.status === 401 || error.response?.status === 403) {
                 throw error;
             }
-
             // Calculate delay with exponential backoff
             const delay = baseDelay * Math.pow(2, attempt);
-           console.log(`NBA API request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms:`, error.message);
-
+            console.log(`NBA API request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms:`, error.message);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
-
-    throw lastError!;
+    throw lastError;
 }
-
 /**
  * Search for players and teams by name
  */
-export async function searchEntities(query: string): Promise<SearchResults | null> {
+async function searchEntities(query) {
     try {
         // Check cache first
         const queryLower = query.toLowerCase();
         const cached = searchCache.get(queryLower);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-           console.log(`Returning cached search results for query "${query}"`);
+            console.log(`Returning cached search results for query "${query}"`);
             return cached.data;
         }
-
-       console.log(`Cache miss for search query "${query}", fetching from API`);
-
+        console.log(`Cache miss for search query "${query}", fetching from API`);
         const searchLower = queryLower;
-        const playerResults: PlayerResult[] = [];
-        const teamResults: TeamResult[] = [];
-
+        const playerResults = [];
+        const teamResults = [];
         // Get current season for player search
         const currentDate = new Date();
         const currentYear = currentDate.getFullYear();
         const currentMonth = currentDate.getMonth() + 1;
         const season = currentMonth >= 10 ? `${currentYear}-${(currentYear + 1).toString().slice(-2)}` : `${currentYear - 1}-${currentYear.toString().slice(-2)}`;
-
         // Search for players using NBA API
         try {
             const playersResponse = await retryAxiosRequest(async () => {
-                return await axios.get('https://stats.nba.com/stats/playerindex', {
+                return await axios_1.default.get('https://stats.nba.com/stats/playerindex', {
                     headers: {
                         "Host": "stats.nba.com",
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -102,17 +81,14 @@ export async function searchEntities(query: string): Promise<SearchResults | nul
                     timeout: 60000
                 });
             });
-
             if (playersResponse.data?.resultSets?.[0]?.rowSet) {
                 const headers = playersResponse.data.resultSets[0].headers;
                 const playersData = playersResponse.data.resultSets[0].rowSet;
-
                 // Helper function to safely get values
-                const getValue = (row: any[], headerName: string) => {
+                const getValue = (row, headerName) => {
                     const index = headers.indexOf(headerName);
                     return index !== -1 ? row[index] : null;
                 };
-
                 for (const player of playersData.slice(0, 10)) {
                     const playerName = `${getValue(player, 'PLAYER_FIRST_NAME') || ''} ${getValue(player, 'PLAYER_LAST_NAME') || ''}`.trim();
                     if (playerName.toLowerCase().includes(searchLower)) {
@@ -125,14 +101,13 @@ export async function searchEntities(query: string): Promise<SearchResults | nul
                     }
                 }
             }
-        } catch (error) {
-           console.log('Error searching players:', error);
         }
-
+        catch (error) {
+            console.log('Error searching players:', error);
+        }
         // Search for teams using NBA API
         try {
-            const teamsResponse = await axios.get('https://stats.nba.com/stats/leaguestandingsv3', {
-
+            const teamsResponse = await axios_1.default.get('https://stats.nba.com/stats/leaguestandingsv3', {
                 headers: {
                     "Host": "stats.nba.com",
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -148,33 +123,26 @@ export async function searchEntities(query: string): Promise<SearchResults | nul
                 },
                 timeout: 30000
             });
-
             if (teamsResponse.data?.resultSets?.[0]?.rowSet) {
                 const headers = teamsResponse.data.resultSets[0].headers;
                 const teamsData = teamsResponse.data.resultSets[0].rowSet;
-
                 // Helper function to safely get values
-                const getValue = (row: any[], headerName: string) => {
+                const getValue = (row, headerName) => {
                     const index = headers.indexOf(headerName);
                     return index !== -1 ? row[index] : null;
                 };
-
                 for (const team of teamsData) {
                     const teamName = `${getValue(team, 'TeamCity') || ''} ${getValue(team, 'TeamName') || ''}`.trim();
                     const abbreviation = getValue(team, 'TeamName') || '';
-
                     // Check if search term matches team name, abbreviation, or city
-                    if (
-                        teamName.toLowerCase().includes(searchLower) ||
+                    if (teamName.toLowerCase().includes(searchLower) ||
                         abbreviation.toLowerCase().includes(searchLower) ||
-                        (getValue(team, 'TeamCity') || '').toLowerCase().includes(searchLower)
-                    ) {
+                        (getValue(team, 'TeamCity') || '').toLowerCase().includes(searchLower)) {
                         teamResults.push({
                             id: getValue(team, 'TeamID') || 0,
                             name: teamName,
                             abbreviation: abbreviation
                         });
-
                         // Limit to 10 teams
                         if (teamResults.length >= 10) {
                             break;
@@ -182,24 +150,24 @@ export async function searchEntities(query: string): Promise<SearchResults | nul
                     }
                 }
             }
-        } catch (error) {
-           console.log('Error searching teams:', error);
         }
-
+        catch (error) {
+            console.log('Error searching teams:', error);
+        }
         const result = {
             players: playerResults,
             teams: teamResults
         };
-
         // Cache the result
         searchCache.set(queryLower, {
             data: result,
             timestamp: Date.now()
         });
-
         return result;
-    } catch (error) {
-       console.log(`Error searching for query '${query}':`, error);
+    }
+    catch (error) {
+        console.log(`Error searching for query '${query}':`, error);
         return null;
     }
 }
+//# sourceMappingURL=search.js.map
