@@ -4,17 +4,7 @@ import { gamesResponseSchema } from '../schemas/schedule';
 import { date } from 'joi';
 
 const router = express.Router();
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json()
-    ),
-    transports: [
-        new winston.transports.Console()
-    ]
-});
-
+ 
 // Get games for a specific date
 router.get('/schedule/date/:date', async (req, res) => {
     try {

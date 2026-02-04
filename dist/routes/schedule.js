@@ -8,8 +8,6 @@ const dataCache_1 = require("../services/dataCache");
 const schedule_1 = require("../services/schedule");
 const schedule_2 = require("../schemas/schedule");
 const router = express_1.default.Router();
-// Python API base URL (nba-tracker-api)
-const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://nba-v1.m-api.net:8000/api/v1';
 // GET /api/v1/schedule - Get today's schedule
 router.get('/schedule', async (req, res) => {
     try {
@@ -26,28 +24,7 @@ router.get('/schedule', async (req, res) => {
                 message: 'No games scheduled for today'
             });
         }
-        const schedule = {
-            date: scoreboard.gameDate || new Date().toISOString().split('T')[0],
-            games: scoreboard.games.map((game) => ({
-                gameId: game.gameId,
-                startTime: game.gameTimeUTC,
-                awayTeam: {
-                    name: game.awayTeam?.teamName,
-                    tricode: game.awayTeam?.teamTricode,
-                    score: game.awayTeam?.score
-                },
-                homeTeam: {
-                    name: game.homeTeam?.teamName,
-                    tricode: game.homeTeam?.teamTricode,
-                    score: game.homeTeam?.score
-                },
-                status: game.gameStatus,
-                statusText: game.gameStatusText,
-                period: game.period,
-                gameClock: game.gameClock
-            }))
-        };
-        res.json(schedule);
+        res.json(scoreboard);
     }
     catch (error) {
         console.error('Error fetching schedule:', error);
@@ -91,9 +68,15 @@ router.get('/schedule/date/:date', async (req, res) => {
         // For historical or future dates, try to get from Python API (nba-tracker-api)
         if (isHistorical || isFuture) {
             try {
-                const gamesData = await (0, schedule_1.getGamesForDate)(dateParam);
+                const { date } = req.params;
+                // Validate date format (YYYY-MM-DD)
+                const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+                if (!dateRegex.test(date)) {
+                    return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+                }
+                const gamesData = await (0, schedule_1.getGamesForDate)(date);
                 if (!gamesData) {
-                    return res.status(404).json({ error: `No games found for date ${dateParam}` });
+                    return res.status(404).json({ error: `No games found for date ${date}` });
                 }
                 // Validate response
                 const { error } = schedule_2.gamesResponseSchema.validate(gamesData);
@@ -103,10 +86,9 @@ router.get('/schedule/date/:date', async (req, res) => {
                 }
                 res.json(gamesData);
             }
-            catch (pythonError) {
-                console.log(`Python API unavailable or no data for ${dateParam}:`, pythonError instanceof Error ? pythonError.message : pythonError);
-                console.log("Remote Endpoint:", `${PYTHON_API_URL}/schedule/date/${dateParam}`);
-                // Fall through to return "no data" response
+            catch (error) {
+                console.log('Error fetching games for date:', error);
+                res.status(500).json({ error: 'Failed to fetch games' });
             }
         }
         // No data available

@@ -2,6 +2,10 @@ import { getScoreboard, getPlayByPlay } from './scoreboard';
 import { ScoreboardResponse, PlayByPlayResponse } from '../types';
 import { playbyplayWebSocketManager } from './websocketManager';
 import { GamesResponse } from '../schemas/schedule';
+import { LeagueLeadersResponse } from '../schemas/league';
+import { PlayerSummary } from '../schemas/player';
+import { SeasonLeadersResponse } from '../schemas/seasonleaders';
+import { TeamDetailsResponse, TeamRoster } from '../schemas/team';
 
 
 interface CacheEntry<T> {
@@ -81,7 +85,19 @@ export class DataCache {
   private playbyplayCache = new LRUCache(20); // Limit to 20 active games
   private lock = false; // Simple lock for async operations
   private activeGameIds = new Set<string>();
+
+  // 10-minute refresh caches (new)
+  private leagueLeadersCache: Map<string, CacheEntry<LeagueLeadersResponse>> = new Map();
+  private playerCache: Map<string, CacheEntry<PlayerSummary>> = new Map();
+  private playerSearchCache: Map<string, CacheEntry<PlayerSummary[]>> = new Map();
+  private seasonLeadersCache: Map<string, CacheEntry<SeasonLeadersResponse>> = new Map();
+  private leagueRosterCache: CacheEntry<PlayerSummary[]> | null = null;
   private scheduleCache: Map<string, CacheEntry<GamesResponse>> = new Map();
+  private teamCache: Map<number, CacheEntry<TeamDetailsResponse>> = new Map();
+  private teamRosterCache: Map<string, CacheEntry<TeamRoster>> = new Map();
+  private allTeamsCache: CacheEntry<TeamDetailsResponse[]> | null = null;
+
+
   private readonly SCOREBOARD_POLL_INTERVAL = 8000; // 8 seconds
   private readonly PLAYBYPLAY_POLL_INTERVAL = 5000; // 5 seconds
   private readonly CLEANUP_INTERVAL = 300000; // 5 minutes
@@ -126,14 +142,11 @@ export class DataCache {
   }
 
 
-
-
-
   //////////////////////////////////////////////
 
   setGamesForDate(date: string, data: GamesResponse): void {
     this.scheduleCache.set(date, { data, timestamp: Date.now() });
-  } 
+  }
 
   async getGamesForDate(date: string): Promise<GamesResponse | null> {
     const entry = this.scheduleCache.get(date);
@@ -142,8 +155,37 @@ export class DataCache {
     }
     return null;
   }
-  
+
   /////////////////////////////////////////
+
+  setAllTeams(data: TeamDetailsResponse[]): void {
+    this.allTeamsCache = { data, timestamp: Date.now() };
+  }
+
+
+  async getAllTeams(): Promise<TeamDetailsResponse[] | null> {
+    if (this.allTeamsCache && (Date.now() - this.allTeamsCache.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+      return this.allTeamsCache.data;
+    }
+    return null;
+  }
+
+  ///////////////////////////////////////////
+
+  setTeam(teamId: number, data: TeamDetailsResponse): void {
+    this.teamCache.set(teamId, { data, timestamp: Date.now() });
+  }
+
+  async getTeam(teamId: number): Promise<TeamDetailsResponse | null> {
+    const entry = this.teamCache.get(teamId);
+    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+      return entry.data;
+    }
+    return null;
+  }
+
+  ///////////////////////////////////////////
+
 
   private async cleanupFinishedGames(): Promise<void> {
     this.lock = true;

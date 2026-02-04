@@ -1,11 +1,20 @@
 import { ScoreboardResponse, PlayByPlayResponse } from '../types';
 import { GamesResponse } from '../schemas/schedule';
+import { TeamDetailsResponse } from '../schemas/team';
 export declare class DataCache {
     private scoreboardCache;
     private playbyplayCache;
     private lock;
     private activeGameIds;
+    private leagueLeadersCache;
+    private playerCache;
+    private playerSearchCache;
+    private seasonLeadersCache;
+    private leagueRosterCache;
     private scheduleCache;
+    private teamCache;
+    private teamRosterCache;
+    private allTeamsCache;
     private readonly SCOREBOARD_POLL_INTERVAL;
     private readonly PLAYBYPLAY_POLL_INTERVAL;
     private readonly CLEANUP_INTERVAL;
@@ -17,6 +26,10 @@ export declare class DataCache {
     getPlaybyplay(gameId: string): Promise<PlayByPlayResponse | null>;
     setGamesForDate(date: string, data: GamesResponse): void;
     getGamesForDate(date: string): Promise<GamesResponse | null>;
+    setAllTeams(data: TeamDetailsResponse[]): void;
+    getAllTeams(): Promise<TeamDetailsResponse[] | null>;
+    setTeam(teamId: number, data: TeamDetailsResponse): void;
+    getTeam(teamId: number): Promise<TeamDetailsResponse | null>;
     private cleanupFinishedGames;
     private periodicCleanup;
     private pollScoreboard;

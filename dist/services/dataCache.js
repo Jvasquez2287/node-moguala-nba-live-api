@@ -63,7 +63,16 @@ class DataCache {
         this.playbyplayCache = new LRUCache(20); // Limit to 20 active games
         this.lock = false; // Simple lock for async operations
         this.activeGameIds = new Set();
+        // 10-minute refresh caches (new)
+        this.leagueLeadersCache = new Map();
+        this.playerCache = new Map();
+        this.playerSearchCache = new Map();
+        this.seasonLeadersCache = new Map();
+        this.leagueRosterCache = null;
         this.scheduleCache = new Map();
+        this.teamCache = new Map();
+        this.teamRosterCache = new Map();
+        this.allTeamsCache = null;
         this.SCOREBOARD_POLL_INTERVAL = 8000; // 8 seconds
         this.PLAYBYPLAY_POLL_INTERVAL = 5000; // 5 seconds
         this.CLEANUP_INTERVAL = 300000; // 5 minutes
@@ -115,6 +124,27 @@ class DataCache {
         return null;
     }
     /////////////////////////////////////////
+    setAllTeams(data) {
+        this.allTeamsCache = { data, timestamp: Date.now() };
+    }
+    async getAllTeams() {
+        if (this.allTeamsCache && (Date.now() - this.allTeamsCache.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return this.allTeamsCache.data;
+        }
+        return null;
+    }
+    ///////////////////////////////////////////
+    setTeam(teamId, data) {
+        this.teamCache.set(teamId, { data, timestamp: Date.now() });
+    }
+    async getTeam(teamId) {
+        const entry = this.teamCache.get(teamId);
+        if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return entry.data;
+        }
+        return null;
+    }
+    ///////////////////////////////////////////
     async cleanupFinishedGames() {
         this.lock = true;
         try {

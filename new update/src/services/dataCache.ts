@@ -197,6 +197,7 @@ export class DataCache {
     return null;
   }
 
+  
   async getTeam(teamId: number): Promise<TeamDetailsResponse | null> {
     const entry = this.teamCache.get(teamId);
     if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
@@ -219,7 +220,7 @@ export class DataCache {
       return this.allTeamsCache.data;
     }
     return null;
-  }
+  } 
 
   async getBoxScore(gameId: string): Promise<any | null> {
     return this.boxScoreCache.get(gameId);
