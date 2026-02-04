@@ -1,0 +1,1 @@
+{"version":3,"file":"coach.d.ts","sourceRoot":"","sources":["../../src/schemas/coach.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,GAAG,MAAM,KAAK,CAAC;AAE3B;;GAEG;AACH,MAAM,WAAW,KAAK;IACpB,QAAQ,EAAE,MAAM,CAAC;IACjB,IAAI,EAAE,MAAM,CAAC;IACb,IAAI,EAAE,MAAM,CAAC;IACb,YAAY,EAAE,OAAO,CAAC;CACvB;AAGD,eAAO,MAAM,WAAW,uBAKtB,CAAC"}
