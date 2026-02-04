@@ -2,23 +2,11 @@
  * Predictions service for NBA data operations.
  * Handles game outcome predictions based on team statistics.
  */
-
-import * as winston from 'winston';
+ 
 import axios from 'axios';
 import { PredictionsResponse, GamePrediction } from '../schemas/predictions';
-import { getGamesForDate } from './schedule';
-
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json()
-    ),
-    transports: [
-        new winston.transports.Console()
-    ]
-});
-
+import { getGamesForDate } from '../services/schedule';
+ 
 // Type definition for cache entries
 interface CacheEntry<T> {
     data: T;

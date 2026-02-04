@@ -1,63 +1,90 @@
-import axios, { AxiosProxyConfig } from 'axios';
-import { config } from '../utils/config';
-import { replace } from 'lodash';
-import e from 'express';
-import {
-    GamesResponse,
-    GameSummary,
-    TeamSummary,
-    TopScorer,
-    GameLeaders,
-    GameLeader
-} from '../schemas/schedule';
-import { dataCache } from './dataCache';
-
-
-interface RawScheduleData {
-  league?: {
-    season?: number;
-    games?: any[];
-  };
-}
-
-
-async function retryAxiosRequest<T>(
-    requestFn: () => Promise<T>,
-    maxRetries: number = 3,
-    baseDelay: number = 1000
-): Promise<T> {
-    let lastError: Error;
-
+"use strict";
+/**
+ * Schedule service for NBA data operations.
+ * Handles fetching and processing NBA game schedules and game details.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getGamesForDate = getGamesForDate;
+const winston = __importStar(require("winston"));
+const axios_1 = __importDefault(require("axios"));
+const dataCache_1 = require("./dataCache");
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+    transports: [
+        new winston.transports.Console()
+    ]
+});
+// Cache duration in milliseconds (1 hour)
+const CACHE_DURATION = 3600000;
+// Cache for games by date
+const gamesCache = new Map();
+/**
+ * Retry utility for NBA API calls with exponential backoff
+ */
+async function retryAxiosRequest(requestFn, maxRetries = 3, baseDelay = 1000) {
+    let lastError;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             return await requestFn();
-        } catch (error: any) {
+        }
+        catch (error) {
             lastError = error;
-
             // Don't retry on the last attempt
             if (attempt === maxRetries) {
                 break;
             }
-
             // Don't retry certain types of errors
             if (error.response?.status === 400 || error.response?.status === 401 || error.response?.status === 403) {
                 throw error;
             }
-
             // Calculate delay with exponential backoff
             const delay = baseDelay * Math.pow(2, attempt);
-           console.log(`NBA API request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms:`, error.message);
-
+            console.log(`NBA API request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms:`, error.message);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
-
-    throw lastError!;
+    throw lastError;
 }
-
 // Create a map of team IDs to abbreviations for quick lookup
 // This helps us convert team IDs to abbreviations like "LAL" or "BOS"
-const NBA_TEAMS: { [key: number]: string } = {
+const NBA_TEAMS = {
     1610612737: "ATL",
     1610612738: "BOS",
     1610612739: "CLE",
@@ -89,92 +116,70 @@ const NBA_TEAMS: { [key: number]: string } = {
     1610612765: "DET",
     1610612766: "CHA"
 };
-
-
 /**
  * Parse game time from game_status string (e.g., "7:00 pm ET") and convert to UTC ISO format.
  */
-function parseGameTimeFromStatus(gameStatus: string, gameDate: string): string | null {
+function parseGameTimeFromStatus(gameStatus, gameDate) {
     if (!gameStatus || !gameDate) {
         return null;
     }
-
     // Pattern to match time formats like "7:00 pm ET", "7:30 pm ET", "12:00 pm ET"
     // Also handles "7 pm ET" (without minutes)
     const timePattern = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*ET/i;
     const match = gameStatus.match(timePattern);
-
     if (!match) {
         return null;
     }
-
     try {
         let hour = parseInt(match[1], 10);
         const minute = match[2] ? parseInt(match[2], 10) : 0;
         const amPm = match[3].toLowerCase();
-
         // Convert to 24-hour format
         if (amPm === 'pm' && hour !== 12) {
             hour += 12;
-        } else if (amPm === 'am' && hour === 12) {
+        }
+        else if (amPm === 'am' && hour === 12) {
             hour = 0;
         }
-
         // Parse the game date
         const dateObj = new Date(gameDate);
-
         // Create datetime in ET timezone (UTC-5, or UTC-4 during DST)
         // For simplicity, we'll assume standard time (ET = UTC-5)
         const etTime = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), hour, minute);
         const etOffset = -5 * 60; // ET is UTC-5 (in minutes)
         const utcTime = new Date(etTime.getTime() - (etOffset * 60 * 1000));
-
         // Format as ISO 8601 UTC string
         return utcTime.toISOString();
-
-    } catch (error) {
-       console.log(`Error parsing game time from status '${gameStatus}':`, error);
+    }
+    catch (error) {
+        console.log(`Error parsing game time from status '${gameStatus}':`, error);
         return null;
     }
 }
-
-function extractGameLeaders(
-    teamLeadersList: any[],
-    teamLeadersHeaders: string[],
-    gameId: string,
-    homeTeamId: number,
-    awayTeamId: number
-): GameLeaders | undefined {
+function extractGameLeaders(teamLeadersList, teamLeadersHeaders, gameId, homeTeamId, awayTeamId) {
     if (!teamLeadersList || !teamLeadersHeaders) {
         return undefined;
     }
-
-    let homeLeader: GameLeader | undefined;
-    let awayLeader: GameLeader | undefined;
-
+    let homeLeader;
+    let awayLeader;
     // Find leaders for this game
     for (const leaderRow of teamLeadersList) {
         if (teamLeadersHeaders.length !== leaderRow.length) {
             continue;
         }
-
-        const leaderDict: { [key: string]: any } = {};
+        const leaderDict = {};
         for (let i = 0; i < teamLeadersHeaders.length; i++) {
             leaderDict[teamLeadersHeaders[i]] = leaderRow[i];
         }
-
         if (String(leaderDict.GAME_ID || '') !== gameId) {
             continue;
         }
-
         const teamId = leaderDict.TEAM_ID;
         const playerId = leaderDict.PTS_PLAYER_ID || 0;
         const playerName = leaderDict.PTS_PLAYER_NAME || 'Unknown';
-
         if (!playerId || playerId === 0) {
             continue;
         }
-
         // Use game stats directly from TeamLeaders
         const leaderData = {
             personId: playerId,
@@ -186,345 +191,39 @@ function extractGameLeaders(
             rebounds: parseFloat(leaderDict.REB || 0),
             assists: parseFloat(leaderDict.AST || 0),
         };
-
         if (teamId === homeTeamId) {
-            homeLeader = leaderData as GameLeader;
-        } else if (teamId === awayTeamId) {
-            awayLeader = leaderData as GameLeader;
+            homeLeader = leaderData;
+        }
+        else if (teamId === awayTeamId) {
+            awayLeader = leaderData;
         }
     }
-
     if (homeLeader || awayLeader) {
         return {
             homeLeaders: homeLeader,
             awayLeaders: awayLeader
         };
     }
-
     return undefined;
 }
-
-
-interface GameDateData {
-  gameDate: string;
-  games?: any[];
-}
-
-interface ScheduleData {
-  season: number;
-  games: GameDateData[];
-  lastUpdated: string;
-}
-
-// Cache for schedule data
-let scheduleCache: ScheduleData | null = null;
-let scheduleCacheTimestamp: number = 0;
-const SCHEDULE_CACHE_TTL = 3600 * 1000; // 1 hour in milliseconds
-
-const SCHEDULE_URL = 'https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json';
-
-async function fetchNBASchedule(): Promise<RawScheduleData> {
-  try {
-    const proxyConfig = config.getApiProxyConfig();
-    const axiosConfig: any = {
-      timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    };
-    if (proxyConfig) {
-      axiosConfig.proxy = proxyConfig;
-    }
-
-    const response = await axios.get(SCHEDULE_URL, axiosConfig);
-
-    let data = response.data;
-
-    // Handle different response types
-    if (typeof data === 'string') {
-      // If it's a string, try to parse as JSON
-      try {
-        data = JSON.parse(data);
-      } catch (e) {
-        // If JSON parse fails, try to extract from HTML
-        if (data.includes('<pre')) {
-          const jsonMatch = data.match(/<pre[^>]*>(.*?)<\/pre>/s);
-          if (jsonMatch) {
-            data = JSON.parse(jsonMatch[1]);
-          } else {
-            throw new Error('Could not extract JSON from HTML pre tags');
-          }
-        } else if (data.includes('<html') || data.includes('<!DOCTYPE')) {
-          throw new Error('Received HTML response instead of JSON');
-        } else {
-          throw e;
-        }
-      }
-    }
-
-    let games = data.leagueSchedule?.gameDates || [];
-    data.league = {
-      season: data.leagueSchedule?.seasonId,
-      games: games
-    };
-
-    console.log('\n==============================================');
-    console.log('Fetched NBA schedule data from CDN');
-    console.log(`Status: ${response.status} ${response.statusText}`);
-    console.log(`Data structure:`, Object.keys(data));
-    console.log(`Number of games:`, data.league?.games.length || 'N/A');
-    console.log('==============================================\n');
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching NBA schedule:', error instanceof Error ? error.message : error);
-    throw new Error('Failed to fetch NBA schedule');
-  }
-}
-
-function parseScheduleData(rawData: RawScheduleData): ScheduleData {
-  const season = rawData.league?.season || new Date().getFullYear();
-  const games = rawData.league?.games || [];
-
-  return {
-    season,
-    games,
-    lastUpdated: new Date().toISOString()
-  };
-}
-
-async function getSchedule(): Promise<ScheduleData> {
-  const currentTime = Date.now();
-
-  // Return cached data if available and not expired
-  if (scheduleCache && (currentTime - scheduleCacheTimestamp) < SCHEDULE_CACHE_TTL) {
-    console.log('[Schedule] Returning cached schedule data');
-    return scheduleCache;
-  }
-
-  try {
-    console.log('[Schedule] Fetching fresh schedule data');
-    const rawData = await fetchNBASchedule();
-    scheduleCache = parseScheduleData(rawData);
-    scheduleCacheTimestamp = currentTime;
-    console.log(`[Schedule] Successfully fetched schedule with ${scheduleCache.games.length} games`);
-    return scheduleCache;
-  } catch (error) {
-    // Return cached data even if expired, as fallback
-    if (scheduleCache) {
-      console.warn('[Schedule] Using stale cache as fallback');
-      return scheduleCache;
-    }
-    throw error;
-  }
-}
-
-async function getSchedules(): Promise<GameDateData[]> {
-  const schedule = await getSchedule();
-  if (schedule && schedule.games) {
-    const allSchedules = schedule.games.map(gameDate => {
-      let gameDateStr: string;
-      if (typeof gameDate.gameDate === 'string') {
-        // Remove time portion if present (e.g., "MM/DD/YYYY 00:00:00" -> "MM/DD/YYYY")
-        const dateOnly = gameDate.gameDate.split(' ')[0];
-        // Convert MM/DD/YYYY to YYYY-MM-DD
-        const parts = dateOnly.split('/');
-        if (parts.length === 3) {
-          const [month, day, year] = parts;
-          gameDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        } else {
-          gameDateStr = dateOnly; // Already in correct format
-        }
-      } else {
-        // Convert date to ISO format YYYY-MM-DD
-        gameDateStr = new Date(gameDate.gameDate).toISOString().split('T')[0];
-      }
-      return {
-        gameDate: gameDateStr,
-        games: gameDate.games ? formatGameResponse(gameDate.games) : []
-      };
-    });
-    return allSchedules;
-  }
-  return [];
-}
-
-
-async function getTodaysSchedule(): Promise<GameDateData> {
-  try {
-    const schedule = await getSchedule();
-    const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-
-    // Find today's game date entry
-    const todayGameDate = schedule.games.find(gameDate => {
-      if (!gameDate.gameDate) return false;
-
-      let gameDateStr: string;
-      if (typeof gameDate.gameDate === 'string') {
-        // Remove time portion if present (e.g., "MM/DD/YYYY 00:00:00" -> "MM/DD/YYYY")
-        const dateOnly = gameDate.gameDate.split(' ')[0];
-        // Convert MM/DD/YYYY to YYYY-MM-DD
-        const parts = dateOnly.split('/');
-        if (parts.length === 3) {
-          const [month, day, year] = parts;
-          gameDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        } else {
-          gameDateStr = dateOnly; // Already in correct format
-        }
-      } else {
-        // Convert date to ISO format YYYY-MM-DD
-        gameDateStr = new Date(gameDate.gameDate).toISOString().split('T')[0];
-      }
-
-      return gameDateStr === todayDate;
-    });
-
-    if (todayGameDate) {
-      return {
-        gameDate: todayDate,
-        games: todayGameDate.games ? formatGameResponse(todayGameDate.games) : []
-      };
-    }
-
-    // Return empty games for today if none found
-    console.log('[Schedule] No games found for today:', todayDate);
-    return {
-      gameDate: todayDate,
-      games: []
-    };
-  } catch (error) {
-    console.error('[Schedule] Error getting today\'s games:', error instanceof Error ? error.message : error);
-    throw error;
-  }
-}
-
-async function getScheduleByDate(date: string): Promise<GameDateData> {
-
-  try {
-    const schedule = await getSchedule();
-    // Find game date entry matching the provided date
-    const gameDateEntry = schedule.games.find(gameDate => {
-      if (!gameDate.gameDate) return false;
-      let gameDateStr: string;
-      if (typeof gameDate.gameDate === 'string') {
-        // Remove time portion if present (e.g., "MM/DD/YYYY 00:00:00" -> "MM/DD/YYYY")
-        const dateOnly = gameDate.gameDate.split(' ')[0];
-        // Convert MM/DD/YYYY to YYYY-MM-DD
-        const parts = dateOnly.split('/');
-        if (parts.length === 3) {
-          const [month, day, year] = parts;
-          gameDateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        } else {
-          gameDateStr = dateOnly; // Already in correct format
-        }
-      } else {
-        // Convert date to ISO format YYYY-MM-DD
-        gameDateStr = new Date(gameDate.gameDate).toISOString().split('T')[0];
-      }
-      return gameDateStr.includes(date);
-    });
-
-    if (gameDateEntry) {
-      return {
-        gameDate: date,
-        games: gameDateEntry.games ? formatGameResponse(gameDateEntry.games) : []
-      };
-    }
-    // Return empty games for the specified date if none found
-    console.log('[Schedule] No games found for date:', date);
-    return {
-      gameDate: date,
-      games: []
-    };
-  } catch (error) {
-    console.error('[Schedule] Error getting games by date:', error instanceof Error ? error.message : error);
-    throw error;
-  }
-}
-
-async function refreshSchedule(): Promise<ScheduleData> {
-  try {
-    console.log('[Schedule] Manually refreshing schedule data');
-    const rawData = await fetchNBASchedule();
-    scheduleCache = parseScheduleData(rawData);
-    scheduleCacheTimestamp = Date.now();
-    console.log(`[Schedule] Successfully refreshed schedule with ${scheduleCache.games.length} games`);
-    return scheduleCache;
-  } catch (error) {
-    console.error('[Schedule] Error refreshing schedule:', error instanceof Error ? error.message : error);
-    throw error;
-  }
-}
-
-function clearScheduleCache(): void {
-  scheduleCache = null;
-  scheduleCacheTimestamp = 0;
-  console.log('[Schedule] Cache cleared');
-}
-
-
-function formatGameResponse(games: any[]): any[] {
-  return games.map((game: any) => ({
-    gameId: game.gameId,
-    gameStatus: game.gameStatus || 0,
-    gameStatusText: game.gameStatusText || '',
-    period: game.period || 0,
-    gameClock: game.gameClock || null,
-    gameTimeUTC: game.gameTimeUTC || '',
-    homeTeam: {
-      teamId: game.homeTeam?.teamId,
-      teamName: game.homeTeam?.teamName || '',
-      teamCity: game.homeTeam?.teamCity || '',
-      teamTricode: game.homeTeam?.teamTricode || '',
-      wins: game.homeTeam?.wins || 0,
-      losses: game.homeTeam?.losses || 0,
-      score: game.homeTeam?.score || 0,
-      timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0
-    },
-    awayTeam: {
-      teamId: game.awayTeam?.teamId,
-      teamName: game.awayTeam?.teamName || '',
-      teamCity: game.awayTeam?.teamCity || '',
-      teamTricode: game.awayTeam?.teamTricode || '',
-      wins: game.awayTeam?.wins || 0,
-      losses: game.awayTeam?.losses || 0,
-      score: game.awayTeam?.score || 0,
-      timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0
-    },
-    gameLeaders: game.pointsLeaders || null
-  }));
-}
-
-export const scheduleService = {
-  getSchedules,
-  getTodaysSchedule,
-  getScheduleByDate,
-  refreshSchedule,
-  clearScheduleCache
-};
-
-
 /**
  * Get all NBA games for a specific date
  */
-export async function getGamesForDate(date: string): Promise<GamesResponse> {
+async function getGamesForDate(date) {
     try {
         // Check cache first
-        const cachedData = await dataCache.getGamesForDate(date);
+        const cachedData = await dataCache_1.dataCache.getGamesForDate(date);
         if (cachedData) {
-           console.log(`Returning cached games for date ${date}`);
+            console.log(`Returning cached games for date ${date}`);
             return cachedData;
         }
-
-       console.log(`Cache miss for games on ${date}, fetching from API`);
-
+        console.log(`Cache miss for games on ${date}, fetching from API`);
         // Convert date from YYYY-MM-DD to MM/DD/YYYY format for NBA API
         const dateParts = date.split('-');
         const nbaDateFormat = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
-
         // Get game data from NBA API for the specified date
         const data = await retryAxiosRequest(async () => {
-            const response = await axios.get('https://stats.nba.com/stats/scoreboardv2', {
+            const response = await axios_1.default.get('https://stats.nba.com/stats/scoreboardv2', {
                 headers: {
                     "Host": "stats.nba.com",
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -542,13 +241,10 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
             });
             return response.data;
         });
- 
-        
         // TODO: Create a json backup of the raw data as cached files. 
         // The request will check if the file exists first before making the API call.
         // If it exists and is recent enough, use that instead of making the API call.
         // Structure the files by js_res_bk -> ${date} folder and inside have schedule_${date}.json
-
         /*
         // Save the received data to a JSON file
         const logsDir = path.join(__dirname, '../../logs');
@@ -559,152 +255,130 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
         fs.writeFileSync(filename, JSON.stringify(data, null, 2));
        console.log(`Data saved to ${filename}`);
         */
-
         // Check if we got valid data
         if (!data.resultSets || !data.resultSets.length) {
             throw new Error(`No game data found for ${date}`);
         }
-
         // Extract different parts of the game data
-        const gameHeaderData = data.resultSets.find((r: any) => r.name === 'GameHeader');
-        const teamLeadersData = data.resultSets.find((r: any) => r.name === 'TeamLeaders');
-        const lineScoreData = data.resultSets.find((r: any) => r.name === 'LineScore');
-
+        const gameHeaderData = data.resultSets.find((r) => r.name === 'GameHeader');
+        const teamLeadersData = data.resultSets.find((r) => r.name === 'TeamLeaders');
+        const lineScoreData = data.resultSets.find((r) => r.name === 'LineScore');
         // If no game header data, return empty response
         if (!gameHeaderData || !gameHeaderData.rowSet) {
-           console.log(`No game header data found for date ${date}`);
+            console.log(`No game header data found for date ${date}`);
             return { date, games: [] };
         }
-
         // Get the column names and game data
         const gameHeaders = gameHeaderData.headers;
         const gamesList = gameHeaderData.rowSet;
-
         // Log number of games found
         if (gamesList && gamesList.length > 0) {
             console.log(`Found ${gamesList.length} games for date ${date}`);
         }
-
         // Get headers and data for team leaders and scores (if available)
         const teamLeadersHeaders = teamLeadersData?.headers || [];
         const teamLeadersList = teamLeadersData?.rowSet || [];
-
         const lineScoreHeaders = lineScoreData?.headers || [];
         const lineScoreList = lineScoreData?.rowSet || [];
-
-        const games: GameSummary[] = [];
-        const processedGameIds = new Set<string>();
-
+        const games = [];
+        const processedGameIds = new Set();
         // Process each game
         for (const game of gamesList) {
             try {
                 // Validate that headers and game row have the same length
                 if (gameHeaders.length !== game.length) {
-                   console.log(`Game row length (${game.length}) doesn't match headers length (${gameHeaders.length}), skipping`);
+                    console.log(`Game row length (${game.length}) doesn't match headers length (${gameHeaders.length}), skipping`);
                     continue;
                 }
-
                 // Convert the game data to a dictionary
-                const gameDict: { [key: string]: any } = {};
+                const gameDict = {};
                 for (let i = 0; i < gameHeaders.length; i++) {
                     if (i < game.length) {
                         gameDict[gameHeaders[i]] = game[i];
                     }
                 }
-
                 // Skip if game ID is missing
                 if (!gameDict.GAME_ID) {
                     continue;
                 }
-
                 const gameId = String(gameDict.GAME_ID);
-
                 // Skip if we've already processed this game (avoid duplicates)
                 if (processedGameIds.has(gameId)) {
                     continue;
                 }
-
                 processedGameIds.add(gameId);
-
                 let homeTeamId = gameDict.HOME_TEAM_ID;
                 let awayTeamId = gameDict.VISITOR_TEAM_ID;
-
                 // Skip if either team ID is missing
                 if (homeTeamId === null || homeTeamId === undefined ||
                     awayTeamId === null || awayTeamId === undefined) {
                     continue;
                 }
-
                 // Make sure both IDs are numbers
                 try {
                     homeTeamId = Number(homeTeamId);
                     awayTeamId = Number(awayTeamId);
-                } catch (error) {
+                }
+                catch (error) {
                     continue;
                 }
-
                 // Find the home team's score from the line score data
-                const homeScore = lineScoreList.find((s: any) => {
-                    if (lineScoreHeaders.length !== s.length) return false;
-                    const scoreDict: { [key: string]: any } = {};
+                const homeScore = lineScoreList.find((s) => {
+                    if (lineScoreHeaders.length !== s.length)
+                        return false;
+                    const scoreDict = {};
                     for (let i = 0; i < lineScoreHeaders.length; i++) {
                         scoreDict[lineScoreHeaders[i]] = s[i];
                     }
                     return String(scoreDict.GAME_ID || '') === gameId && scoreDict.TEAM_ID === homeTeamId;
                 });
-
                 // Find the away team's score
-                const awayScore = lineScoreList.find((s: any) => {
-                    if (lineScoreHeaders.length !== s.length) return false;
-                    const scoreDict: { [key: string]: any } = {};
+                const awayScore = lineScoreList.find((s) => {
+                    if (lineScoreHeaders.length !== s.length)
+                        return false;
+                    const scoreDict = {};
                     for (let i = 0; i < lineScoreHeaders.length; i++) {
                         scoreDict[lineScoreHeaders[i]] = s[i];
                     }
                     return String(scoreDict.GAME_ID || '') === gameId && scoreDict.TEAM_ID === awayTeamId;
                 });
-
                 const homePoints = homeScore ? (() => {
-                    const scoreDict: { [key: string]: any } = {};
+                    const scoreDict = {};
                     for (let i = 0; i < lineScoreHeaders.length; i++) {
                         scoreDict[lineScoreHeaders[i]] = homeScore[i];
                     }
                     return scoreDict.PTS || 0;
                 })() : 0;
-
                 const awayPoints = awayScore ? (() => {
-                    const scoreDict: { [key: string]: any } = {};
+                    const scoreDict = {};
                     for (let i = 0; i < lineScoreHeaders.length; i++) {
                         scoreDict[lineScoreHeaders[i]] = awayScore[i];
                     }
                     return scoreDict.PTS || 0;
                 })() : 0;
-
                 // Create TeamSummary objects for both teams
-                const homeTeam: TeamSummary = {
+                const homeTeam = {
                     team_id: homeTeamId,
                     team_abbreviation: NBA_TEAMS[homeTeamId] || 'N/A',
                     points: homePoints
                 };
-
-                const awayTeam: TeamSummary = {
+                const awayTeam = {
                     team_id: awayTeamId,
                     team_abbreviation: NBA_TEAMS[awayTeamId] || 'N/A',
                     points: awayPoints
                 };
-
                 // Try to find the top scorer for this game
-                let topScorer: TopScorer | undefined;
+                let topScorer;
                 try {
                     for (const leaderRow of teamLeadersList) {
-                        if (teamLeadersHeaders.length !== leaderRow.length) continue;
-
-                        const leaderDict: { [key: string]: any } = {};
+                        if (teamLeadersHeaders.length !== leaderRow.length)
+                            continue;
+                        const leaderDict = {};
                         for (let i = 0; i < teamLeadersHeaders.length; i++) {
                             leaderDict[teamLeadersHeaders[i]] = leaderRow[i];
                         }
-
-                        if (String(leaderDict.GAME_ID || '') !== gameId) continue;
-
+                        if (String(leaderDict.GAME_ID || '') !== gameId)
+                            continue;
                         topScorer = {
                             player_id: leaderDict.PTS_PLAYER_ID || 0,
                             player_name: leaderDict.PTS_PLAYER_NAME || 'Unknown',
@@ -715,40 +389,37 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
                         };
                         break; // Found the top scorer, no need to continue
                     }
-                } catch (error) {
-                   console.log(`Error extracting top scorer for game ${gameId}:`, error);
+                }
+                catch (error) {
+                    console.log(`Error extracting top scorer for game ${gameId}:`, error);
                     topScorer = undefined;
                 }
-
                 // Extract game leaders
-                let gameLeaders: GameLeaders | undefined;
+                let gameLeaders;
                 const gameStatusText = gameDict.GAME_STATUS_TEXT || 'Unknown';
                 const isUpcoming = !gameStatusText.toLowerCase().includes('final') &&
                     !gameStatusText.toLowerCase().includes('live') &&
                     homePoints === 0 && awayPoints === 0;
-
                 // For completed/live games, get leaders from TeamLeaders data
                 if (!isUpcoming) {
                     try {
                         gameLeaders = extractGameLeaders(teamLeadersList, teamLeadersHeaders, gameId, homeTeamId, awayTeamId);
-                    } catch (error) {
-                       console.log(`Error extracting game leaders for game ${gameId}:`, error);
+                    }
+                    catch (error) {
+                        console.log(`Error extracting game leaders for game ${gameId}:`, error);
                         gameLeaders = undefined;
                     }
                 }
-
                 // Extract game time
                 let gameTimeUtc = gameDict.GAME_TIME_UTC ||
                     gameDict.START_TIME_UTC ||
                     gameDict.GAME_DATE_TIME_UTC ||
                     gameDict.GAME_ET ||
                     null;
-
                 // If game_time_utc is still null, try parsing from game_status
                 if (!gameTimeUtc) {
                     gameTimeUtc = parseGameTimeFromStatus(gameStatusText, date);
                 }
-
                 // Create a GameSummary with all the game information
                 games.push({
                     game_id: gameId,
@@ -762,47 +433,46 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
                     top_scorer: topScorer,
                     gameLeaders: gameLeaders
                 });
-
-            } catch (error) {
+            }
+            catch (error) {
                 // If a key is missing, log and skip this game
-               console.log(`Error processing game: ${error}, skipping. Game data keys: ${Object.keys(game).slice(0, 10)}`);
+                console.log(`Error processing game: ${error}, skipping. Game data keys: ${Object.keys(game).slice(0, 10)}`);
                 continue;
             }
         }
-
         const result = { date, games };
-
         // Cache the result
-        dataCache.setGamesForDate(date, result);
-
+        dataCache_1.dataCache.setGamesForDate(date, result);
         return result;
-
-    } catch (error: any) {
+    }
+    catch (error) {
         let errorMessage = `Failed to fetch games for date ${date}`;
-
         if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
             errorMessage = `NBA API timeout - the service may be temporarily unavailable. Please try again later.`;
-        } else if (error.response) {
+        }
+        else if (error.response) {
             // API returned an error response
             const status = error.response.status;
             if (status === 429) {
                 errorMessage = `NBA API rate limit exceeded. Please try again later.`;
-            } else if (status >= 500) {
+            }
+            else if (status >= 500) {
                 errorMessage = `NBA API server error (${status}). Please try again later.`;
-            } else {
+            }
+            else {
                 errorMessage = `NBA API error (${status}): ${error.response.data?.message || error.message}`;
             }
-        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        }
+        else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
             errorMessage = `Network error - unable to connect to NBA API. Please check your internet connection.`;
         }
-
         console.log(`Error retrieving games for date ${date}:`, {
             error: error.message,
             code: error.code,
             status: error.response?.status,
             url: error.config?.url
         });
-
         throw new Error(errorMessage);
     }
 }
+//# sourceMappingURL=schedule.js.map

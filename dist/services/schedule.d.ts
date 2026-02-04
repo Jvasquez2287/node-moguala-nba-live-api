@@ -1,3 +1,4 @@
+import { GamesResponse } from '../schemas/schedule';
 interface GameDateData {
     gameDate: string;
     games?: any[];
@@ -19,5 +20,9 @@ export declare const scheduleService: {
     refreshSchedule: typeof refreshSchedule;
     clearScheduleCache: typeof clearScheduleCache;
 };
+/**
+ * Get all NBA games for a specific date
+ */
+export declare function getGamesForDate(date: string): Promise<GamesResponse>;
 export {};
 //# sourceMappingURL=schedule.d.ts.map

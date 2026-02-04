@@ -1,6 +1,8 @@
 import express from 'express';
 import { dataCache } from '../services/dataCache';
 import { PredictionsResponse, GamePrediction } from '../schemas/predictions';
+import { predictGamesForDate } from '../services/predictions';
+import { predictionsResponseSchema } from '../schemas/predictions';
 
 const router = express.Router();
 
@@ -71,57 +73,50 @@ router.get('/predictions', async (req, res) => {
 // GET /api/v1/predictions/date/:date - Get predictions for a specific date
 router.get('/predictions/date/:date', async (req, res) => {
   try {
-    const dateParam = req.params.date; // Format: YYYY-MM-DD or gameDate from scoreboard
-    const scoreboardData = await dataCache.getScoreboard();
-    const scoreboard = scoreboardData?.scoreboard;
+   const { date } = req.params;
+    const { season } = req.query;
 
-    if (!scoreboard || !scoreboard.games) {
-      return res.json({
-        date: dateParam,
-        predictions: [],
-        total: 0,
-        lastUpdated: new Date().toISOString()
-      });
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
     }
+
+    // Validate season format if provided (YYYY-YY)
+    let seasonParam = season as string;
+    if (!seasonParam) {
+      // Default to current season
+      const now = new Date();
+      const year = now.getFullYear();
+      const nextYear = year + 1;
+      seasonParam = now.getMonth() >= 9 ? `${year}-${nextYear.toString().slice(2)}` : `${year - 1}-${year.toString().slice(2)}`;
+    }
+
+    const seasonRegex = /^\d{4}-\d{2}$/;
+    if (!seasonRegex.test(seasonParam)) {
+      return res.status(400).json({ error: 'Invalid season format. Use YYYY-YY' });
+    }
+
+    const predictionsData = await predictGamesForDate(date, seasonParam);
 
     // Filter games by date (gameId contains date like 0021900001 where 0021900 = season+date)
     // Or match against gameDate field if available
-    const predictions = scoreboard.games
-      .filter((game: any) => {
-        // Try to match by gameDate if it exists
-        if (game.gameDate === dateParam) return true;
-        // Try to match by gameId pattern
-        if (game.gameId && game.gameId.substring(0, 8) === dateParam.replace(/-/g, '').substring(0, 8)) return true;
-        return false;
-      })
-      .filter((game: any) => game.gameStatus < 3) // Only live/upcoming games
-      .map((game: any) => {
-        const { prediction, confidence } = calculatePrediction(game.homeTeam, game.awayTeam);
-        
-        return {
-          gameId: game.gameId,
-          awayTeam: game.awayTeam?.teamName,
-          homeTeam: game.homeTeam?.teamName,
-          prediction,
-          confidence,
-          predictedWinner: prediction === 'home' ? game.homeTeam?.teamName : game.awayTeam?.teamName,
-          homeTeamRecord: `${game.homeTeam?.wins || 0}-${game.homeTeam?.losses || 0}`,
-          awayTeamRecord: `${game.awayTeam?.wins || 0}-${game.awayTeam?.losses || 0}`,
-          gameStatus: game.gameStatus,
-          gameStatusText: game.gameStatusText
-        };
-      });
+    if (!predictionsData) {
+      return res.status(404).json({ error: `No predictions available for date ${date}` });
+    }
 
-    res.json({
-      date: dateParam,
-      predictions: predictions.sort((a: any, b: any) => b.confidence - a.confidence),
-      total: predictions.length,
-      lastUpdated: new Date().toISOString()
-    });
+    // Validate response
+    const { error } = predictionsResponseSchema.validate(predictionsData);
+    if (error) {
+     console.log('Predictions validation error:', error);
+      return res.status(500).json({ error: 'Invalid predictions data' });
+    }
+
+    res.json(predictionsData);
   } catch (error) {
-    console.error('Error fetching predictions by date:', error);
-    res.status(500).json({ error: 'Failed to fetch predictions by date' });
-  }
+   console.log('Error fetching predictions:', error);
+    res.status(500).json({ error: 'Failed to fetch predictions' });
+  } 
 });
 
 // GET /api/v1/predictions/:gameId - Get prediction for specific game

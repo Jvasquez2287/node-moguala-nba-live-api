@@ -1,6 +1,14 @@
 import { getScoreboard, getPlayByPlay } from './scoreboard';
 import { ScoreboardResponse, PlayByPlayResponse } from '../types';
 import { playbyplayWebSocketManager } from './websocketManager';
+import { GamesResponse } from '../schemas/schedule';
+
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
 
 class LRUCache {
   private cache = new Map<string, PlayByPlayResponse>();
@@ -73,7 +81,7 @@ export class DataCache {
   private playbyplayCache = new LRUCache(20); // Limit to 20 active games
   private lock = false; // Simple lock for async operations
   private activeGameIds = new Set<string>();
-
+  private scheduleCache: Map<string, CacheEntry<GamesResponse>> = new Map();
   private readonly SCOREBOARD_POLL_INTERVAL = 8000; // 8 seconds
   private readonly PLAYBYPLAY_POLL_INTERVAL = 5000; // 5 seconds
   private readonly CLEANUP_INTERVAL = 300000; // 5 minutes
@@ -116,6 +124,26 @@ export class DataCache {
     }
     return this.playbyplayCache.get(gameId);
   }
+
+
+
+
+
+  //////////////////////////////////////////////
+
+  setGamesForDate(date: string, data: GamesResponse): void {
+    this.scheduleCache.set(date, { data, timestamp: Date.now() });
+  } 
+
+  async getGamesForDate(date: string): Promise<GamesResponse | null> {
+    const entry = this.scheduleCache.get(date);
+    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+      return entry.data;
+    }
+    return null;
+  }
+  
+  /////////////////////////////////////////
 
   private async cleanupFinishedGames(): Promise<void> {
     this.lock = true;
@@ -199,7 +227,7 @@ export class DataCache {
               console.log(`Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
             }
           }
- 
+
           console.log(`Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
         } finally {
           this.lock = false;
@@ -215,6 +243,8 @@ export class DataCache {
     // Set up polling interval
     this.scoreboardTask = setInterval(poll, this.SCOREBOARD_POLL_INTERVAL);
   }
+
+
 
   private async pollPlaybyplay(): Promise<void> {
     console.log('Play-by-play polling started');
@@ -252,7 +282,7 @@ export class DataCache {
                 this.playbyplayCache.set(gameId, playbyplayData);
                 console.log(`Play-by-play cache updated for game ${gameId}`);
                 // Broadcast custom data to all connected clients
-                await playbyplayWebSocketManager.broadcastToAllClients({playbyplayData, gameId});
+                await playbyplayWebSocketManager.broadcastToAllClients({ playbyplayData, gameId });
               }
             } finally {
               this.lock = false;

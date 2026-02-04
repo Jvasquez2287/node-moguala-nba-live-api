@@ -63,6 +63,7 @@ class DataCache {
         this.playbyplayCache = new LRUCache(20); // Limit to 20 active games
         this.lock = false; // Simple lock for async operations
         this.activeGameIds = new Set();
+        this.scheduleCache = new Map();
         this.SCOREBOARD_POLL_INTERVAL = 8000; // 8 seconds
         this.PLAYBYPLAY_POLL_INTERVAL = 5000; // 5 seconds
         this.CLEANUP_INTERVAL = 300000; // 5 minutes
@@ -102,6 +103,18 @@ class DataCache {
         }
         return this.playbyplayCache.get(gameId);
     }
+    //////////////////////////////////////////////
+    setGamesForDate(date, data) {
+        this.scheduleCache.set(date, { data, timestamp: Date.now() });
+    }
+    async getGamesForDate(date) {
+        const entry = this.scheduleCache.get(date);
+        if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return entry.data;
+        }
+        return null;
+    }
+    /////////////////////////////////////////
     async cleanupFinishedGames() {
         this.lock = true;
         try {

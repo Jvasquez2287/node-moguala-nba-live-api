@@ -2,8 +2,7 @@
  * Schedule service for NBA data operations.
  * Handles fetching and processing NBA game schedules and game details.
  */
-
-import * as winston from 'winston';
+ 
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -16,17 +15,7 @@ import {
     GameLeader
 } from '../schemas/schedule';
 import { dataCache } from './dataCache';
-
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json()
-    ),
-    transports: [
-        new winston.transports.Console()
-    ]
-});
+ 
 
 // Type definition for cache entries
 interface CacheEntry<T> {

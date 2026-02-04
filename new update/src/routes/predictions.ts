@@ -1,6 +1,6 @@
 import express from 'express';
 import * as winston from 'winston';
-import { predictGamesForDate } from '../services/predictions';
+import { predictGamesForDate } from '../../../src/services/predictions';
 import { predictionsResponseSchema } from '../schemas/predictions';
 
 const router = express.Router();
