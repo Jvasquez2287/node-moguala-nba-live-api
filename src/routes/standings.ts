@@ -5,7 +5,7 @@ import { StandingsResponse, StandingRecord } from '../schemas/standings';
 const router = express.Router();
 
 // GET /api/v1/standings - Get NBA standings
-router.get('/standings', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const scoreboardData = await dataCache.getScoreboard();
     const scoreboard = scoreboardData?.scoreboard;
@@ -119,7 +119,7 @@ router.get('/standings', async (req, res) => {
 });
 
 // GET /api/v1/standings/season/:season - Get standings for a specific season
-router.get('/standings/season/:season', async (req, res) => {
+router.get('/season/:season', async (req, res) => {
   try {
     const seasonParam = req.params.season; // Format: YYYY-YY (e.g., 2025-26)
     

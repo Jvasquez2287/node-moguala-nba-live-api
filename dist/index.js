@@ -87,15 +87,20 @@ const search_1 = __importDefault(require("./routes/search"));
 const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
+const logo_1 = __importDefault(require("./routes/logo"));
 app.use("/api/v1", schedule_http_1.default);
 app.use("/api/v1", schedule_1.default);
-app.use("/api/v1", standings_1.default);
+app.use("/api/v1/standings", standings_1.default);
 app.use("/api/v1", teams_1.default);
 app.use("/api/v1", search_1.default);
 app.use("/api/v1", predictions_1.default);
 app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
+app.use('/api/v1/logos', logo_1.default);
+// Serve team logos as static files
+const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos');
+app.use('/api/v1/team-logo', express_1.default.static(logosPath));
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");

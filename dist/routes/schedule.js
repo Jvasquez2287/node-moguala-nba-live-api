@@ -5,7 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const dataCache_1 = require("../services/dataCache");
-const axios_1 = __importDefault(require("axios"));
+const schedule_1 = require("../services/schedule");
+const schedule_2 = require("../schemas/schedule");
 const router = express_1.default.Router();
 // Python API base URL (nba-tracker-api)
 const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://nba-v1.m-api.net:8000/api/v1';
@@ -85,46 +86,22 @@ router.get('/schedule/date/:date', async (req, res) => {
                     message: 'No games scheduled for today'
                 });
             }
-            const schedule = {
-                date: scoreboard.gameDate || dateParam,
-                games: scoreboard.games.map((game) => ({
-                    gameId: game.gameId,
-                    startTime: game.gameTimeUTC,
-                    awayTeam: {
-                        name: game.awayTeam?.teamName,
-                        tricode: game.awayTeam?.teamTricode,
-                        score: game.awayTeam?.score
-                    },
-                    homeTeam: {
-                        name: game.homeTeam?.teamName,
-                        tricode: game.homeTeam?.teamTricode,
-                        score: game.homeTeam?.score
-                    },
-                    status: game.gameStatus,
-                    statusText: game.gameStatusText,
-                    period: game.period,
-                    gameClock: game.gameClock
-                })),
-                total: scoreboard.games.length
-            };
-            return res.json(schedule);
+            return res.json(scoreboard);
         }
         // For historical or future dates, try to get from Python API (nba-tracker-api)
         if (isHistorical || isFuture) {
             try {
-                console.log(`Fetching historical games for ${dateParam} from Python API`);
-                const pythonApiResponse = await axios_1.default.get(`${PYTHON_API_URL}/schedule/date/${dateParam}`, { timeout: 30000 });
-                const pythonData = pythonApiResponse.data;
-                // Transform Python API response format to match TypeScript API
-                if (pythonData.games && Array.isArray(pythonData.games)) {
-                    const schedule = {
-                        date: dateParam,
-                        games: pythonData.games,
-                        total: pythonData.games.length,
-                        source: 'nba-tracker-api'
-                    };
-                    return res.json(schedule);
+                const gamesData = await (0, schedule_1.getGamesForDate)(dateParam);
+                if (!gamesData) {
+                    return res.status(404).json({ error: `No games found for date ${dateParam}` });
                 }
+                // Validate response
+                const { error } = schedule_2.gamesResponseSchema.validate(gamesData);
+                if (error) {
+                    console.log('Schedule validation error:', error);
+                    return res.status(500).json({ error: 'Invalid schedule data' });
+                }
+                res.json(gamesData);
             }
             catch (pythonError) {
                 console.log(`Python API unavailable or no data for ${dateParam}:`, pythonError instanceof Error ? pythonError.message : pythonError);

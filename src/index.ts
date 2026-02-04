@@ -92,17 +92,25 @@ import teamRoutes from "./routes/teams";
 import searchRoutes from "./routes/search";
 import predictionsRoutes from "./routes/predictions";
 import leagueRoutes from "./routes/league";
-import scoreboardRoutes from "./routes/scoreboard";
+import scoreboardRoutes from "./routes/scoreboard"; 
+import logoRouter from "./routes/logo";
+
 
 app.use("/api/v1", schedulev1Routes);
 app.use("/api/v1", scheduleRoutes);
-app.use("/api/v1", standingsRoutes);
+app.use("/api/v1/standings", standingsRoutes);
 app.use("/api/v1", teamRoutes);
 app.use("/api/v1", searchRoutes);
 app.use("/api/v1", predictionsRoutes);
 app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
+app.use('/api/v1/logos', logoRouter);
+
+// Serve team logos as static files
+const logosPath = path.join(__dirname, '..', 'assets', 'logos');
+app.use('/api/v1/team-logo', express.static(logosPath));
+
 
 // Import WebSocket managers and services
 import {

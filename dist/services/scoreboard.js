@@ -155,28 +155,30 @@ async function getScoreboard() {
                         score: game.awayTeam.score,
                         timeoutsRemaining: game.awayTeam.timeoutsRemaining
                     },
-                    gameLeaders: game.gameLeaders ? {
-                        homeLeaders: game.gameLeaders.homeLeaders ? {
-                            personId: game.gameLeaders.homeLeaders.personId,
-                            name: game.gameLeaders.homeLeaders.name,
-                            jerseyNum: game.gameLeaders.homeLeaders.jerseyNum,
-                            position: game.gameLeaders.homeLeaders.position,
-                            teamTricode: game.gameLeaders.homeLeaders.teamTricode,
-                            points: game.gameLeaders.homeLeaders.points,
-                            rebounds: game.gameLeaders.homeLeaders.rebounds,
-                            assists: game.gameLeaders.homeLeaders.assists
-                        } : null,
-                        awayLeaders: game.gameLeaders.awayLeaders ? {
-                            personId: game.gameLeaders.awayLeaders.personId,
-                            name: game.gameLeaders.awayLeaders.name,
-                            jerseyNum: game.gameLeaders.awayLeaders.jerseyNum,
-                            position: game.gameLeaders.awayLeaders.position,
-                            teamTricode: game.gameLeaders.awayLeaders.teamTricode,
-                            points: game.gameLeaders.awayLeaders.points,
-                            rebounds: game.gameLeaders.awayLeaders.rebounds,
-                            assists: game.gameLeaders.awayLeaders.assists
-                        } : null
-                    } : undefined
+                    ...(game.gameLeaders && (game?.gameLeaders?.awayLeaders?.personId !== 0 || game?.gameLeaders?.homeLeaders?.personId !== 0) ? {
+                        gameLeaders: {
+                            homeLeaders: game.gameLeaders.homeLeaders ? {
+                                personId: game.gameLeaders.homeLeaders.personId,
+                                name: game.gameLeaders.homeLeaders.name,
+                                jerseyNum: game.gameLeaders.homeLeaders.jerseyNum,
+                                position: game.gameLeaders.homeLeaders.position,
+                                teamTricode: game.gameLeaders.homeLeaders.teamTricode,
+                                points: game.gameLeaders.homeLeaders.points,
+                                rebounds: game.gameLeaders.homeLeaders.rebounds,
+                                assists: game.gameLeaders.homeLeaders.assists
+                            } : null,
+                            awayLeaders: game.gameLeaders.awayLeaders ? {
+                                personId: game.gameLeaders.awayLeaders.personId,
+                                name: game.gameLeaders.awayLeaders.name,
+                                jerseyNum: game.gameLeaders.awayLeaders.jerseyNum,
+                                position: game.gameLeaders.awayLeaders.position,
+                                teamTricode: game.gameLeaders.awayLeaders.teamTricode,
+                                points: game.gameLeaders.awayLeaders.points,
+                                rebounds: game.gameLeaders.awayLeaders.rebounds,
+                                assists: game.gameLeaders.awayLeaders.assists
+                            } : null
+                        }
+                    } : { gameLeaders: {} })
                 }))
             }
         };
