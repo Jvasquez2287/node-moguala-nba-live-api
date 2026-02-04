@@ -216,7 +216,7 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
                     assists: game.gameLeaders.awayLeaders.assists
                   } : null
                 }
-              } : { gameLeaders: {} })
+              } : { gameLeaders: null })
             }))
           }
         };

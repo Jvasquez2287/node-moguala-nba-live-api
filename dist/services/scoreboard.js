@@ -178,7 +178,7 @@ async function getScoreboard() {
                                 assists: game.gameLeaders.awayLeaders.assists
                             } : null
                         }
-                    } : { gameLeaders: {} })
+                    } : { gameLeaders: null })
                 }))
             }
         };
