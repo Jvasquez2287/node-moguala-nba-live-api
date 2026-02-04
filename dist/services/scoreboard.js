@@ -125,38 +125,96 @@ async function getScoreboard() {
         const gameDate = rawScoreboardData.gameDate || 'Unknown Date';
         const rawGames = rawScoreboardData.games || [];
         const games = [];
-        // Process each game
-        for (const game of rawGames) {
-            try {
-                // Extract team data for home and away teams
-                const homeTeam = extractTeamData(game.homeTeam);
-                const awayTeam = extractTeamData(game.awayTeam);
-                // Get the top players for this game
-                const gameLeaders = await extractGameLeaders(game.gameLeaders || {}, homeTeam.teamId, awayTeam.teamId, game.gameStatusText);
-                // Create a LiveGame object with all the game info
-                const liveGame = {
+        const transformedData = {
+            scoreboard: {
+                gameDate: gameDate || new Date().toISOString().split('T')[0],
+                games: (rawGames || []).map((game) => ({
                     gameId: game.gameId,
                     gameStatus: game.gameStatus,
-                    gameStatusText: game.gameStatusText?.trim() || '',
+                    gameStatusText: game.gameStatusText,
                     period: game.period,
-                    gameClock: game.gameClock || '',
+                    gameClock: game.gameClock || undefined,
                     gameTimeUTC: game.gameTimeUTC,
-                    homeTeam,
-                    awayTeam,
-                    gameLeaders,
-                };
-                games.push(liveGame);
+                    homeTeam: {
+                        teamId: game.homeTeam.teamId,
+                        teamName: game.homeTeam.teamName,
+                        teamCity: game.homeTeam.teamCity,
+                        teamTricode: game.homeTeam.teamTricode,
+                        wins: game.homeTeam.wins,
+                        losses: game.homeTeam.losses,
+                        score: game.homeTeam.score,
+                        timeoutsRemaining: game.homeTeam.timeoutsRemaining
+                    },
+                    awayTeam: {
+                        teamId: game.awayTeam.teamId,
+                        teamName: game.awayTeam.teamName,
+                        teamCity: game.awayTeam.teamCity,
+                        teamTricode: game.awayTeam.teamTricode,
+                        wins: game.awayTeam.wins,
+                        losses: game.awayTeam.losses,
+                        score: game.awayTeam.score,
+                        timeoutsRemaining: game.awayTeam.timeoutsRemaining
+                    },
+                    gameLeaders: game.gameLeaders ? {
+                        homeLeaders: game.gameLeaders.homeLeaders ? {
+                            personId: game.gameLeaders.homeLeaders.personId,
+                            name: game.gameLeaders.homeLeaders.name,
+                            jerseyNum: game.gameLeaders.homeLeaders.jerseyNum,
+                            position: game.gameLeaders.homeLeaders.position,
+                            teamTricode: game.gameLeaders.homeLeaders.teamTricode,
+                            points: game.gameLeaders.homeLeaders.points,
+                            rebounds: game.gameLeaders.homeLeaders.rebounds,
+                            assists: game.gameLeaders.homeLeaders.assists
+                        } : null,
+                        awayLeaders: game.gameLeaders.awayLeaders ? {
+                            personId: game.gameLeaders.awayLeaders.personId,
+                            name: game.gameLeaders.awayLeaders.name,
+                            jerseyNum: game.gameLeaders.awayLeaders.jerseyNum,
+                            position: game.gameLeaders.awayLeaders.position,
+                            teamTricode: game.gameLeaders.awayLeaders.teamTricode,
+                            points: game.gameLeaders.awayLeaders.points,
+                            rebounds: game.gameLeaders.awayLeaders.rebounds,
+                            assists: game.gameLeaders.awayLeaders.assists
+                        } : null
+                    } : undefined
+                }))
             }
-            catch (error) {
-                console.warn('Missing required data in game, skipping:', error instanceof Error ? error.message : String(error));
-            }
-        }
-        return {
-            scoreboard: {
-                gameDate,
-                games,
-            },
         };
+        // Process each game
+        /* for (const game of rawGames) {
+           try {
+             // Extract team data for home and away teams
+             const homeTeam = extractTeamData(game.homeTeam);
+             const awayTeam = extractTeamData(game.awayTeam);
+     
+             // Get the top players for this game
+             const gameLeaders = await extractGameLeaders(
+               game.gameLeaders || {},
+               homeTeam.teamId,
+               awayTeam.teamId,
+               game.gameStatusText
+             );
+     
+             // Create a LiveGame object with all the game info
+             const liveGame: LiveGame = {
+               gameId: game.gameId,
+               gameStatus: game.gameStatus,
+               gameStatusText: game.gameStatusText?.trim() || '',
+               period: game.period,
+               gameClock: game.gameClock || '',
+               gameTimeUTC: game.gameTimeUTC,
+               homeTeam,
+               awayTeam,
+               gameLeaders,
+             };
+     
+             games.push(liveGame);
+           } catch (error) {
+             console.warn('Missing required data in game, skipping:', error instanceof Error ? error.message : String(error));
+           }
+         }
+     */
+        return transformedData;
     }
     catch (error) {
         console.error('Error fetching live scoreboard:', error);
