@@ -213,12 +213,12 @@ The Python API response is automatically transformed to match the TypeScript API
 {
   gameId: game.gameId,                    // or game.GAME_ID
   startTime: game.startTime,              // or game.gameTimeUTC
-  awayTeam: {
+  away_Team: {
     name: game.awayTeam?.name,            // or game.away_team_name
     tricode: game.awayTeam?.tricode,      // or game.away_team_abbr
     score: game.awayTeam?.score           // or game.away_team_score
   },
-  homeTeam: {
+  home_Team: {
     name: game.homeTeam?.name,            // or game.home_team_name
     tricode: game.homeTeam?.tricode,      // or game.home_team_abbr
     score: game.homeTeam?.score           // or game.home_team_score

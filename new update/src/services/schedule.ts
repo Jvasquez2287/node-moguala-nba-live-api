@@ -390,13 +390,13 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
                 })() : 0;
 
                 // Create TeamSummary objects for both teams
-                const homeTeam: TeamSummary = {
+                const home_Team: TeamSummary = {
                     team_id: homeTeamId,
                     team_abbreviation: NBA_TEAMS[homeTeamId] || 'N/A',
                     points: homePoints
                 };
 
-                const awayTeam: TeamSummary = {
+                const away_Team: TeamSummary = {
                     team_id: awayTeamId,
                     team_abbreviation: NBA_TEAMS[awayTeamId] || 'N/A',
                     points: awayPoints

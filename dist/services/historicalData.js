@@ -115,7 +115,7 @@ async function getHistoricalGames(date) {
                             gameDate: game.gameDate || date,
                             gameStatus: parseInt(game.status || '3'),
                             gameStatusText: game.statusText || 'Final',
-                            homeTeam: {
+                            home_Team: {
                                 teamName: game.homeTeam?.name || getTeamName(game.homeTeam?.tricode || 'UNK'),
                                 teamId: homeTeamId,
                                 teamTricode: game.homeTeam?.tricode || 'UNK',
@@ -123,7 +123,7 @@ async function getHistoricalGames(date) {
                                 losses: parseInt(game.homeTeam?.losses || '0'),
                                 score: parseInt(game.homeTeam?.score || '0')
                             },
-                            awayTeam: {
+                            away_Team: {
                                 teamName: game.awayTeam?.name || getTeamName(game.awayTeam?.tricode || 'UNK'),
                                 teamId: awayTeamId,
                                 teamTricode: game.awayTeam?.tricode || 'UNK',
@@ -182,7 +182,7 @@ async function getHistoricalGames(date) {
                 gameDate: gameObj.GAME_DATE,
                 gameStatus: gameStatus,
                 gameStatusText: gameStatusText,
-                homeTeam: {
+                home_Team: {
                     teamName: getTeamName(homeTricode),
                     teamId: homeTeamId,
                     teamTricode: homeTricode,
@@ -190,7 +190,7 @@ async function getHistoricalGames(date) {
                     losses: parseInt(gameObj.HOME_TEAM_LOSSES || '0'),
                     score: parseInt(gameObj.PTS_home || '0')
                 },
-                awayTeam: {
+                away_Team: {
                     teamName: getTeamName(awayTricode),
                     teamId: awayTeamId,
                     teamTricode: awayTricode,

@@ -40,8 +40,8 @@ router.get('/predictions', async (req, res) => {
             const { prediction, confidence } = calculatePrediction(game.homeTeam, game.awayTeam);
             return {
                 gameId: game.gameId,
-                awayTeam: game.awayTeam?.teamName,
-                homeTeam: game.homeTeam?.teamName,
+                away_Team: game.awayTeam?.teamName,
+                home_Team: game.homeTeam?.teamName,
                 prediction,
                 confidence,
                 predictedWinner: prediction === 'home' ? game.homeTeam?.teamName : game.awayTeam?.teamName,
@@ -126,8 +126,8 @@ router.get('/predictions/:gameId', async (req, res) => {
         const { prediction, confidence } = calculatePrediction(game.homeTeam, game.awayTeam);
         res.json({
             gameId,
-            awayTeam: game.awayTeam?.teamName,
-            homeTeam: game.homeTeam?.teamName,
+            away_Team: game.awayTeam?.teamName,
+            home_Team: game.homeTeam?.teamName,
             prediction,
             confidence,
             predictedWinner: prediction === 'home' ? game.homeTeam?.teamName : game.awayTeam?.teamName,

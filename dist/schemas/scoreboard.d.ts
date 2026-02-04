@@ -170,9 +170,9 @@ export interface LiveGame {
     /** Scheduled start time in UTC format. */
     gameTimeUTC: string;
     /** Information about the home team. */
-    homeTeam: Team;
+    home_Team: Team;
     /** Information about the away team. */
-    awayTeam: Team;
+    away_Team: Team;
     /** Top-performing players from each team. */
     gameLeaders?: GameLeaders;
 }

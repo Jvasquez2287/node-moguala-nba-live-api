@@ -3,7 +3,7 @@ export interface HistoricalGame {
     gameDate: string;
     gameStatus: number;
     gameStatusText: string;
-    homeTeam: {
+    home_Team: {
         teamName: string;
         teamId: number;
         teamTricode: string;
@@ -11,7 +11,7 @@ export interface HistoricalGame {
         losses: number;
         score: number;
     };
-    awayTeam: {
+    away_Team: {
         teamName: string;
         teamId: number;
         teamTricode: string;

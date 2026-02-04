@@ -80,7 +80,7 @@ router.get('/game/:gameId/boxscore', async (req, res) => {
             gameId,
             gameDate: game.gameDate || new Date().toISOString(),
             status: game.gameStatusText || 'Unknown',
-            homeTeam: {
+            home_Team: {
                 teamId: homeTeam.teamId,
                 teamName: homeTeam.teamName,
                 teamTricode: homeTeam.teamTricode,
@@ -97,7 +97,7 @@ router.get('/game/:gameId/boxscore', async (req, res) => {
                     totalTurnovers: 0
                 }
             },
-            awayTeam: {
+            away_Team: {
                 teamId: awayTeam.teamId,
                 teamName: awayTeam.teamName,
                 teamTricode: awayTeam.teamTricode,
@@ -227,8 +227,8 @@ router.get('/game/:gameId/win-probability', async (req, res) => {
         const awayWinProb = 1 - homeWinProb;
         res.json({
             gameId,
-            homeTeam: homeTeam.teamName,
-            awayTeam: awayTeam.teamName,
+            home_Team: homeTeam.teamName,
+            away_Team: awayTeam.teamName,
             homeWinProbability: parseFloat(homeWinProb.toFixed(3)),
             awayWinProbability: parseFloat(awayWinProb.toFixed(3)),
             homeScore: homeTeam.score || 0,

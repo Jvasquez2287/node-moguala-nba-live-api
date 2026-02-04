@@ -70,8 +70,8 @@ exports.liveGameSchema = Joi.object({
     period: Joi.number().integer().required(),
     gameClock: Joi.string().optional(),
     gameTimeUTC: Joi.string().required(),
-    homeTeam: exports.teamSchema.required(),
-    awayTeam: exports.teamSchema.required(),
+    home_Team: exports.teamSchema.required(),
+    away_Team: exports.teamSchema.required(),
     gameLeaders: Joi.object({
         homeLeaders: Joi.object().optional(),
         awayLeaders: Joi.object().optional(),

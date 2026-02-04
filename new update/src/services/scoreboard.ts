@@ -263,14 +263,14 @@ export async function getScoreboard(): Promise<ScoreboardResponse | null> {
             period: getValue(game, 'PERIOD') || 0,
             gameClock: getValue(game, 'GAME_CLOCK') || undefined,
             gameTimeUTC: getValue(game, 'GAME_DATE_EST') || '',
-            homeTeam: {
+            home_Team: {
                 teamId: getValue(game, 'HOME_TEAM_ID') || 0,
                 teamName: getValue(game, 'HOME_TEAM_NAME') || '',
                 teamCity: getValue(game, 'HOME_TEAM_CITY') || '',
                 teamTricode: getValue(game, 'HOME_TEAM_ABBREVIATION') || '',
                 score: getValue(game, 'HOME_TEAM_SCORE') || undefined
             },
-            awayTeam: {
+            away_Team: {
                 teamId: getValue(game, 'VISITOR_TEAM_ID') || 0,
                 teamName: getValue(game, 'VISITOR_TEAM_NAME') || '',
                 teamCity: getValue(game, 'VISITOR_TEAM_CITY') || '',

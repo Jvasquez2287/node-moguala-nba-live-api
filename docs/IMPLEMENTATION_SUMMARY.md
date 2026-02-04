@@ -343,7 +343,7 @@ src/routes/
 #### 1. Box Score Endpoint
 ```bash
 GET /api/v1/scoreboard/game/0021900001/boxscore
-Expected: { gameId, gameDate, status, homeTeam: { players, stats }, awayTeam: { ... } }
+Expected: { gameId, gameDate, status, home_Team: { players, stats }, away_Team: { ... } }
 ```
 
 #### 2. Key Moments Endpoint

@@ -35,8 +35,8 @@ export interface Game {
     gameTimeUTC: string;
     gameEt?: string;
     regulationPeriods?: number;
-    homeTeam: Team;
-    awayTeam: Team;
+    home_Team: Team;
+    away_Team: Team;
     gameLeaders?: {
         homeLeaders: GameLeaderStats | null;
         awayLeaders: GameLeaderStats | null;
@@ -223,8 +223,8 @@ export interface GameSchedule {
     gameStatusText: string;
     gameTimeUTC: string;
     gameEt: string;
-    homeTeam: Team;
-    awayTeam: Team;
+    home_Team: Team;
+    away_Team: Team;
 }
 export interface ScheduleResponse {
     games: GameSchedule[];

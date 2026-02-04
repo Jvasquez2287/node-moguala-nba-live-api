@@ -179,9 +179,9 @@ export interface LiveGame {
   /** Scheduled start time in UTC format. */
   gameTimeUTC: string;
   /** Information about the home team. */
-  homeTeam: Team;
+  home_Team: Team;
   /** Information about the away team. */
-  awayTeam: Team;
+  away_Team: Team;
   /** Top-performing players from each team. */
   gameLeaders?: GameLeaders;
 }
@@ -290,8 +290,8 @@ export const liveGameSchema = Joi.object({
   period: Joi.number().integer().required(),
   gameClock: Joi.string().optional(),
   gameTimeUTC: Joi.string().required(),
-  homeTeam: teamSchema.required(),
-  awayTeam: teamSchema.required(),
+  home_Team: teamSchema.required(),
+  away_Team: teamSchema.required(),
   gameLeaders: Joi.object({
     homeLeaders: Joi.object().optional(),
     awayLeaders: Joi.object().optional(),

@@ -281,7 +281,7 @@ class DataCache {
                             period: game.period,
                             gameClock: game.gameClock || undefined,
                             gameTimeUTC: game.gameTimeUTC,
-                            homeTeam: {
+                            home_Team: {
                                 teamId: game.homeTeam.teamId,
                                 teamName: game.homeTeam.teamName,
                                 teamCity: game.homeTeam.teamCity,
@@ -291,7 +291,7 @@ class DataCache {
                                 score: game.homeTeam.score,
                                 timeoutsRemaining: game.homeTeam.timeoutsRemaining
                             },
-                            awayTeam: {
+                            away_Team: {
                                 teamId: game.awayTeam.teamId,
                                 teamName: game.awayTeam.teamName,
                                 teamCity: game.awayTeam.teamCity,

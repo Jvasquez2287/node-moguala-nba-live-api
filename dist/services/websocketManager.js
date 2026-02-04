@@ -112,7 +112,7 @@ class ScoreboardWebSocketManager {
             period: game.period || 0,
             gameClock: game.gameClock || null,
             gameTimeUTC: game.gameTimeUTC || '',
-            homeTeam: {
+            home_Team: {
                 teamId: game.homeTeam?.teamId,
                 teamName: game.homeTeam?.teamName || '',
                 teamCity: game.homeTeam?.teamCity || '',
@@ -122,7 +122,7 @@ class ScoreboardWebSocketManager {
                 score: game.homeTeam?.score || 0,
                 timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0
             },
-            awayTeam: {
+            away_Team: {
                 teamId: game.awayTeam?.teamId,
                 teamName: game.awayTeam?.teamName || '',
                 teamCity: game.awayTeam?.teamCity || '',

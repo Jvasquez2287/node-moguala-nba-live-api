@@ -53,13 +53,13 @@ export function generateMockScoreboard() {
       gameStatus: parseInt(gameStatus),
       period: gameStatus === '1' ? 0 : gameStatus === '2' ? Math.floor(Math.random() * 4) + 1 : gameStatus === '3' ? 2 : 4,
       gameTimeUTC: new Date().toISOString(),
-      homeTeam: {
+      home_Team: {
         teamId: homeTeam.id,
         teamName: homeTeam.name,
         teamAbbreviation: homeTeam.abbreviation,
         score: Math.floor(Math.random() * 50) + 50,
       },
-      awayTeam: {
+      away_Team: {
         teamId: awayTeam.id,
         teamName: awayTeam.name,
         teamAbbreviation: awayTeam.abbreviation,
