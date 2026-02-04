@@ -1,5 +1,8 @@
 import { ScoreboardResponse, PlayByPlayResponse } from '../types';
 import { GamesResponse } from '../schemas/schedule';
+import { LeagueLeadersResponse } from '../schemas/league';
+import { PlayerSummary } from '../schemas/player';
+import { SeasonLeadersResponse } from '../schemas/seasonleaders';
 import { TeamDetailsResponse } from '../schemas/team';
 export declare class DataCache {
     private scoreboardCache;
@@ -30,6 +33,16 @@ export declare class DataCache {
     getAllTeams(): Promise<TeamDetailsResponse[] | null>;
     setTeam(teamId: number, data: TeamDetailsResponse): void;
     getTeam(teamId: number): Promise<TeamDetailsResponse | null>;
+    setLeagueLeaders(category: string, season: string | undefined, data: LeagueLeadersResponse): void;
+    setPlayer(playerId: string, data: PlayerSummary): void;
+    setPlayerSearch(query: string, data: PlayerSummary[]): void;
+    setSeasonLeaders(season: string, data: SeasonLeadersResponse): void;
+    setLeagueRoster(data: PlayerSummary[]): void;
+    getLeagueLeaders(category: string, season?: string): Promise<LeagueLeadersResponse | null>;
+    getPlayer(playerId: string): Promise<PlayerSummary | null>;
+    searchPlayers(query: string): Promise<PlayerSummary[] | null>;
+    getSeasonLeaders(season: string): Promise<SeasonLeadersResponse | null>;
+    getLeagueRoster(): Promise<PlayerSummary[] | null>;
     private cleanupFinishedGames;
     private periodicCleanup;
     private pollScoreboard;

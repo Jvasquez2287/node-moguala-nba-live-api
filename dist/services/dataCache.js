@@ -145,6 +145,60 @@ class DataCache {
         return null;
     }
     ///////////////////////////////////////////
+    // Cache setters
+    setLeagueLeaders(category, season, data) {
+        const key = `${category}_${season || 'current'}`;
+        this.leagueLeadersCache.set(key, { data, timestamp: Date.now() });
+    }
+    setPlayer(playerId, data) {
+        this.playerCache.set(playerId, { data, timestamp: Date.now() });
+    }
+    setPlayerSearch(query, data) {
+        this.playerSearchCache.set(query.toLowerCase(), { data, timestamp: Date.now() });
+    }
+    setSeasonLeaders(season, data) {
+        this.seasonLeadersCache.set(season, { data, timestamp: Date.now() });
+    }
+    setLeagueRoster(data) {
+        this.leagueRosterCache = { data, timestamp: Date.now() };
+    }
+    // 24-hour TTL caches (on-demand)
+    async getLeagueLeaders(category, season) {
+        const key = `${category}_${season || 'current'}`;
+        const entry = this.leagueLeadersCache.get(key);
+        if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return entry.data;
+        }
+        return null;
+    }
+    async getPlayer(playerId) {
+        const entry = this.playerCache.get(playerId);
+        if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return entry.data;
+        }
+        return null;
+    }
+    async searchPlayers(query) {
+        const entry = this.playerSearchCache.get(query.toLowerCase());
+        if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return entry.data;
+        }
+        return null;
+    }
+    async getSeasonLeaders(season) {
+        const entry = this.seasonLeadersCache.get(season);
+        if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return entry.data;
+        }
+        return null;
+    }
+    async getLeagueRoster() {
+        if (this.leagueRosterCache && (Date.now() - this.leagueRosterCache.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
+            return this.leagueRosterCache.data;
+        }
+        return null;
+    }
+    //////////////////////////////////////////////////////////////
     async cleanupFinishedGames() {
         this.lock = true;
         try {
