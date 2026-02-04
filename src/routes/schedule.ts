@@ -71,8 +71,103 @@ router.get('/schedule/date/:date', async (req, res) => {
         scoreboardData = await dataCache.refreshScoreboard();
       }
 
-      const scoreboard = scoreboardData?.scoreboard;
 
+      const formatData = scoreboardData?.scoreboard?.games.map((game: any) => {
+        const homeTeamId = game.homeTeam.teamId;
+        const awayTeamId = game.awayTeam.teamId;
+        const homePoints = typeof game.homeTeam.score === 'number' ? game.homeTeam.score : 0;
+        const awayPoints = typeof game.awayTeam.score === 'number' ? game.awayTeam.score : 0;
+
+
+        const gameLeaders: GameLeaders = {
+          homeLeaders: {} as GameLeader,
+          awayLeaders: {} as GameLeader
+        };
+
+        const home_Team = {
+          team_id: game.homeTeam.teamId,
+          team_name: game.homeTeam.teamName,
+          team_city: game.homeTeam.teamCity,
+          team_tricode: game.homeTeam.teamTricode,
+          wins: game.homeTeam.wins,
+          losses: game.homeTeam.losses,
+          score: game.homeTeam.score,
+          points: homePoints,
+          teamId: game.homeTeam.teamId, // Alias for compatibility
+          teamName: game.homeTeam.teamName, // Alias for compatibility
+          teamTricode: game.homeTeam.teamTricode, // Alias for compatibility
+          timeoutsRemaining: game.homeTeam.timeoutsRemaining
+        };
+
+        const away_Team = {
+          team_id: game.awayTeam.teamId,
+          team_name: game.awayTeam.teamName,
+          team_city: game.awayTeam.teamCity,
+          team_tricode: game.awayTeam.teamTricode,
+          wins: game.awayTeam.wins,
+          losses: game.awayTeam.losses,
+          score: game.awayTeam.score,
+          points: awayPoints,
+          teamId: game.awayTeam.teamId, // Alias for compatibility
+          teamName: game.awayTeam.teamName, // Alias for compatibility
+          teamTricode: game.awayTeam.teamTricode, // Alias for compatibility
+          timeoutsRemaining: game.awayTeam.timeoutsRemaining
+        };
+
+        return {
+          game_id: game.gameId,
+          game_date: game.gameDate,
+          game_time_utc: game.gameTimeUTC,
+          matchup: `${away_Team.team_tricode} vs ${home_Team.team_tricode}`,
+          game_status: game.gameStatusText,
+          arena: game.arena,
+          home_team: home_Team,
+          away_team: away_Team,
+          top_scorer: game.topScorer ? {
+            player_id: game.topScorer.playerId,
+            player_name: game.topScorer.playerName,
+            team_id: game.topScorer.teamId,
+            points: game.topScorer.points,
+            rebounds: game.topScorer.rebounds,
+            assists: game.topScorer.assists
+          } : undefined,
+          ...(game.gameLeaders && (game?.gameLeaders?.awayLeaders?.personId !== 0 || game?.gameLeaders?.homeLeaders?.personId !== 0) ? {
+            gameLeaders: {
+              homeLeaders: game.gameLeaders.homeLeaders ? {
+                personId: game.gameLeaders.homeLeaders.personId,
+                name: game.gameLeaders.homeLeaders.name,
+                jerseyNum: game.gameLeaders.homeLeaders.jerseyNum,
+                position: game.gameLeaders.homeLeaders.position,
+                teamTricode: game.gameLeaders.homeLeaders.teamTricode,
+                points: game.gameLeaders.homeLeaders.points,
+                rebounds: game.gameLeaders.homeLeaders.rebounds,
+                assists: game.gameLeaders.homeLeaders.assists
+              } : null,
+              awayLeaders: game.gameLeaders.awayLeaders ? {
+                personId: game.gameLeaders.awayLeaders.personId,
+                name: game.gameLeaders.awayLeaders.name,
+                jerseyNum: game.gameLeaders.awayLeaders.jerseyNum,
+                position: game.gameLeaders.awayLeaders.position,
+                teamTricode: game.gameLeaders.awayLeaders.teamTricode,
+                points: game.gameLeaders.awayLeaders.points,
+                rebounds: game.gameLeaders.awayLeaders.rebounds,
+                assists: game.gameLeaders.awayLeaders.assists
+              } : null
+            }
+          } : { gameLeaders: null }),
+          win_probability: game.winProbability || undefined
+        };
+      });
+
+      const gameDate = scoreboardData?.scoreboard?.gameDate;
+      const jsScoreboardData = {
+        scoreboard: {
+          gameDate: gameDate || new Date().toISOString().split('T')[0],
+          games: formatData
+        },
+      };
+
+      const scoreboard = jsScoreboardData?.scoreboard;
       if (!scoreboard || !scoreboard.games || scoreboard.games.length === 0) {
         return res.json({
           date: dateParam,
@@ -110,10 +205,10 @@ router.get('/schedule/date/:date', async (req, res) => {
           return res.status(500).json({ error: 'Invalid schedule data' });
         }
 
-        res.json(gamesData);
+        return res.json(gamesData);
       } catch (error) {
         console.log('Error fetching games for date:', error);
-        res.status(500).json({ error: 'Failed to fetch games' });
+        return res.status(500).json({ error: 'Failed to fetch games' });
       }
     }
 
