@@ -5,102 +5,105 @@ import { scheduleService } from './schedule';
 
 export class ScoreboardWebSocketManager {
   private activeConnections: Set<WebSocket> = new Set();
-  private broadcastInterval: NodeJS.Timeout | null = null;
+  private checkInterval: NodeJS.Timeout | null = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private currentGames: any[] = [];
   private lastUpdateTimestamp: Map<string, number> = new Map();
-  private lastWinProbUpdate: number = 0;
-  private readonly BROADCAST_INTERVAL = 2000; // 2 seconds - check for changes frequently
+  private lastFullBroadcast: number = 0;
+  private initialized = false;
+
+  private readonly CHECK_INTERVAL = 2000; // 2 seconds - check for changes frequently
+  private readonly PERIODIC_BROADCAST_INTERVAL = 60000; // 1 minute - send data periodically to all clients
   private readonly CLEANUP_INTERVAL = 600000; // 10 minutes - clean up stale timestamps
-  private readonly MIN_UPDATE_INTERVAL = 5000; // Minimum 5 seconds between updates per game
+  private readonly MIN_UPDATE_INTERVAL = 1000; // Minimum 1 second between updates per game
   private readonly CLEANUP_THRESHOLD = 3600000; // 1 hour - remove stale timestamps older than this
 
-  connect(websocket: WebSocket): void {
-    this.activeConnections.add(websocket);
-    console.log(`[Scoreboard WS] New client connected (total: ${this.activeConnections.size})`);
-
-    // Send initial data to new client (don't await, fire and forget)
-    this.sendInitialData(websocket).catch(err => {
-      console.error('[Scoreboard WS] Error in sendInitialData:', err);
-    });
-
-    // Handle client disconnect
-    websocket.on('close', () => {
-      this.disconnect(websocket);
-    });
-
-    websocket.on('error', (error) => {
-      console.error('[Scoreboard WS] Client error:', error);
-      this.disconnect(websocket);
-    });
+  constructor() {
+    if (!this.initialized) {
+      this.initialized = true;
+      // Defer broadcast task start to allow modules to fully load
+      setImmediate(() => this.initializeBroadcasting());
+    }
   }
 
+  connect(websocket: WebSocket): void {
+    websocket.on('error', (error: any) => {
+      const errorMsg = error?.message || String(error);
+      const errorCode = error?.code || 'UNKNOWN';
+      console.error(`[Scoreboard WebSocket] Client error [${errorCode}]: ${errorMsg}`);
+      this.activeConnections.delete(websocket);
+    });
+
+    websocket.on('close', (code, reason) => {
+      console.log(`[Scoreboard WebSocket] Close event fired - Code: ${code}, Reason: ${reason || 'none'}, Active before removal: ${this.activeConnections.size}`);
+      this.activeConnections.delete(websocket);
+      if (this.activeConnections.size === 0) {
+        this.lastUpdateTimestamp.clear();
+      }
+      if (code !== 1000) {
+        console.warn(`[Scoreboard WebSocket] Client closed with code ${code}: ${reason || 'no reason'}. Active: ${this.activeConnections.size}`);
+      } else {
+        console.log(`[Scoreboard WebSocket] Client disconnected gracefully. Active connections: ${this.activeConnections.size}`);
+      }
+    });
+
+    websocket.on('message', (data: WebSocket.Data) => {
+      try {
+        const message = typeof data === 'string' ? data : data.toString();
+        console.log(`[Scoreboard WebSocket] Message received: ${message}`);
+      } catch (error) {
+        console.error('[Scoreboard WebSocket] Error logging message:', error);
+      }
+    });
+
+    this.activeConnections.add(websocket);
+    console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
+
+    // Send initial data
+    this.sendInitialData(websocket);
+  }
+
+
   private async sendInitialData(websocket: WebSocket): Promise<void> {
+
     try {
-      if (websocket.readyState !== WebSocket.OPEN) {
-        console.log('[Scoreboard WS] WebSocket not in OPEN state, skipping initial data');
+      if (!this.activeConnections.has(websocket)) {
+        console.warn('[Scoreboard WebSocket] Websocket not in active connections, skipping initial send');
         return;
       }
 
-      console.log('[Scoreboard WS] Fetching scoreboard data for initial send');
       const scoreboardData = await dataCache.getScoreboard();
 
-      if (scoreboardData) {
-        // Filter for live games first (gameStatus === 2)
-        const allGames = scoreboardData.scoreboard?.games || [];
-        const liveGames = allGames.filter((g: any) => g.gameStatus === 2);
-
-        console.log(`\n=========================================================`);
-        console.log(`[Scoreboard WS] Total games available: ${allGames.length}`);
-        console.log(`=========================================================\n`);
-
-        // If no live games, use upcoming games (gameStatus === 1)
-        let gamesToSend = liveGames.length > 0 ? liveGames : allGames.filter((g: any) => {
-          console.log(`\n=========================================================`);
-          console.log(`[Scoreboard WS] ${g.gameId} status: ${g.gameStatus}`);
-          console.log(`=========================================================\n`);
-          return g.gameStatus === 1;
-        });
-
-        console.log(`[Scoreboard WS] Preparing to send initial data: ${gamesToSend.length} games (${liveGames.length > 0 ? 'live' : 'upcoming'})`);
-        // Format games to match response schema
-        const formattedGames = this.formatGameResponse(gamesToSend) || [];
-
-        // Send the filtered scoreboard data
-        const responseData = formattedGames.length === 0 ?
-          {
-            scoreboard: await scheduleService.getTodaysSchedule() || { gameDate: '', games: [] }
-          }
-          :
-          {
-            scoreboard: {
-              gameDate: scoreboardData.scoreboard?.gameDate || '',
-              games: formattedGames
-            }
-          };
-
-        console.log(`[Scoreboard WS] Sending initial data: ${formattedGames.length} games`);
-        websocket.send(JSON.stringify(responseData));
-        console.log('[Scoreboard WS] ✅ Initial data sent successfully');
+      if (scoreboardData && scoreboardData.scoreboard && scoreboardData.scoreboard.games && scoreboardData.scoreboard.games.length > 0) {
+        const message = JSON.stringify({ scoreboard: scoreboardData.scoreboard });
+        if (websocket.readyState === WebSocket.OPEN) {
+          websocket.send(message);
+          console.log(`[Scoreboard WebSocket] Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
+        } else {
+          console.warn(`[Scoreboard WebSocket] Cannot send - websocket not open (readyState: ${websocket.readyState})`);
+        }
       } else {
-        console.log('[Scoreboard WS] No scoreboard data available, sending empty response');
-        // Send empty structure if no data available yet
-        websocket.send(JSON.stringify({
+        const emptyMessage = JSON.stringify({
           scoreboard: {
-            gameDate: '',
+            gameDate: new Date().toISOString().split('T')[0],
             games: []
           }
-        }));
+        });
+        if (websocket.readyState === WebSocket.OPEN) {
+          websocket.send(emptyMessage);
+          console.log('[Scoreboard WebSocket] Sent empty initial data (no games available)');
+        }
       }
-    } catch (error) {
-      console.error('[Scoreboard WS] ❌ Error in sendInitialData:', error);
-      throw error;
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error);
+      console.error(`[Scoreboard WebSocket] Error sending initial data: ${errorMsg}`);
+      this.activeConnections.delete(websocket);
     }
   }
 
   disconnect(websocket: WebSocket): void {
     this.activeConnections.delete(websocket);
-    console.log(`[Scoreboard WS] Client disconnected (remaining: ${this.activeConnections.size})`);
+    console.log(`[Scoreboard WebSocket] Client disconnected (remaining: ${this.activeConnections.size})`);
 
     // Clear timestamps if no more connections
     if (this.activeConnections.size === 0) {
@@ -162,8 +165,9 @@ export class ScoreboardWebSocketManager {
       const awayScoreChanged = newGame.awayTeam?.score !== oldGame.awayTeam?.score;
       const statusChanged = newGame.gameStatus !== oldGame.gameStatus;
       const periodChanged = newGame.period !== oldGame.period;
+      const clockChanged = newGame.gameClock !== oldGame.gameClock;
 
-      if (homeScoreChanged || awayScoreChanged || statusChanged || periodChanged) {
+      if (homeScoreChanged || awayScoreChanged || statusChanged || periodChanged || clockChanged) {
         // Only update if minimum interval has passed
         if (currentTime - lastUpdate >= this.MIN_UPDATE_INTERVAL) {
           this.lastUpdateTimestamp.set(gameId, currentTime);
@@ -175,80 +179,79 @@ export class ScoreboardWebSocketManager {
     return false;
   }
 
-  async broadcastUpdates(): Promise<void> {
+  private async checkAndBroadcast(): Promise<void> {
     if (this.activeConnections.size === 0) return;
 
     try {
       const scoreboardData = await dataCache.getScoreboard();
 
-      if (!scoreboardData) return;
-
-      const allGames = scoreboardData.scoreboard?.games || [];
-
-      // Filter for live games first (gameStatus === 2)
-      const liveGames = allGames.filter((g: any) => g.gameStatus === 2);
-
-      // If no live games, use upcoming games (gameStatus === 1)
-      const gamesToSend = liveGames.length > 0 ? liveGames : allGames.filter((g: any) => g.gameStatus === 1);
-
-      // Check if games have changed
-      if (!this.hasGameDataChanged(gamesToSend, this.currentGames)) {
+      if (!scoreboardData?.scoreboard) {
         return;
       }
 
-      this.currentGames = gamesToSend;
+      const newGames = scoreboardData.scoreboard.games || [];
+      const currentTime = Date.now();
+      const timeSinceLastBroadcast = currentTime - this.lastFullBroadcast;
 
-      console.log(`[Scoreboard WS] Broadcasting updates for ${gamesToSend.length} games (${liveGames.length > 0 ? 'live' : 'upcoming'})`);
+      // Check if data changed or if periodic broadcast interval has passed (1 minute)
+      const dataChanged = this.hasGameDataChanged(newGames, this.currentGames);
+      const shouldBroadcast = dataChanged || timeSinceLastBroadcast >= this.PERIODIC_BROADCAST_INTERVAL;
 
-      // Format games to match response schema
-      const formattedGames = this.formatGameResponse(gamesToSend);
+      if (!shouldBroadcast) {
+        return; // No changes and periodic interval not reached
+      }
 
-      const broadcastData = {
-        scoreboard: {
-          gameDate: scoreboardData.scoreboard?.gameDate || '',
-          games: formattedGames
-        }
-      };
+      // Update tracking
+      this.currentGames = newGames;
+      this.lastFullBroadcast = currentTime;
 
-      const disconnectedClients: WebSocket[] = [];
+      // Send updates to all connected clients
+      const message = JSON.stringify({ scoreboard: scoreboardData.scoreboard });
+      const deadConnections = new Set<WebSocket>();
+      let successCount = 0;
+      let failureCount = 0;
+      const timestamp = new Date().toISOString();
 
-      for (const client of this.activeConnections) {
+      if (dataChanged) {
+        console.log(`[${timestamp}] [Scoreboard WS] Scoreboard CHANGED - Broadcasting to ${this.activeConnections.size} clients`);
+      } else {
+        console.log(`[${timestamp}] [Scoreboard WS] PERIODIC broadcast (1 min) to ${this.activeConnections.size} clients`);
+      }
+
+      for (const connection of this.activeConnections) {
         try {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(broadcastData));
+          if (connection.readyState === WebSocket.OPEN) {
+            connection.send(message);
+            successCount++;
           } else {
-            disconnectedClients.push(client);
+            console.warn(`[Scoreboard WS] Connection not OPEN (readyState: ${connection.readyState}), marking as dead`);
+            deadConnections.add(connection);
+            failureCount++;
           }
         } catch (error) {
           console.error('[Scoreboard WS] Error sending to client:', error);
-          disconnectedClients.push(client);
+          deadConnections.add(connection);
+          failureCount++;
         }
       }
 
-      // Clean up disconnected clients
-      disconnectedClients.forEach(client => this.activeConnections.delete(client));
+      // Clean up disconnected clients (before logging summary)
+      const deadCount = deadConnections.size;
+      if (deadCount > 0) {
+        console.log(`[Scoreboard WS] Removing ${deadCount} dead connections (readyState not OPEN or send error)`);
+        deadConnections.forEach(client => this.activeConnections.delete(client));
+      }
+
+      console.log(`[Scoreboard WS] Broadcast completed - Sent: ${successCount}, Failed: ${failureCount}, Remaining: ${this.activeConnections.size}`);
     } catch (error) {
-      console.error('[Scoreboard WS] Error in broadcast:', error);
+      console.error('[Scoreboard WebSocket] Error in broadcast:', error);
     }
-  }
-
-  startBroadcasting(): void {
-    if (this.broadcastInterval) return;
-
-    console.log('[Scoreboard WS] Broadcasting started');
-
-    const broadcast = async () => {
-      await this.broadcastUpdates();
-    };
-
-    // Set up periodic check for changes
-    this.broadcastInterval = setInterval(broadcast, this.BROADCAST_INTERVAL);
   }
 
   startCleanupTask(): void {
     if (this.cleanupInterval) return;
 
-    console.log('[Scoreboard WS] Cleanup task started');
+    console.log('[Scoreboard WebSocket] Cleanup task started');
 
     const cleanup = () => {
       // Remove dead connections
@@ -277,7 +280,7 @@ export class ScoreboardWebSocketManager {
       staleKeys.forEach(key => this.lastUpdateTimestamp.delete(key));
 
       if (deadConnections.length > 0 || staleKeys.length > 0) {
-        console.log(`[Scoreboard WS] Cleanup: removed ${deadConnections.length} dead connections, ${staleKeys.length} stale timestamps`);
+        console.log(`[Scoreboard WebSocket] Cleanup: removed ${deadConnections.length} dead connections, ${staleKeys.length} stale timestamps`);
       }
     };
 
@@ -288,18 +291,44 @@ export class ScoreboardWebSocketManager {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
-      console.log('[Scoreboard WS] Cleanup task stopped');
+      console.log('[Scoreboard WebSocket] Cleanup task stopped');
     }
 
-    if (this.broadcastInterval) {
-      clearInterval(this.broadcastInterval);
-      this.broadcastInterval = null;
-      console.log('[Scoreboard WS] Broadcasting stopped');
-    }
+    this.stopBroadcasting();
   }
 
   getConnectionCount(): number {
     return this.activeConnections.size;
+  }
+
+  private initializeBroadcasting(): void {
+    console.log('[Scoreboard WebSocket] Broadcasting initialized');
+
+    // Set up periodic check for changes and broadcasts
+    if (!this.checkInterval) {
+      this.checkInterval = setInterval(() => {
+        this.checkAndBroadcast().catch(err => console.error('[Scoreboard WebSocket] Broadcast check error:', err));
+      }, this.CHECK_INTERVAL);
+    }
+
+    // Initialize cleanup task
+    this.startCleanupTask();
+
+    console.log('[Scoreboard WebSocket] Broadcasting started (on change or every 1 minute)');
+  }
+
+  startBroadcasting(): void {
+    if (!this.checkInterval) {
+      this.initializeBroadcasting();
+    }
+  }
+
+  stopBroadcasting(): void {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+      console.log('[Scoreboard WebSocket] Broadcasting stopped');
+    }
   }
 }
 
@@ -309,7 +338,9 @@ export class PlaybyplayWebSocketManager {
   private cleanupInterval: NodeJS.Timeout | null = null;
   private currentPlaybyplay: Map<string, any[]> = new Map();
   private lastUpdateTimestamp: Map<string, number> = new Map();
-  private readonly BROADCAST_INTERVAL = 2000; // 2 seconds - check for new plays frequently
+  private lastFullBroadcast: Map<string, number> = new Map();
+  private readonly BROADCAST_INTERVAL = 30000; // 30 seconds - check for new plays frequently
+  private readonly MAX_BROADCAST_INTERVAL = 120000; // 2 minutes (120 seconds) - maximum time between broadcasts
   private readonly CLEANUP_INTERVAL = 600000; // 10 minutes - clean up stale data
   private readonly MIN_UPDATE_INTERVAL = 2000; // Minimum 2 seconds between updates per game
   private readonly CLEANUP_THRESHOLD = 3600000; // 1 hour - remove stale timestamps older than this
@@ -336,6 +367,15 @@ export class PlaybyplayWebSocketManager {
     websocket.on('error', (error) => {
       console.error(`[PlayByPlay WS] Client error for game ${gameId}:`, error);
       this.disconnect(gameId, websocket);
+    });
+
+    websocket.on('message', (data: WebSocket.Data) => {
+      try {
+        const message = typeof data === 'string' ? data : data.toString();
+        console.log(`[PlayByPlay WS] Message received for game ${gameId}: ${message}`);
+      } catch (error) {
+        console.error(`[PlayByPlay WS] Error logging message for game ${gameId}:`, error);
+      }
     });
   }
 
@@ -422,15 +462,23 @@ export class PlaybyplayWebSocketManager {
 
       const newPlays = playbyplayData.plays || [];
       const oldPlays = this.currentPlaybyplay.get(gameId) || [];
+      const currentTime = Date.now();
+      const lastBroadcast = this.lastFullBroadcast.get(gameId) || 0;
+      const timeSinceLastBroadcast = currentTime - lastBroadcast;
 
-      // Check if plays have changed
-      if (!this.hasPlaybyplayChanged(newPlays, oldPlays)) {
-        return;
+      // Check if plays changed or if max broadcast interval has passed
+      const playsChanged = this.hasPlaybyplayChanged(newPlays, oldPlays);
+      const shouldBroadcast = playsChanged || timeSinceLastBroadcast >= this.MAX_BROADCAST_INTERVAL;
+
+      if (!shouldBroadcast) {
+        return; // No changes and broadcast interval not reached
       }
 
+      // Update tracking
       this.currentPlaybyplay.set(gameId, newPlays);
+      this.lastFullBroadcast.set(gameId, currentTime);
 
-      console.log(`[PlayByPlay WS] Broadcasting ${newPlays.length} plays for game ${gameId}`);
+      console.log(`[PlayByPlay WS] Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
 
       const disconnectedClients: WebSocket[] = [];
 
@@ -461,6 +509,7 @@ export class PlaybyplayWebSocketManager {
         }
         this.currentPlaybyplay.delete(gameId);
         this.lastUpdateTimestamp.delete(gameId);
+        this.lastFullBroadcast.delete(gameId);
       }
     } catch (error) {
       console.error(`[PlayByPlay WS] Error in broadcast for game ${gameId}:`, error);
@@ -522,6 +571,7 @@ export class PlaybyplayWebSocketManager {
         }
         this.currentPlaybyplay.delete(gameId);
         this.lastUpdateTimestamp.delete(gameId);
+        this.lastFullBroadcast.delete(gameId);
       });
 
       // Clean up stale timestamps
@@ -568,6 +618,7 @@ export class PlaybyplayWebSocketManager {
     this.activeConnections.clear();
     this.currentPlaybyplay.clear();
     this.lastUpdateTimestamp.clear();
+    this.lastFullBroadcast.clear();
 
     console.log('[PlayByPlay WS] All connections closed');
   }
@@ -587,41 +638,6 @@ export class PlaybyplayWebSocketManager {
     return this.activeConnections.size;
   }
 
-  async sendAllPlaybyplayData(websocket: WebSocket): Promise<void> {
-    try {
-      if (websocket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      const allPlaybyplay: any[] = [];
-      const allGames = Array.from(this.activeConnections.keys());
-
-      for (const gameId of allGames) {
-        try {
-          const playbyplayData = await dataCache.getPlaybyplay(gameId);
-          if (playbyplayData && playbyplayData.plays) {
-            allPlaybyplay.push({
-              gameId,
-              plays: playbyplayData.plays
-            });
-          }
-        } catch (error) {
-          console.error(`[PlayByPlay WS] Error fetching data for game ${gameId}:`, error);
-        }
-      }
-
-      // Send all playbyplay data as a single message
-      websocket.send(JSON.stringify({
-        allPlaybyplay,
-        gameCount: allGames.length,
-        timestamp: new Date().toISOString()
-      }));
-
-      console.log(`[PlayByPlay WS] Sent playbyplay data for ${allGames.length} games to client`);
-    } catch (error) {
-      console.error('[PlayByPlay WS] Error sending all playbyplay data:', error);
-    }
-  }
 
   async broadcastToAllClients(data: any): Promise<number> {
     try {

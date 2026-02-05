@@ -1,1 +1,0 @@
-// This file is no longer needed since we switched to direct HTTP calls

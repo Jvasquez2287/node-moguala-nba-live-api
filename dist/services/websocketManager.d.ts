@@ -1,26 +1,31 @@
 import WebSocket from 'ws';
 export declare class ScoreboardWebSocketManager {
     private activeConnections;
-    private broadcastInterval;
+    private checkInterval;
     private cleanupInterval;
     private currentGames;
     private lastUpdateTimestamp;
-    private lastWinProbUpdate;
-    private readonly BROADCAST_INTERVAL;
+    private lastFullBroadcast;
+    private initialized;
+    private readonly CHECK_INTERVAL;
+    private readonly PERIODIC_BROADCAST_INTERVAL;
     private readonly CLEANUP_INTERVAL;
     private readonly MIN_UPDATE_INTERVAL;
     private readonly CLEANUP_THRESHOLD;
+    constructor();
     connect(websocket: WebSocket): void;
     private sendInitialData;
     disconnect(websocket: WebSocket): void;
     handleConnection(websocket: WebSocket): void;
     private formatGameResponse;
     private hasGameDataChanged;
-    broadcastUpdates(): Promise<void>;
-    startBroadcasting(): void;
+    private checkAndBroadcast;
     startCleanupTask(): void;
     stopCleanupTask(): void;
     getConnectionCount(): number;
+    private initializeBroadcasting;
+    startBroadcasting(): void;
+    stopBroadcasting(): void;
 }
 export declare class PlaybyplayWebSocketManager {
     private activeConnections;
@@ -28,7 +33,9 @@ export declare class PlaybyplayWebSocketManager {
     private cleanupInterval;
     private currentPlaybyplay;
     private lastUpdateTimestamp;
+    private lastFullBroadcast;
     private readonly BROADCAST_INTERVAL;
+    private readonly MAX_BROADCAST_INTERVAL;
     private readonly CLEANUP_INTERVAL;
     private readonly MIN_UPDATE_INTERVAL;
     private readonly CLEANUP_THRESHOLD;
@@ -44,7 +51,6 @@ export declare class PlaybyplayWebSocketManager {
     stopCleanupTask(): void;
     getConnectionCount(gameId?: string): number;
     getGameCount(): number;
-    sendAllPlaybyplayData(websocket: WebSocket): Promise<void>;
     broadcastToAllClients(data: any): Promise<number>;
 }
 export declare const scoreboardWebSocketManager: ScoreboardWebSocketManager;

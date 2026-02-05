@@ -9,6 +9,7 @@ export declare class DataCache {
     private playbyplayCache;
     private lock;
     private activeGameIds;
+    private scoreChangeCallbacks;
     private leagueLeadersCache;
     private playerCache;
     private playerSearchCache;
@@ -24,6 +25,8 @@ export declare class DataCache {
     private scoreboardTask;
     private playbyplayTask;
     private cleanupTask;
+    onScoreChange(callback: () => Promise<void>): void;
+    private triggerScoreChangeCallbacks;
     getScoreboard(): Promise<ScoreboardResponse | null>;
     refreshScoreboard(): Promise<ScoreboardResponse | null>;
     getPlaybyplay(gameId: string): Promise<PlayByPlayResponse | null>;

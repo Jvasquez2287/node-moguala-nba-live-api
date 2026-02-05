@@ -86,6 +86,10 @@ export class DataCache {
   private lock = false; // Simple lock for async operations
   private activeGameIds = new Set<string>();
 
+  // Callbacks for WebSocket broadcasts
+  private scoreChangeCallbacks: (() => Promise<void>)[] = [];
+
+
   // 10-minute refresh caches (new)
   private leagueLeadersCache: Map<string, CacheEntry<LeagueLeadersResponse>> = new Map();
   private playerCache: Map<string, CacheEntry<PlayerSummary>> = new Map();
@@ -105,6 +109,24 @@ export class DataCache {
   private scoreboardTask: NodeJS.Timeout | null = null;
   private playbyplayTask: NodeJS.Timeout | null = null;
   private cleanupTask: NodeJS.Timeout | null = null;
+
+
+  
+  // Register callback for score changes
+  onScoreChange(callback: () => Promise<void>): void {
+    this.scoreChangeCallbacks.push(callback);
+  }
+
+    // Trigger score change callbacks
+  private async triggerScoreChangeCallbacks(): Promise<void> {
+    for (const callback of this.scoreChangeCallbacks) {
+      try {
+        await callback();
+      } catch (error: any) {
+       console.error('[DataCache] Error in score change callback:', error?.message || error);
+      }
+    }
+  }
 
   async getScoreboard(): Promise<ScoreboardResponse | null> {
     // Simple async lock
@@ -209,7 +231,7 @@ export class DataCache {
     this.leagueRosterCache = { data, timestamp: Date.now() };
   }
 
-  
+
   // 24-hour TTL caches (on-demand)
   async getLeagueLeaders(category: string, season?: string): Promise<LeagueLeadersResponse | null> {
     const key = `${category}_${season || 'current'}`;
@@ -335,6 +357,8 @@ export class DataCache {
               console.log(`Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
             }
           }
+          
+
 
           console.log(`Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
         } finally {

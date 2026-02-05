@@ -220,8 +220,7 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
             }))
           }
         };
- 
- 
+  
     // Process each game
    /* for (const game of rawGames) {
       try {

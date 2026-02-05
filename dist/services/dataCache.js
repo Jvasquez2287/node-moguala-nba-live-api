@@ -63,6 +63,8 @@ class DataCache {
         this.playbyplayCache = new LRUCache(20); // Limit to 20 active games
         this.lock = false; // Simple lock for async operations
         this.activeGameIds = new Set();
+        // Callbacks for WebSocket broadcasts
+        this.scoreChangeCallbacks = [];
         // 10-minute refresh caches (new)
         this.leagueLeadersCache = new Map();
         this.playerCache = new Map();
@@ -79,6 +81,21 @@ class DataCache {
         this.scoreboardTask = null;
         this.playbyplayTask = null;
         this.cleanupTask = null;
+    }
+    // Register callback for score changes
+    onScoreChange(callback) {
+        this.scoreChangeCallbacks.push(callback);
+    }
+    // Trigger score change callbacks
+    async triggerScoreChangeCallbacks() {
+        for (const callback of this.scoreChangeCallbacks) {
+            try {
+                await callback();
+            }
+            catch (error) {
+                console.error('[DataCache] Error in score change callback:', error?.message || error);
+            }
+        }
     }
     async getScoreboard() {
         // Simple async lock
