@@ -17,11 +17,13 @@ const isIISNode = !!(
   require.main !== module
 );
 
-console.log('IISNode detection:', isIISNode);
+console.log('######################################');
+console.log( 'IISNode detection:', isIISNode);
 console.log('IISNODE_VERSION:', process.env.IISNODE_VERSION);
 console.log('PLESK_BIN:', process.env.PLESK_BIN);
 console.log('CWD:', process.cwd());
 console.log('require.main !== module:', require.main !== module);
+console.log('#######################################\n');
 
 const app = express();
 
@@ -181,7 +183,7 @@ wss.on("connection", (ws, req: any) => {
 });
 
 // Start background tasks only in development
-if (!isIISNode) {
+ 
   try {
     dataCache.startPolling();
     console.log('Data cache polling started');
@@ -210,8 +212,7 @@ if (!isIISNode) {
     console.log('WebSocket cleanup tasks started');
   } catch (error) {
     console.error('Error starting cleanup tasks:', error);
-  }
-}
+  } 
 
 // Start server
 const PORT = parseInt(process.env.PORT || '8000');

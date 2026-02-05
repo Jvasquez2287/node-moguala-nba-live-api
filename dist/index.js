@@ -17,11 +17,13 @@ const isIISNode = !!(process.env.IISNODE_VERSION ||
     process.env.PLESK_BIN ||
     (process.cwd() && process.cwd().includes('vhosts')) ||
     require.main !== module);
+console.log('######################################');
 console.log('IISNode detection:', isIISNode);
 console.log('IISNODE_VERSION:', process.env.IISNODE_VERSION);
 console.log('PLESK_BIN:', process.env.PLESK_BIN);
 console.log('CWD:', process.cwd());
 console.log('require.main !== module:', require.main !== module);
+console.log('#######################################\n');
 const app = (0, express_1.default)();
 // Middleware
 app.use(express_1.default.json());
@@ -163,37 +165,35 @@ wss.on("connection", (ws, req) => {
     }
 });
 // Start background tasks only in development
-if (!isIISNode) {
-    try {
-        dataCache_1.dataCache.startPolling();
-        console.log('Data cache polling started');
-    }
-    catch (error) {
-        console.error('Error starting data cache:', error);
-    }
-    try {
-        (0, keyMoments_1.startCleanupTask)();
-        console.log('Cleanup task started');
-    }
-    catch (error) {
-        console.error('Error starting cleanup task:', error);
-    }
-    try {
-        websocketManager_1.scoreboardWebSocketManager.startBroadcasting();
-        websocketManager_1.playbyplayWebSocketManager.startBroadcasting();
-        console.log('WebSocket broadcasting started');
-    }
-    catch (error) {
-        console.error('Error starting WebSocket broadcasting:', error);
-    }
-    try {
-        websocketManager_1.scoreboardWebSocketManager.startCleanupTask();
-        websocketManager_1.playbyplayWebSocketManager.startCleanupTask();
-        console.log('WebSocket cleanup tasks started');
-    }
-    catch (error) {
-        console.error('Error starting cleanup tasks:', error);
-    }
+try {
+    dataCache_1.dataCache.startPolling();
+    console.log('Data cache polling started');
+}
+catch (error) {
+    console.error('Error starting data cache:', error);
+}
+try {
+    (0, keyMoments_1.startCleanupTask)();
+    console.log('Cleanup task started');
+}
+catch (error) {
+    console.error('Error starting cleanup task:', error);
+}
+try {
+    websocketManager_1.scoreboardWebSocketManager.startBroadcasting();
+    websocketManager_1.playbyplayWebSocketManager.startBroadcasting();
+    console.log('WebSocket broadcasting started');
+}
+catch (error) {
+    console.error('Error starting WebSocket broadcasting:', error);
+}
+try {
+    websocketManager_1.scoreboardWebSocketManager.startCleanupTask();
+    websocketManager_1.playbyplayWebSocketManager.startCleanupTask();
+    console.log('WebSocket cleanup tasks started');
+}
+catch (error) {
+    console.error('Error starting cleanup tasks:', error);
 }
 // Start server
 const PORT = parseInt(process.env.PORT || '8000');
