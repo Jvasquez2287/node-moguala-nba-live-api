@@ -107,6 +107,7 @@ app.use('/api/v1/team-logo', express_1.default.static(logosPath));
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");
 const keyMoments_1 = require("./services/keyMoments");
+const database_1 = require("./config/database");
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });
@@ -197,6 +198,17 @@ catch (error) {
 }
 // Start server
 const PORT = parseInt(process.env.PORT || '8000');
+// Initialize database connection
+(async () => {
+    try {
+        await (0, database_1.connectToDatabase)();
+        console.log('[Database] SQL Server connection initialized');
+    }
+    catch (error) {
+        console.error('[Database] Failed to initialize connection:', error);
+        console.log('[Database] Continuing without database connection - operation is non-critical');
+    }
+})();
 if (isIISNode) {
     // IISNode provides PORT as a named pipe
     server.listen(process.env.PORT || 8000, () => {
@@ -222,9 +234,6 @@ else {
         console.error('[Client Error]:', err);
         socket.end();
     });
-    server.on('connection', (socket) => {
-        console.log(`[Server] Client connected from ${socket.remoteAddress}:${socket.remotePort}`);
-    });
     try {
         console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
         server.listen(PORT, '0.0.0.0', () => {
@@ -244,14 +253,22 @@ else {
 }
 // Graceful shutdown
 process.on("SIGTERM", async () => {
+    console.log('[Shutdown] SIGTERM received - closing gracefully');
     await dataCache_1.dataCache.stopPolling();
     await (0, keyMoments_1.stopCleanupTask)();
     await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
     await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
+    await (0, database_1.closeDatabase)();
     server.close();
     process.exit(0);
 });
 process.on("SIGINT", async () => {
+    console.log('[Shutdown] SIGINT received - closing gracefully');
+    await dataCache_1.dataCache.stopPolling();
+    await (0, keyMoments_1.stopCleanupTask)();
+    await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
+    await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
+    await (0, database_1.closeDatabase)();
     server.close();
     process.exit(0);
 });

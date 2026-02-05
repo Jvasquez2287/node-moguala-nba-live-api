@@ -121,6 +121,7 @@ import {
 } from "./services/websocketManager";
 import { dataCache } from "./services/dataCache";
 import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
+import { connectToDatabase, closeDatabase } from "./config/database";
 
 // Create HTTP server and WebSocket server
 const server = http.createServer(app);
@@ -217,6 +218,17 @@ try {
 // Start server
 const PORT = parseInt(process.env.PORT || '8000');
 
+// Initialize database connection
+(async () => {
+  try {
+    await connectToDatabase();
+    console.log('[Database] SQL Server connection initialized');
+  } catch (error) {
+    console.error('[Database] Failed to initialize connection:', error);
+    console.log('[Database] Continuing without database connection - operation is non-critical');
+  }
+})();
+
 if (isIISNode) {
   // IISNode provides PORT as a named pipe
   server.listen(process.env.PORT || 8000, () => {
@@ -245,10 +257,7 @@ if (isIISNode) {
     socket.end();
   });
 
-  server.on('connection', (socket: any) => {
-    console.log(`[Server] Client connected from ${socket.remoteAddress}:${socket.remotePort}`);
-  });
-
+  
   try {
     console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
     server.listen(PORT, '0.0.0.0', () => {
@@ -269,15 +278,23 @@ if (isIISNode) {
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
+  console.log('[Shutdown] SIGTERM received - closing gracefully');
   await dataCache.stopPolling();
   await stopCleanupTask();
   await scoreboardWebSocketManager.stopCleanupTask();
   await playbyplayWebSocketManager.stopCleanupTask();
+  await closeDatabase();
   server.close();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
+  console.log('[Shutdown] SIGINT received - closing gracefully');
+  await dataCache.stopPolling();
+  await stopCleanupTask();
+  await scoreboardWebSocketManager.stopCleanupTask();
+  await playbyplayWebSocketManager.stopCleanupTask();
+  await closeDatabase();
   server.close();
   process.exit(0);
 });
