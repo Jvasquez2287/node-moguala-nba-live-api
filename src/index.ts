@@ -18,7 +18,7 @@ const isIISNode = !!(
 );
 
 console.log('######################################');
-console.log( 'IISNode detection:', isIISNode);
+console.log('IISNode detection:', isIISNode);
 console.log('IISNODE_VERSION:', process.env.IISNODE_VERSION);
 console.log('PLESK_BIN:', process.env.PLESK_BIN);
 console.log('CWD:', process.cwd());
@@ -47,7 +47,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
   try {
     console.log('Manual cache refresh requested');
     const scoreboardData = await dataCache.refreshScoreboard();
-    
+
     res.json({
       success: true,
       message: "Cache refreshed successfully",
@@ -69,7 +69,7 @@ app.get("/api/v1/cache/status", async (req, res) => {
   try {
     const scoreboardData = await dataCache.getScoreboard();
     const games = scoreboardData?.scoreboard?.games || [];
-    
+
     res.json({
       cacheStatus: games.length > 0 ? 'populated' : 'empty',
       games: games.length,
@@ -94,7 +94,7 @@ import teamRoutes from "./routes/teams";
 import searchRoutes from "./routes/search";
 import predictionsRoutes from "./routes/predictions";
 import leagueRoutes from "./routes/league";
-import scoreboardRoutes from "./routes/scoreboard"; 
+import scoreboardRoutes from "./routes/scoreboard";
 import logoRouter from "./routes/logo";
 
 
@@ -132,7 +132,7 @@ console.log('[WebSocket] Server initialized');
 console.log('[Server Setup] Registering upgrade handler');
 server.on('upgrade', (req, socket, head) => {
   console.log(`[WebSocket] ✅ Upgrade request received for: ${req.url}`);
-  
+
   try {
     wss.handleUpgrade(req, socket, head, (ws) => {
       console.log(`[WebSocket] ✅ Upgrade successful for: ${req.url}`);
@@ -148,9 +148,9 @@ console.log('[Server Setup] Upgrade handler registered');
 // WebSocket connection handling
 wss.on("connection", (ws, req: any) => {
   const url = req.url;
-  
+
   console.log(`[WebSocket] New connection - URL: "${url}"`);
-  
+
   // Send immediate acknowledgement to all WebSocket connections
   try {
     // ws.send(JSON.stringify({ status: 'connected', message: 'WebSocket connection established' }));
@@ -163,7 +163,7 @@ wss.on("connection", (ws, req: any) => {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
       scoreboardWebSocketManager.handleConnection(ws);
-       
+
     } else if (url?.startsWith("/api/v1/playbyplay/ws/")) {
       const gameId = url.split("/").pop();
       if (gameId) {
@@ -183,36 +183,36 @@ wss.on("connection", (ws, req: any) => {
 });
 
 // Start background tasks only in development
- 
-  try {
-    dataCache.startPolling();
-    console.log('Data cache polling started');
-  } catch (error) {
-    console.error('Error starting data cache:', error);
-  }
 
-  try {
-    startCleanupTask();
-    console.log('Cleanup task started');
-  } catch (error) {
-    console.error('Error starting cleanup task:', error);
-  }
+try {
+  dataCache.startPolling();
+  console.log('Data cache polling started');
+} catch (error) {
+  console.error('Error starting data cache:', error);
+}
 
-  try {
-    scoreboardWebSocketManager.startBroadcasting();
-    playbyplayWebSocketManager.startBroadcasting();
-    console.log('WebSocket broadcasting started');
-  } catch (error) {
-    console.error('Error starting WebSocket broadcasting:', error);
-  }
+try {
+  startCleanupTask();
+  console.log('Cleanup task started');
+} catch (error) {
+  console.error('Error starting cleanup task:', error);
+}
 
-  try {
-    scoreboardWebSocketManager.startCleanupTask();
-    playbyplayWebSocketManager.startCleanupTask();
-    console.log('WebSocket cleanup tasks started');
-  } catch (error) {
-    console.error('Error starting cleanup tasks:', error);
-  } 
+try {
+  scoreboardWebSocketManager.startBroadcasting();
+  playbyplayWebSocketManager.startBroadcasting();
+  console.log('WebSocket broadcasting started');
+} catch (error) {
+  console.error('Error starting WebSocket broadcasting:', error);
+}
+
+try {
+  scoreboardWebSocketManager.startCleanupTask();
+  playbyplayWebSocketManager.startCleanupTask();
+  console.log('WebSocket cleanup tasks started');
+} catch (error) {
+  console.error('Error starting cleanup tasks:', error);
+}
 
 // Start server
 const PORT = parseInt(process.env.PORT || '8000');
@@ -227,7 +227,7 @@ if (isIISNode) {
   process.on('uncaughtException', (err) => {
     console.error('[Uncaught Exception]:', err);
   });
-  
+
   process.on('unhandledRejection', (reason, promise) => {
     console.error('[Unhandled Rejection]:', reason);
   });
@@ -239,16 +239,16 @@ if (isIISNode) {
       process.exit(1);
     }
   });
-  
+
   server.on('clientError', (err: any, socket: any) => {
     console.error('[Client Error]:', err);
     socket.end();
   });
-  
+
   server.on('connection', (socket: any) => {
     console.log(`[Server] Client connected from ${socket.remoteAddress}:${socket.remotePort}`);
   });
-  
+
   try {
     console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
     server.listen(PORT, '0.0.0.0', () => {
@@ -259,7 +259,7 @@ if (isIISNode) {
   } catch (err) {
     console.error(`[Server] Error calling listen():`, err);
   }
-  
+
   // Verify server is actually listening
   setInterval(() => {
     const addr = server.address() as any;
