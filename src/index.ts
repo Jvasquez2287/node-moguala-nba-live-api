@@ -93,6 +93,45 @@ app.get("/api/v1/cache/status", async (req, res) => {
   }
 });
 
+// Test endpoint - Get user info by email
+app.get("/api/v1/test/user/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    console.log(`[Test] Fetching user info for email: ${email}`);
+    
+    const user = await clerkService.getUserByEmail(email);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+        email: email
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        clerk_id: user.clerk_id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        profile_image_url: user.profile_image_url,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Routes
 import schedulev1Routes from "./routes/schedule_http";
 import scheduleRoutes from "./routes/schedule";
@@ -143,6 +182,7 @@ import { dataCache } from "./services/dataCache";
 import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
+import clerkService from "./services/clerk";
 
 // Create HTTP server and WebSocket server
 const server = http.createServer(app);

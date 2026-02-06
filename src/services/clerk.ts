@@ -127,7 +127,7 @@ export const clerkService = {
   },
 
   /**
-   * Get user from database
+   * Get user from database by Clerk ID
    */
   async getUserByClerkId(clerkId: string) {
     try {
@@ -138,6 +138,22 @@ export const clerkService = {
       return result.recordset?.[0] || null;
     } catch (error) {
       console.error('[Clerk] Error getting user:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user from database by email
+   */
+  async getUserByEmail(email: string) {
+    try {
+      const result = await executeQuery(
+        'SELECT * FROM users WHERE email = @email',
+        { email }
+      );
+      return result.recordset?.[0] || null;
+    } catch (error) {
+      console.error('[Clerk] Error getting user by email:', error);
       throw error;
     }
   }

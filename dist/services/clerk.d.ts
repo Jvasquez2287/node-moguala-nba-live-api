@@ -33,9 +33,13 @@ export declare const clerkService: {
      */
     handleUserDeleted(clerkUserId: string): Promise<any>;
     /**
-     * Get user from database
+     * Get user from database by Clerk ID
      */
     getUserByClerkId(clerkId: string): Promise<any>;
+    /**
+     * Get user from database by email
+     */
+    getUserByEmail(email: string): Promise<any>;
 };
 export default clerkService;
 //# sourceMappingURL=clerk.d.ts.map
