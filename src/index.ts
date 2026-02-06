@@ -6,7 +6,7 @@ import http from "http";
 import { WebSocketServer } from "ws";
 
 // Load environment variables
-dotenv.config({ path: path.join(process.cwd(), ".env") });
+dotenv.config({ path: path.join( ".env") });
 
 // Detect IISNode environment - use multiple detection methods
 const isIISNode = !!(
@@ -39,8 +39,14 @@ app.get("/", (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
     iisnode: isIISNode,
-    SQLServer: !!process.env.SQL_SERVER ? 'configured' : 'not configured' + 'Connected: ' + (process.env.SQL_SERVER ? 'yes' : 'no')
-
+    SQLServer: {
+    Configured: (!!process.env.DB_SERVER ? 'Yes' : 'No') + ' - ' + 'Connected: ' + (process.env.DB_SERVER ? 'yes' : 'no'),
+    Configuration: {
+      DB_SERVER: !!process.env.DB_SERVER,
+      DB_USER: !!process.env.DB_USER,
+      DB_PASSWORD: !!process.env.DB_PASSWORD,
+      DB_NAME: !!process.env.DB_NAME
+    }}
   });
 });
 

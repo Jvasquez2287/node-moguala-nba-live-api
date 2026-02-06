@@ -10,7 +10,7 @@ const path_1 = __importDefault(require("path"));
 const http_1 = __importDefault(require("http"));
 const ws_1 = require("ws");
 // Load environment variables
-dotenv_1.default.config({ path: path_1.default.join(process.cwd(), ".env") });
+dotenv_1.default.config({ path: path_1.default.join(".env") });
 // Detect IISNode environment - use multiple detection methods
 const isIISNode = !!(process.env.IISNODE_VERSION ||
     process.env.APP_POOL_ID ||
@@ -36,7 +36,15 @@ app.get("/", (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || "development",
         iisnode: isIISNode,
-        SQLServer: !!process.env.SQL_SERVER ? 'configured' : 'not configured' + 'Connected: ' + (process.env.SQL_SERVER ? 'yes' : 'no')
+        SQLServer: {
+            Configured: (!!process.env.DB_SERVER ? 'Yes' : 'No') + ' - ' + 'Connected: ' + (process.env.DB_SERVER ? 'yes' : 'no'),
+            Configuration: {
+                DB_SERVER: !!process.env.DB_SERVER,
+                DB_USER: !!process.env.DB_USER,
+                DB_PASSWORD: !!process.env.DB_PASSWORD,
+                DB_NAME: !!process.env.DB_NAME
+            }
+        }
     });
 });
 // Cache refresh endpoint
