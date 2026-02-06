@@ -38,7 +38,9 @@ app.get("/", (req, res) => {
     message: "NBA Live API is running",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
-    iisnode: isIISNode
+    iisnode: isIISNode,
+    SQLServer: !!process.env.SQL_SERVER ? 'configured' : 'not configured' + 'Connected: ' + (process.env.SQL_SERVER ? 'yes' : 'no')
+
   });
 });
 

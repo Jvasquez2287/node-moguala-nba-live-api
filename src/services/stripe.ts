@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import { executeQuery } from '../config/database';
 
 // Initialize Stripe client
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_51OdQudC9Z59e8GjOe4yaecDH0pl6ekLY2psrNhESE4xy87Hd7LhuAm9mhRSktKeBJPv5s8AIr1uDLdUeQ79n9YeP00dTaikuK1', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-01-28.clover' as any
 });
 

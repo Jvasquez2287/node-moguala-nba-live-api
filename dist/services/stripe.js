@@ -7,7 +7,7 @@ exports.stripeService = void 0;
 const stripe_1 = __importDefault(require("stripe"));
 const database_1 = require("../config/database");
 // Initialize Stripe client
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY || 'sk_test_51OdQudC9Z59e8GjOe4yaecDH0pl6ekLY2psrNhESE4xy87Hd7LhuAm9mhRSktKeBJPv5s8AIr1uDLdUeQ79n9YeP00dTaikuK1', {
+const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
     apiVersion: '2026-01-28.clover'
 });
 exports.stripeService = {
