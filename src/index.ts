@@ -114,10 +114,11 @@ app.get("/api/v1/test/user/:email", async (req, res) => {
       user: {
         id: user.id,
         clerk_id: user.clerk_id,
+        stripe_id: user.stripe_id,
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
-        profile_image_url: user.profile_image_url,
+        profile_image: user.profile_image,
         created_at: user.created_at,
         updated_at: user.updated_at
       }
@@ -276,6 +277,13 @@ try {
   console.error('Error starting cleanup tasks:', error);
 }
 
+try {
+  clerkService.startAutoSync();
+  console.log('Clerk auto sync started');
+} catch (error) {
+  console.error('Error starting Clerk auto sync:', error);
+}
+
 // Start server
 const PORT = parseInt(process.env.PORT || '8000');
 
@@ -347,6 +355,7 @@ process.on("SIGTERM", async () => {
   await stopCleanupTask();
   await scoreboardWebSocketManager.stopCleanupTask();
   await playbyplayWebSocketManager.stopCleanupTask();
+  clerkService.stopAutoSync();
   await closeDatabase();
   server.close();
   process.exit(0);
@@ -358,6 +367,7 @@ process.on("SIGINT", async () => {
   await stopCleanupTask();
   await scoreboardWebSocketManager.stopCleanupTask();
   await playbyplayWebSocketManager.stopCleanupTask();
+  clerkService.stopAutoSync();
   await closeDatabase();
   server.close();
   process.exit(0);

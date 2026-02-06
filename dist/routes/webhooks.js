@@ -125,6 +125,21 @@ router.post('/clerk', express_1.default.json(), async (req, res) => {
                 res.json({ received: true });
                 break;
             }
+            case 'session.created': {
+                await clerk_1.clerkService.handleSessionCreated(data);
+                res.json({ received: true });
+                break;
+            }
+            case 'session.ended': {
+                await clerk_1.clerkService.handleSessionEnded(data);
+                res.json({ received: true });
+                break;
+            }
+            case 'session.renewed': {
+                await clerk_1.clerkService.handleSessionRenewed(data);
+                res.json({ received: true });
+                break;
+            }
             default:
                 console.log(`[Webhook] Unhandled Clerk event: ${type}`);
                 res.json({ received: true });
@@ -133,6 +148,76 @@ router.post('/clerk', express_1.default.json(), async (req, res) => {
     catch (error) {
         console.error('[Webhook] Clerk webhook error:', error);
         res.status(400).json({ error: 'Webhook processing failed' });
+    }
+});
+router.get('/clerk/users/:email', async (req, res) => {
+    try {
+        const email = req.params.email;
+        console.log(`[Test] Fetching user info for email: ${email}`);
+        const user = await clerk_1.clerkService.getUserByEmail(email);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found',
+                email: email
+            });
+        }
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                clerk_id: user.clerk_id,
+                stripe_id: user.stripe_id,
+                email: user.email,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                profile_image: user.profile_image,
+                created_at: user.created_at,
+                updated_at: user.updated_at
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch user',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+router.get('/clerk', async (req, res) => {
+    try {
+        return res.json({
+            success: true,
+            message: 'Clerk webhook endpoint is working'
+        });
+    }
+    catch (error) {
+        console.error('Error in Clerk test endpoint:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to process request',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+router.get('/clerk/cusers/:email', async (req, res) => {
+    try {
+        const email = req.params.email;
+        const user = await clerk_1.clerkService.getUserFromClerkAPI(email);
+        res.json({
+            success: true,
+            users: user
+        });
+    }
+    catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch users',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 });
 exports.default = router;

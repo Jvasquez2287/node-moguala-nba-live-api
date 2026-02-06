@@ -58,6 +58,18 @@ export declare const stripeService: {
      */
     updateSubscriptionInDB(stripeId: string, data: Partial<SubscriptionData>): Promise<any>;
     /**
+     * Create customer in Stripe
+     */
+    createCustomer(email: string, name?: string): Promise<Stripe.Response<Stripe.Customer>>;
+    /**
+     * Get or create customer in Stripe
+     */
+    getOrCreateCustomer(email: string, name?: string): Promise<Stripe.Customer>;
+    /**
+     * Get subscriptions for a customer from Stripe
+     */
+    getCustomerSubscriptions(customerId: string): Promise<Stripe.Subscription[]>;
+    /**
      * Get subscription from database
      */
     getSubscriptionFromDB(stripeId: string): Promise<any>;

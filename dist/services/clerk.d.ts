@@ -40,6 +40,42 @@ export declare const clerkService: {
      * Get user from database by email
      */
     getUserByEmail(email: string): Promise<any>;
+    /**
+     * Handle session created event
+     */
+    handleSessionCreated(sessionData: any): Promise<any>;
+    /**
+     * Handle session ended event
+     */
+    handleSessionEnded(sessionData: any): Promise<any>;
+    /**
+     * Handle session renewed event
+     */
+    handleSessionRenewed(sessionData: any): Promise<any>;
+    /**
+     * Get user from Clerk API by email
+     */
+    getUserFromClerkAPI(email: string): Promise<{} | null>;
+    /**
+     * Get user from Clerk API by clerk ID
+     */
+    getUserFromClerkAPIById(clerkId: string): Promise<ClerkUser | null>;
+    /**
+     * Sync all users from Clerk API to database
+     */
+    syncAllUsersFromClerk(): Promise<{
+        created: number;
+        updated: number;
+        failed: number;
+    }>;
+    /**
+     * Start automatic user sync every 24 hours
+     */
+    startAutoSync(): void;
+    /**
+     * Stop automatic user sync
+     */
+    stopAutoSync(): void;
 };
 export default clerkService;
 //# sourceMappingURL=clerk.d.ts.map

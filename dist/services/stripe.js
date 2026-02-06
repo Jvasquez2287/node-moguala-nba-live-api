@@ -175,6 +175,62 @@ exports.stripeService = {
         }
     },
     /**
+     * Create customer in Stripe
+     */
+    async createCustomer(email, name) {
+        try {
+            const customer = await stripe.customers.create({
+                email,
+                name: name || undefined,
+                metadata: {
+                    created_at: new Date().toISOString()
+                }
+            });
+            console.log(`[Stripe] Customer created: ${email} (ID: ${customer.id})`);
+            return customer;
+        }
+        catch (error) {
+            console.error('[Stripe] Error creating customer:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get or create customer in Stripe
+     */
+    async getOrCreateCustomer(email, name) {
+        try {
+            let customer = await this.getUserByEmail(email);
+            if (!customer) {
+                console.log(`[Stripe] Customer not found for ${email}, creating new customer...`);
+                customer = await this.createCustomer(email, name);
+            }
+            else {
+                console.log(`[Stripe] Customer found for ${email} (ID: ${customer.id})`);
+            }
+            return customer;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting or creating customer:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get subscriptions for a customer from Stripe
+     */
+    async getCustomerSubscriptions(customerId) {
+        try {
+            const subscriptions = await stripe.subscriptions.list({
+                customer: customerId,
+                limit: 100
+            });
+            return subscriptions.data;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting customer subscriptions:', error);
+            throw error;
+        }
+    },
+    /**
      * Get subscription from database
      */
     async getSubscriptionFromDB(stripeId) {
