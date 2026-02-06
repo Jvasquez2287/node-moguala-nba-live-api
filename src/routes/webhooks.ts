@@ -5,11 +5,11 @@ import { clerkService } from '../services/clerk';
 import { executeQuery } from '../config/database';
 
 const router = express.Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_key', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! , {
   apiVersion: '2026-01-28.clover' as any
 });
 
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_hSsvZEGxeBSNZanAKvzbXsvTiyT13aLP';
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET! ;
 
 /**
  * Stripe Webhook endpoint
@@ -109,6 +109,24 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
   } catch (error) {
     console.error('[Webhook] Stripe webhook error:', error);
     res.status(400).json({ error: 'Webhook processing failed' });
+  }
+});
+
+
+router.get('/stripe', async (req: Request, res: Response) => {
+  try {
+    return res.json({
+      success: true,
+      message: 'Stripe webhook endpoint is working'
+    });
+  }
+  catch (error) {
+    console.error('Error in Stripe test endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process request',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 
