@@ -96,6 +96,9 @@ import predictionsRoutes from "./routes/predictions";
 import leagueRoutes from "./routes/league";
 import scoreboardRoutes from "./routes/scoreboard";
 import logoRouter from "./routes/logo";
+import webhooksRouter from "./routes/webhooks";
+import subscriptionsRouter from "./routes/subscriptions";
+import usersRouter from "./routes/users";
 
 
 app.use("/api/v1", schedulev1Routes);
@@ -108,6 +111,15 @@ app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
 app.use('/api/v1/logos', logoRouter);
+
+// Webhook routes
+app.use('/api/v1/webhooks', webhooksRouter);
+
+// Subscription management routes
+app.use('/api/v1/subscriptions', subscriptionsRouter);
+
+// User management routes
+app.use('/api/v1/users', usersRouter);
 
 // Serve team logos as static files
 const logosPath = path.join(__dirname, '..', 'assets', 'logos');
@@ -122,6 +134,7 @@ import {
 import { dataCache } from "./services/dataCache";
 import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
+import { migrationService } from "./services/migrations";
 
 // Create HTTP server and WebSocket server
 const server = http.createServer(app);
@@ -223,6 +236,9 @@ const PORT = parseInt(process.env.PORT || '8000');
   try {
     await connectToDatabase();
     console.log('[Database] SQL Server connection initialized');
+    
+    // Run pending migrations
+    await migrationService.runPendingMigrations();
   } catch (error) {
     console.error('[Database] Failed to initialize connection:', error);
     console.log('[Database] Continuing without database connection - operation is non-critical');

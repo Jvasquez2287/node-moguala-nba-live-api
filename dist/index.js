@@ -90,6 +90,9 @@ const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
 const logo_1 = __importDefault(require("./routes/logo"));
+const webhooks_1 = __importDefault(require("./routes/webhooks"));
+const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
+const users_1 = __importDefault(require("./routes/users"));
 app.use("/api/v1", schedule_http_1.default);
 app.use("/api/v1", schedule_1.default);
 app.use("/api/v1/standings", standings_1.default);
@@ -100,6 +103,12 @@ app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
 app.use('/api/v1/logos', logo_1.default);
+// Webhook routes
+app.use('/api/v1/webhooks', webhooks_1.default);
+// Subscription management routes
+app.use('/api/v1/subscriptions', subscriptions_1.default);
+// User management routes
+app.use('/api/v1/users', users_1.default);
 // Serve team logos as static files
 const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos');
 app.use('/api/v1/team-logo', express_1.default.static(logosPath));
@@ -108,6 +117,7 @@ const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");
 const keyMoments_1 = require("./services/keyMoments");
 const database_1 = require("./config/database");
+const migrations_1 = require("./services/migrations");
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });
@@ -203,6 +213,8 @@ const PORT = parseInt(process.env.PORT || '8000');
     try {
         await (0, database_1.connectToDatabase)();
         console.log('[Database] SQL Server connection initialized');
+        // Run pending migrations
+        await migrations_1.migrationService.runPendingMigrations();
     }
     catch (error) {
         console.error('[Database] Failed to initialize connection:', error);

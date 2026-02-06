@@ -1,0 +1,192 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.stripeService = void 0;
+const stripe_1 = __importDefault(require("stripe"));
+const database_1 = require("../config/database");
+// Initialize Stripe client
+const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY || 'sk_test_51OdQudC9Z59e8GjOe4yaecDH0pl6ekLY2psrNhESE4xy87Hd7LhuAm9mhRSktKeBJPv5s8AIr1uDLdUeQ79n9YeP00dTaikuK1', {
+    apiVersion: '2026-01-28.clover'
+});
+exports.stripeService = {
+    /**
+     * Get Stripe client
+     */
+    getClient() {
+        return stripe;
+    },
+    /**
+     * Get all customer subscriptions
+     */
+    async getUsersSubscriptionID() {
+        try {
+            const customers = await stripe.customers.list({ limit: 10000 });
+            return customers.data.map(c => c.id);
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting subscription IDs:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get all subscriptions
+     */
+    async getUsersSubscription() {
+        try {
+            const subscriptions = await stripe.subscriptions.list({ limit: 10000 });
+            return subscriptions.data;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting subscriptions:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get customer by ID
+     */
+    async getUserByID(customerID) {
+        try {
+            return await stripe.customers.retrieve(customerID);
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting user by ID:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get customer by email
+     */
+    async getUserByEmail(email) {
+        try {
+            const customers = await stripe.customers.list({ email, limit: 1 });
+            return customers.data[0] || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting user by email:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get customer ID by email
+     */
+    async getIdByEmail(email) {
+        try {
+            const customer = await this.getUserByEmail(email);
+            return customer?.id || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting ID by email:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get product by ID
+     */
+    async getProductsByID(productID) {
+        try {
+            return await stripe.products.retrieve(productID);
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting product:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get invoice by ID
+     */
+    async getInvoice(invoiceID) {
+        try {
+            const invoice = await stripe.invoices.retrieve(invoiceID);
+            return invoice.hosted_invoice_url || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting invoice:', error);
+            throw error;
+        }
+    },
+    /**
+     * Delete customer by email
+     */
+    async deleteUserByEmail(email) {
+        try {
+            const customer = await this.getUserByEmail(email);
+            if (!customer)
+                return null;
+            return await stripe.customers.del(customer.id);
+        }
+        catch (error) {
+            console.error('[Stripe] Error deleting user:', error);
+            throw error;
+        }
+    },
+    /**
+     * Create subscription in database
+     */
+    async createSubscriptionInDB(data) {
+        try {
+            const query = `
+        INSERT INTO subscriptions 
+        (stripe_id, subscription_id, subscription_start_date, subscription_end_date, 
+         subscription_status, subscription_title, subscription_next_billing_date, 
+         subscription_latest_invoice_Id, subscription_invoice_pdf_url, subscription_canceled_at, product_id)
+        VALUES 
+        (@stripeId, @subscriptionId, @startDate, @endDate, @status, @title, @nextBillingDate, 
+         @invoiceId, @invoicePdfUrl, @canceledAt, @productId)
+      `;
+            return await (0, database_1.executeQuery)(query, {
+                stripeId: data.stripe_id,
+                subscriptionId: data.subscription_id,
+                startDate: data.subscription_start_date,
+                endDate: data.subscription_end_date,
+                status: data.subscription_status,
+                title: data.subscription_title,
+                nextBillingDate: data.subscription_next_billing_date,
+                invoiceId: data.subscription_latest_invoice_Id,
+                invoicePdfUrl: data.subscription_invoice_pdf_url,
+                canceledAt: data.subscription_canceled_at,
+                productId: data.product_id
+            });
+        }
+        catch (error) {
+            console.error('[Stripe] Error creating subscription in DB:', error);
+            throw error;
+        }
+    },
+    /**
+     * Update subscription in database
+     */
+    async updateSubscriptionInDB(stripeId, data) {
+        try {
+            const fields = Object.keys(data)
+                .map((key, index) => `${key} = @param${index}`)
+                .join(', ');
+            const query = `UPDATE subscriptions SET ${fields} WHERE stripe_id = @stripeId`;
+            const params = { stripeId };
+            Object.keys(data).forEach((key, index) => {
+                params[`param${index}`] = data[key];
+            });
+            return await (0, database_1.executeQuery)(query, params);
+        }
+        catch (error) {
+            console.error('[Stripe] Error updating subscription in DB:', error);
+            throw error;
+        }
+    },
+    /**
+     * Get subscription from database
+     */
+    async getSubscriptionFromDB(stripeId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT * FROM subscriptions WHERE stripe_id = @stripeId', { stripeId });
+            return result.recordset[0] || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting subscription from DB:', error);
+            throw error;
+        }
+    }
+};
+exports.default = exports.stripeService;
+//# sourceMappingURL=stripe.js.map
