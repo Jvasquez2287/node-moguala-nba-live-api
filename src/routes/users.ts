@@ -1,8 +1,35 @@
 import express, { Request, Response } from 'express';
 import { clerkService } from '../services/clerk';
 import { executeQuery } from '../config/database';
+import userService from '../services/users';
+import { tokenCheckService } from '../services/tokenCheck';
 
 const router = express.Router();
+
+
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    console.log('[Users] Fetching users with subscription check', req.headers);
+    const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
+    if (!validationResult.valid) {
+      return res.status(401).json({ success: false, error: 'Invalid or missing security parameters' });
+    }
+     
+    const user = await  userService.getUserByClerkIdWithSubscription(validationResult.user?.clerk_id || '');
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    res.json({
+      success: true,
+      data: user
+    });
+
+  } catch (error) {
+    console.error('[Users] Error fetching users:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch users' });
+  }
+});
 
 /**
  * GET /api/v1/users/:clerkId
@@ -13,13 +40,13 @@ router.get('/:clerkId', async (req: Request, res: Response) => {
     const { clerkId } = req.params;
 
     if (!clerkId) {
-      return res.status(400).json({ error: 'clerkId is required' });
+      return res.status(400).json({ success: false, error: 'clerkId is required' });
     }
 
     const user = await clerkService.getUserByClerkId(clerkId);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     res.json({
@@ -28,7 +55,7 @@ router.get('/:clerkId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Users] Error fetching user:', error);
-    res.status(500).json({ error: 'Failed to fetch user' });
+    res.status(500).json({ success: false, error: 'Failed to fetch user' });
   }
 });
 
@@ -41,7 +68,7 @@ router.get('/email/:email', async (req: Request, res: Response) => {
     const { email } = req.params;
 
     if (!email) {
-      return res.status(400).json({ error: 'email is required' });
+      return res.status(400).json({ success: false, error: 'email is required' });
     }
 
     const result = await executeQuery(
@@ -50,7 +77,7 @@ router.get('/email/:email', async (req: Request, res: Response) => {
     );
 
     if (!result || result.recordset.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     res.json({
@@ -59,7 +86,7 @@ router.get('/email/:email', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Users] Error fetching user by email:', error);
-    res.status(500).json({ error: 'Failed to fetch user' });
+    res.status(500).json({ success: false, error: 'Failed to fetch user' });
   }
 });
 
@@ -73,7 +100,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { clerkId, email, firstName, lastName, profileImage } = req.body;
 
     if (!clerkId || !email) {
-      return res.status(400).json({ error: 'clerkId and email are required' });
+      return res.status(400).json({ success: false, error: 'clerkId and email are required' });
     }
 
     const result = await executeQuery(
@@ -95,7 +122,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Users] Error creating user:', error);
-    res.status(500).json({ error: 'Failed to create user' });
+    res.status(500).json({ success: false, error: 'Failed to create user' });
   }
 });
 
@@ -109,7 +136,7 @@ router.put('/:clerkId', async (req: Request, res: Response) => {
     const { email, firstName, lastName, profileImage } = req.body;
 
     if (!clerkId) {
-      return res.status(400).json({ error: 'clerkId is required' });
+      return res.status(400).json({ success: false, error: 'clerkId is required' });
     }
 
     await executeQuery(
@@ -132,7 +159,7 @@ router.put('/:clerkId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Users] Error updating user:', error);
-    res.status(500).json({ error: 'Failed to update user' });
+    res.status(500).json({ success: false, error: 'Failed to update user' });
   }
 });
 
@@ -145,7 +172,7 @@ router.delete('/:clerkId', async (req: Request, res: Response) => {
     const { clerkId } = req.params;
 
     if (!clerkId) {
-      return res.status(400).json({ error: 'clerkId is required' });
+      return res.status(400).json({ success: false, error: 'clerkId is required' });
     }
 
     await executeQuery(
@@ -159,7 +186,7 @@ router.delete('/:clerkId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Users] Error deleting user:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
+    res.status(500).json({ success: false, error: 'Failed to delete user' });
   }
 });
 

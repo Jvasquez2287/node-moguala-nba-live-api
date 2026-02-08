@@ -146,7 +146,7 @@ export const clerkService = {
     try {
       const result = await executeQuery(
         'SELECT * FROM users WHERE clerk_id = @clerkId',
-        { clerkId }
+        { clerkId },
       );
       return result.recordset?.[0] || null;
     } catch (error) {

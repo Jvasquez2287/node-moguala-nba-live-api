@@ -38,7 +38,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const stripe_1 = require("../services/stripe");
+const subscriptions_1 = __importDefault(require("../services/subscriptions"));
 const router = express_1.default.Router();
+const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID || 'prod_QDRXMY3ecBW5bP';
+const PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1PN0eXC9Z59e8GjO06cltizs';
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 /**
  * GET /api/v1/subscriptions
  * List all subscriptions for a customer
@@ -150,6 +154,313 @@ router.delete('/:subscriptionId', async (req, res) => {
     catch (error) {
         console.error('[Subscriptions] Error deleting subscription:', error);
         res.status(500).json({ error: 'Failed to cancel subscription' });
+    }
+});
+/**
+ * GET /api/v1/subscriptions/product/:productId
+ * Get all subscriptions for a specific product
+ */
+router.get('/product/:productId', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        if (!productId) {
+            return res.status(400).json({ error: 'productId is required' });
+        }
+        console.log(`[Subscriptions] Fetching subscriptions for product: ${productId}`);
+        const { executeQuery } = await Promise.resolve().then(() => __importStar(require('../config/database')));
+        const result = await executeQuery(`
+      SELECT 
+        s.id,
+        s.stripe_id,
+        s.subscription_id,
+        s.user_id,
+        s.subscription_start_date,
+        s.subscription_end_date,
+        s.subscription_status,
+        s.subscription_title,
+        s.subscription_next_billing_date,
+        s.subscription_latest_invoice_Id,
+        s.subscription_invoice_pdf_url,
+        s.subscription_canceled_at,
+        s.product_id,
+        s.created_at,
+        s.updated_at,
+        u.clerk_id,
+        u.email,
+        u.first_name,
+        u.last_name,
+        u.stripe_id AS user_stripe_id
+      FROM subscriptions s
+      LEFT JOIN users u ON s.user_id = u.id
+      WHERE s.product_id = @productId
+      ORDER BY s.created_at DESC
+      `, { productId });
+        if (!result.recordset || result.recordset.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'No subscriptions found for this product',
+                productId
+            });
+        }
+        const subscriptions = result.recordset.map((row) => ({
+            id: row.id,
+            stripe_id: row.stripe_id,
+            subscription_id: row.subscription_id,
+            subscription_status: row.subscription_status,
+            subscription_title: row.subscription_title,
+            subscription_start_date: row.subscription_start_date,
+            subscription_end_date: row.subscription_end_date,
+            subscription_next_billing_date: row.subscription_next_billing_date,
+            subscription_latest_invoice_Id: row.subscription_latest_invoice_Id,
+            subscription_invoice_pdf_url: row.subscription_invoice_pdf_url,
+            subscription_canceled_at: row.subscription_canceled_at,
+            product_id: row.product_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            user: row.user_id ? {
+                id: row.user_id,
+                clerk_id: row.clerk_id,
+                email: row.email,
+                first_name: row.first_name,
+                last_name: row.last_name,
+                stripe_id: row.user_stripe_id
+            } : null
+        }));
+        res.json({
+            success: true,
+            productId,
+            count: subscriptions.length,
+            data: subscriptions
+        });
+    }
+    catch (error) {
+        console.error('[Subscriptions] Error fetching product subscriptions:', error);
+        res.status(500).json({ error: 'Failed to fetch product subscriptions' });
+    }
+});
+/**
+ * GET /api/v1/subscriptions/stripe/product/:productId
+ * Get product information from Stripe with pricing
+ */
+router.get('/stripe/product', async (req, res) => {
+    try {
+        const productIdParam = PRODUCT_ID ? PRODUCT_ID : req.query.productId;
+        if (!productIdParam) {
+            return res.status(400).json({ error: 'productId is required' });
+        }
+        console.log(`[Subscriptions] Fetching product info from Stripe: ${productIdParam}`);
+        const product = await stripe_1.stripeService.getProductsByID(productIdParam);
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                error: 'Product not found in Stripe',
+                productId: productIdParam
+            });
+        }
+        // Get Stripe client and fetch prices for this product
+        const stripe = stripe_1.stripeService.getClient();
+        const pricesResponse = await stripe.prices.list({
+            product: productIdParam,
+            limit: 100
+        });
+        const prices = pricesResponse.data.map((price) => ({
+            id: price.id,
+            product: price.product,
+            type: price.type,
+            unit_amount: price.unit_amount,
+            currency: price.currency,
+            recurring: price.recurring,
+            billing_scheme: price.billing_scheme,
+            custom_unit_amount: price.custom_unit_amount,
+            lookup_key: price.lookup_key,
+            metadata: price.metadata,
+            nickname: price.nickname,
+            tax_behavior: price.tax_behavior,
+            active: price.active,
+            created: price.created,
+            livemode: price.livemode
+        }));
+        res.json({
+            success: true,
+            product: {
+                id: product.id,
+                name: product.name,
+                type: product.type,
+                description: product.description,
+                active: product.active,
+                created: product.created,
+                updated: product.updated,
+                metadata: product.metadata,
+                url: product.url,
+                images: product.images,
+                livemode: product.livemode,
+                shippable: product.shippable,
+                statement_descriptor: product.statement_descriptor,
+                tax_code: product.tax_code
+            },
+            prices: prices,
+            priceCount: prices.length
+        });
+    }
+    catch (error) {
+        console.error('[Subscriptions] Error fetching product from Stripe:', error);
+        res.status(500).json({
+            error: 'Failed to fetch product from Stripe',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * GET /api/v1/subscriptions/stripe/all
+ * Get all subscriptions from Stripe
+ */
+router.get('/stripe/all', async (req, res) => {
+    try {
+        const { limit = 100, status } = req.query;
+        console.log(`[Subscriptions] Fetching all subscriptions from Stripe (limit: ${limit}, status: ${status || 'all'})`);
+        // Get Stripe client and fetch subscriptions
+        const stripe = stripe_1.stripeService.getClient();
+        const params = {
+            limit: Math.min(parseInt(limit) || 100, 100)
+        };
+        if (status && ['active', 'canceled', 'past_due', 'trialing', 'all'].includes(status)) {
+            if (status !== 'all') {
+                params.status = status;
+            }
+        }
+        const subscriptionsResponse = await stripe.subscriptions.list(params);
+        const subscriptions = subscriptionsResponse.data.map((sub) => ({
+            id: sub.id,
+            customer: sub.customer,
+            status: sub.status,
+            currency: sub.currency,
+            current_period_start: sub.current_period_start,
+            current_period_end: sub.current_period_end,
+            customer_email: sub.customer ? sub.customer?.email : null,
+            items: sub.items?.data?.map((item) => ({
+                id: item.id,
+                price: {
+                    id: item.price?.id,
+                    product: item.price?.product,
+                    unit_amount: item.price?.unit_amount,
+                    currency: item.price?.currency,
+                    recurring: item.price?.recurring,
+                    type: item.price?.type
+                },
+                quantity: item.quantity
+            })),
+            latest_invoice: sub.latest_invoice,
+            next_pending_invoice_item_invoice: sub.next_pending_invoice_item_invoice,
+            pause_collection: sub.pause_collection,
+            payment_settings: sub.payment_settings,
+            pending_invoice_item_interval: sub.pending_invoice_item_interval,
+            pending_setup_intent: sub.pending_setup_intent,
+            pending_update: sub.pending_update,
+            schedule: sub.schedule,
+            start_date: sub.start_date,
+            test_clock: sub.test_clock,
+            transfer_data: sub.transfer_data,
+            trial_end: sub.trial_end,
+            trial_settings: sub.trial_settings,
+            trial_start: sub.trial_start,
+            created: sub.created,
+            metadata: sub.metadata,
+            livemode: sub.livemode
+        }));
+        res.json({
+            success: true,
+            count: subscriptions.length,
+            hasMore: subscriptionsResponse.has_more,
+            subscriptions: subscriptions
+        });
+    }
+    catch (error) {
+        console.error('[Subscriptions] Error fetching all subscriptions from Stripe:', error);
+        res.status(500).json({
+            error: 'Failed to fetch subscriptions from Stripe',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// POST /api/v1/subscriptions/checkout
+// Create a Stripe checkout session for subscription
+router.post('/checkout', async (req, res) => {
+    try {
+        console.log('[Subscriptions] Creating checkout session with data:', req.body);
+        const { stripePriceId, userId, email } = req.body;
+        // Validate inputs
+        if (!stripePriceId) {
+            return res.status(400).json({
+                error: 'stripePriceId is required',
+            });
+        }
+        if (!userId) {
+            return res.status(400).json({
+                error: 'clerkId or email is required',
+            });
+        }
+        console.log(`[Subscriptions] Creating checkout session for price: ${stripePriceId}`);
+        // Determine base URL for redirects - respect incoming request protocol
+        let baseUrl = process.env.APP_URL;
+        if (!baseUrl) {
+            const protocol = req.protocol || (req.secure ? 'https' : 'http');
+            const host = req.get('host') || '10.0.0.200:8000';
+            baseUrl = `${protocol}://${host}`;
+        }
+        console.log(`[Subscriptions] Using base URL for redirects: ${baseUrl}`);
+        // Create Stripe checkout session
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            mode: 'subscription',
+            line_items: [
+                {
+                    price: stripePriceId,
+                    quantity: 1,
+                },
+            ],
+            // Success URL - redirect after successful payment
+            success_url: `${baseUrl}/subscriptions/success?session_id={CHECKOUT_SESSION_ID}`,
+            // Cancel URL - redirect if user cancels
+            cancel_url: `${baseUrl}/subscriptions/cancel`,
+            // Store customer reference
+            customer_email: email,
+            metadata: {
+                userId: userId,
+            },
+        });
+        console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
+        res.json({
+            success: true,
+            data: {
+                sessionUrl: session.url,
+                sessionId: session.id,
+            },
+        });
+    }
+    catch (error) {
+        console.error('[Subscriptions] 💳 Checkout error:', error);
+        res.status(500).json({
+            error: 'Failed to create checkout session',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+});
+// Subscription success redirect handler (from Stripe checkout)
+router.get('/success', async (req, res) => {
+    try {
+        const { session_id } = req.query;
+        if (!session_id) {
+            return res.status(400).json({ error: 'session_id is required' });
+        }
+        const result = await subscriptions_1.default.handleCheckoutSuccess(session_id);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('[SubscriptionsRouter] Error processing checkout success:', error);
+        res.status(500).json({
+            error: 'Failed to process checkout session',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 });
 exports.default = router;

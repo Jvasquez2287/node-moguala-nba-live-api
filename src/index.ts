@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import http from "http";
 import { WebSocketServer } from "ws";
+import fs from "fs/promises";
 
 // Load environment variables
 dotenv.config({ path: path.join( ".env") });
@@ -147,8 +148,8 @@ import logoRouter from "./routes/logo";
 import webhooksRouter from "./routes/webhooks";
 import subscriptionsRouter from "./routes/subscriptions";
 import usersRouter from "./routes/users";
-
-
+ 
+app.use(express.json());
 app.use("/api/v1", schedulev1Routes);
 app.use("/api/v1", scheduleRoutes);
 app.use("/api/v1/standings", standingsRoutes);
@@ -164,10 +165,98 @@ app.use('/api/v1/logos', logoRouter);
 app.use('/api/v1/webhooks', webhooksRouter);
 
 // Subscription management routes
-app.use('/api/v1/subscriptions', subscriptionsRouter);
+app.use('/api/v1/subscriptions', subscriptionsRouter); 
 
 // User management routes
 app.use('/api/v1/users', usersRouter);
+app.use('/api/v1/user', usersRouter);
+
+// Subscription success redirect handlers (from Stripe checkout)
+// Both /subscription/success and /subscriptions/success for flexibility
+const handleSubscriptionSuccess = async (req: express.Request, res: express.Response) => {
+  try {
+    const { session_id } = req.query;
+    const templatesDir = path.join(__dirname, '..', 'templates');
+    
+    if (!session_id) {
+      const invalidTemplate = await fs.readFile(path.join(templatesDir, 'invalid.html'), 'utf-8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(invalidTemplate);
+    }
+
+    const subscriptionsService = await import('./services/subscriptions').then(m => m.default);
+    const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
+    
+    // Load success template and replace placeholders
+    let successTemplate = await fs.readFile(path.join(templatesDir, 'success.html'), 'utf-8');
+    
+    const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
+    const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
+    const periodStart = new Date(result.data.subscription.currentPeriodStart).toLocaleDateString();
+    const periodEnd = new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString();
+    const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
+    
+    successTemplate = successTemplate
+      .replace('{{USER_NAME}}', userName)
+      .replace('{{USER_EMAIL}}', result.data.user.email)
+      .replace('{{USER_CLERK_ID}}', result.data.user.clerk_id)
+      .replace('{{SUBSCRIPTION_STATUS}}', result.data.subscription.status)
+      .replace('{{STATUS_CLASS}}', statusClass)
+      .replace('{{SUBSCRIPTION_ID}}', subscriptionId)
+      .replace('{{PERIOD_START}}', periodStart)
+      .replace('{{PERIOD_END}}', periodEnd);
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(successTemplate);
+  } catch (error) {
+    console.error('[SubscriptionsRouter] Error processing checkout success:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const templatesDir = path.join(__dirname, '..', 'templates');
+    
+    try {
+      let errorTemplate = await fs.readFile(path.join(templatesDir, 'error.html'), 'utf-8');
+      errorTemplate = errorTemplate.replace('{{ERROR_MESSAGE}}', errorMessage);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(500).send(errorTemplate);
+    } catch (templateError) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(500).send(`
+        <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
+          <h1>Error</h1>
+          <p>${errorMessage}</p>
+        </body></html>
+      `);
+    }
+  }
+};
+
+app.get('/subscription/success', handleSubscriptionSuccess);
+app.get('/subscriptions/success', handleSubscriptionSuccess);
+
+// Subscription cancel redirect handler
+app.get('/subscription/cancel', async (req: express.Request, res: express.Response) => {
+  try {
+    const templatesDir = path.join(__dirname, '..', 'templates');
+    const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(cancelTemplate);
+  } catch (error) {
+    console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+    res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+  }
+});
+
+app.get('/subscriptions/cancel', async (req: express.Request, res: express.Response) => {
+  try {
+    const templatesDir = path.join(__dirname, '..', 'templates');
+    const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(cancelTemplate);
+  } catch (error) {
+    console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+    res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+  }
+});
 
 // Serve team logos as static files
 const logosPath = path.join(__dirname, '..', 'assets', 'logos');

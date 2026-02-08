@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -9,6 +42,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const http_1 = __importDefault(require("http"));
 const ws_1 = require("ws");
+const promises_1 = __importDefault(require("fs/promises"));
 // Load environment variables
 dotenv_1.default.config({ path: path_1.default.join(".env") });
 // Detect IISNode environment - use multiple detection methods
@@ -139,6 +173,7 @@ const logo_1 = __importDefault(require("./routes/logo"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
+app.use(express_1.default.json());
 app.use("/api/v1", schedule_http_1.default);
 app.use("/api/v1", schedule_1.default);
 app.use("/api/v1/standings", standings_1.default);
@@ -155,6 +190,87 @@ app.use('/api/v1/webhooks', webhooks_1.default);
 app.use('/api/v1/subscriptions', subscriptions_1.default);
 // User management routes
 app.use('/api/v1/users', users_1.default);
+app.use('/api/v1/user', users_1.default);
+// Subscription success redirect handlers (from Stripe checkout)
+// Both /subscription/success and /subscriptions/success for flexibility
+const handleSubscriptionSuccess = async (req, res) => {
+    try {
+        const { session_id } = req.query;
+        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        if (!session_id) {
+            const invalidTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'invalid.html'), 'utf-8');
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.status(400).send(invalidTemplate);
+        }
+        const subscriptionsService = await Promise.resolve().then(() => __importStar(require('./services/subscriptions'))).then(m => m.default);
+        const result = await subscriptionsService.handleCheckoutSuccess(session_id);
+        // Load success template and replace placeholders
+        let successTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'success.html'), 'utf-8');
+        const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
+        const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
+        const periodStart = new Date(result.data.subscription.currentPeriodStart).toLocaleDateString();
+        const periodEnd = new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString();
+        const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
+        successTemplate = successTemplate
+            .replace('{{USER_NAME}}', userName)
+            .replace('{{USER_EMAIL}}', result.data.user.email)
+            .replace('{{USER_CLERK_ID}}', result.data.user.clerk_id)
+            .replace('{{SUBSCRIPTION_STATUS}}', result.data.subscription.status)
+            .replace('{{STATUS_CLASS}}', statusClass)
+            .replace('{{SUBSCRIPTION_ID}}', subscriptionId)
+            .replace('{{PERIOD_START}}', periodStart)
+            .replace('{{PERIOD_END}}', periodEnd);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(successTemplate);
+    }
+    catch (error) {
+        console.error('[SubscriptionsRouter] Error processing checkout success:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        try {
+            let errorTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'error.html'), 'utf-8');
+            errorTemplate = errorTemplate.replace('{{ERROR_MESSAGE}}', errorMessage);
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.status(500).send(errorTemplate);
+        }
+        catch (templateError) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.status(500).send(`
+        <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
+          <h1>Error</h1>
+          <p>${errorMessage}</p>
+        </body></html>
+      `);
+        }
+    }
+};
+app.get('/subscription/success', handleSubscriptionSuccess);
+app.get('/subscriptions/success', handleSubscriptionSuccess);
+// Subscription cancel redirect handler
+app.get('/subscription/cancel', async (req, res) => {
+    try {
+        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(cancelTemplate);
+    }
+    catch (error) {
+        console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+        res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+    }
+});
+app.get('/subscriptions/cancel', async (req, res) => {
+    try {
+        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(cancelTemplate);
+    }
+    catch (error) {
+        console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+        res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+    }
+});
 // Serve team logos as static files
 const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos');
 app.use('/api/v1/team-logo', express_1.default.static(logosPath));
