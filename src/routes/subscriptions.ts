@@ -290,6 +290,62 @@ router.delete('/cancel/:subscriptionId', async (req: Request, res: Response) => 
   }
 });
 
+
+router.post('/reactivate', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.body;
+
+     // Handle subscriptionId as array [dbId, stripeId] or string
+    let dbId: number | string;
+    let stripeSubscriptionId: string;
+    
+    if (Array.isArray(subscriptionId)) {
+      dbId = subscriptionId[0]; // Database ID
+      stripeSubscriptionId = subscriptionId[1]; // Stripe subscription ID
+    } else {
+      stripeSubscriptionId = subscriptionId;
+      dbId = subscriptionId;
+    }
+ 
+    console.log(`[Subscriptions] Reactivating Stripe subscription with ID: ${stripeSubscriptionId}`);
+    if (!subscriptionId || !stripeSubscriptionId) {
+      return res.status(400).json({ error: 'subscriptionId is required in body' });
+    }
+    
+    // Reactivate subscription in Stripe
+    await stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
+    console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} reactivated successfully`);
+
+    // Update subscription status in database
+    const { executeQuery } = await import('../config/database');
+    
+    const result = await executeQuery(
+      'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = NULL, updated_at = @now WHERE id = @id OR subscription_id = @subId',
+      { 
+        status: 'active', 
+        now: new Date().toISOString(),
+        id: typeof dbId === 'number' ? dbId : parseInt(dbId as string),
+        subId: stripeSubscriptionId
+      }
+    );
+
+    console.log(`[Subscriptions] Updated subscription status in database`);
+
+    res.json({
+      success: true,
+      message: 'Subscription reactivated successfully',
+      data: {
+        dbId,
+        stripeSubscriptionId
+      }
+    });
+  } catch (error) {
+    console.error('[Subscriptions] Error reactivating Stripe subscription:', error);
+    res.status(500).json({ error: 'Failed to reactivate Stripe subscription' });
+  }
+});
+
+
 /**
  * GET /api/v1/subscriptions/product/:productId
  * Get all subscriptions for a specific product
