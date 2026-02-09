@@ -34,7 +34,7 @@ exports.userService = {
           s.created_at AS subscription_created_at,
           s.updated_at AS subscription_updated_at
         FROM users u
-        LEFT JOIN subscriptions s ON u.stripe_id = s.stripe_id
+        LEFT JOIN subscriptions s ON u.id = s.user_id
         WHERE u.clerk_id = @clerkId
         `, { clerkId });
             if (!result.recordset || result.recordset.length === 0) {
@@ -79,7 +79,7 @@ exports.userService = {
           s.created_at AS subscription_created_at,
           s.updated_at AS subscription_updated_at
         FROM users u
-        LEFT JOIN subscriptions s ON u.stripe_id = s.stripe_id
+        LEFT JOIN subscriptions s ON u.id = s.user_id
         WHERE u.stripe_id = @stripeId
         `, { stripeId });
             if (!result.recordset || result.recordset.length === 0) {
@@ -124,7 +124,7 @@ exports.userService = {
           s.created_at AS subscription_created_at,
           s.updated_at AS subscription_updated_at
         FROM users u
-        LEFT JOIN subscriptions s ON u.stripe_id = s.stripe_id
+        LEFT JOIN subscriptions s ON u.id = s.user_id
         WHERE u.email = @email
         `, { email });
             if (!result.recordset || result.recordset.length === 0) {
@@ -208,7 +208,7 @@ exports.userService = {
           s.created_at AS subscription_created_at,
           s.updated_at AS subscription_updated_at
         FROM users u
-        LEFT JOIN subscriptions s ON u.stripe_id = s.stripe_id
+        LEFT JOIN subscriptions s ON u.id = s.user_id
         WHERE u.id = @userId
         `, { userId });
             if (!result.recordset || result.recordset.length === 0) {
@@ -253,7 +253,7 @@ exports.userService = {
           s.created_at AS subscription_created_at,
           s.updated_at AS subscription_updated_at
         FROM users u
-        LEFT JOIN subscriptions s ON u.stripe_id = s.stripe_id
+        LEFT JOIN subscriptions s ON u.id = s.user_id
         ORDER BY u.created_at DESC
         `);
             if (!result.recordset || result.recordset.length === 0) {

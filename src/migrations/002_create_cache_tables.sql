@@ -4,7 +4,7 @@
 -- ====================================================================
 
 -- Create cache table for storing cached values
-IF OBJECT_ID('dbo.cache', 'U') IS NULL
+IF OBJECT_ID('db-xur.cache', 'U') IS NULL
 BEGIN
   CREATE TABLE cache (
     [key] VARCHAR(255) PRIMARY KEY,
@@ -20,7 +20,7 @@ END;
 GO
 
 -- Create cache_locks table for distributed locking
-IF OBJECT_ID('dbo.cache_locks', 'U') IS NULL
+IF OBJECT_ID('db-xur.cache_locks', 'U') IS NULL
 BEGIN
   CREATE TABLE cache_locks (
     [key] VARCHAR(255) PRIMARY KEY,

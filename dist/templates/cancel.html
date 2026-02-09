@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout Canceled</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; 
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+      min-height: 100vh; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      padding: 20px; 
+    }
+    .container { 
+      background: white; 
+      border-radius: 12px; 
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); 
+      padding: 40px; 
+      max-width: 500px; 
+      width: 100%; 
+      text-align: center; 
+    }
+    .cancel-icon { 
+      font-size: 48px; 
+      margin-bottom: 15px; 
+    }
+    h1 { 
+      color: #f57c00; 
+      font-size: 28px; 
+      margin-bottom: 8px; 
+    }
+    .subtitle { 
+      color: #666; 
+      font-size: 16px; 
+      line-height: 1.6; 
+      margin-bottom: 20px; 
+    }
+    .message-box { 
+      background: #fff3e0; 
+      border-left: 4px solid #f57c00; 
+      padding: 15px 20px; 
+      border-radius: 8px; 
+      margin: 20px 0; 
+      text-align: left; 
+    }
+    .message-box p { 
+      color: #666; 
+      font-size: 14px; 
+      line-height: 1.6; 
+    }
+    .message-box li { 
+      margin-left: 20px; 
+      color: #666; 
+      font-size: 14px; 
+      margin-bottom: 8px; 
+    }
+    .actions { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 10px; 
+      margin-top: 30px; 
+    }
+    button { 
+      padding: 12px 20px; 
+      border: none; 
+      border-radius: 8px; 
+      font-size: 16px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.3s; 
+    }
+    .btn-retry { 
+      background: #f57c00; 
+      color: white; 
+    }
+    .btn-retry:hover { 
+      background: #e65100; 
+    }
+    .btn-close { 
+      background: #f0f0f0; 
+      color: #333; 
+    }
+    .btn-close:hover { 
+      background: #e0e0e0; 
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="cancel-icon">⏸️</div>
+    <h1>Checkout Canceled</h1>
+    <p class="subtitle">You've canceled the checkout process.</p>
+
+    <div class="message-box">
+      <p><strong>What happens next?</strong></p>
+      <ul>
+        <li>Your payment was not processed</li>
+        <li>No charges have been made to your account</li>
+        <li>You can try again whenever you're ready</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <button class="btn-retry" onclick="window.location.href = '/api/v1/subscriptions/stripe/product'">Retry Subscription</button>
+      <button class="btn-close" onclick="window.close()">Close</button>
+    </div>
+  </div>
+</body>
+</html>

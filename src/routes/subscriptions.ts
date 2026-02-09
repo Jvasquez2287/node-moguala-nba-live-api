@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { stripeService } from '../services/stripe';
+import clerkService from '../services/clerk';
 import subscriptionsService from '../services/subscriptions';
 
 const router = express.Router();
@@ -7,7 +8,7 @@ const router = express.Router();
 
 const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID || 'prod_QDRXMY3ecBW5bP';
 const PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1PN0eXC9Z59e8GjO06cltizs';
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); 
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 
 /**
@@ -17,7 +18,11 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
+
+    console.log('[Subscriptions] Fetching subscriptions with query:', req.query);
     const { customerId } = req.query;
+
+    console.log(`[Subscriptions] Fetching subscriptions for customerId: ${customerId}`);
 
     if (!customerId) {
       return res.status(400).json({ error: 'customerId is required' });
@@ -25,9 +30,13 @@ router.get('/', async (req: Request, res: Response) => {
 
     const subscription = await stripeService.getSubscriptionFromDB(customerId as string);
 
+    console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
+
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
+
+    console.log(`[Subscriptions] Returning subscription for customerId ${customerId}:`, subscription);
 
     res.json({
       success: true,
@@ -38,6 +47,41 @@ router.get('/', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch subscriptions' });
   }
 });
+
+///subscriptions/current
+router.get('/current', async (req: Request, res: Response) => {
+  try {
+
+    const token = req.headers.authorization?.split(' ')[1];
+    const clerkId = req.headers['x-clerk-id'] as string | undefined;
+    console.log(`[Subscriptions] Fetching current subscription for clerkId: ${clerkId} with token: ${token}`);
+
+    console.log(`[Subscriptions] Fetching subscriptions for client id: ${clerkId}`);
+
+    if (!clerkId) {
+      return res.status(400).json({ error: 'clerkId is required' });
+    }
+
+    const subscription = await  stripeService.getSubscriptionFromDBWithClerkId(clerkId as string);
+
+    console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}:`, subscription);
+
+    res.json({
+      success: true,
+      data: subscription
+    });
+  } catch (error) {
+    console.error('[Subscriptions] Error fetching subscriptions:', error);
+    res.status(500).json({ error: 'Failed to fetch subscriptions' });
+  }
+});
+
 
 /**
  * GET /api/v1/subscriptions/:subscriptionId
@@ -110,28 +154,109 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * DELETE /api/v1/subscriptions/cancel
+ * Cancel a subscription (POST with body containing subscriptionId)
+ */
+router.delete('/cancel', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.body;
+    
+    console.log(`[Subscriptions] Canceling subscription with ID:`, subscriptionId);
+    console.log('Body:', req.body);
+    console.log('Headers:', req.headers);
+
+    if (!subscriptionId) {
+      return res.status(400).json({ error: 'subscriptionId is required in body' });
+    }
+
+    // Handle subscriptionId as array [dbId, stripeId] or string
+    let dbId: number | string;
+    let stripeSubscriptionId: string;
+    
+    if (Array.isArray(subscriptionId)) {
+      dbId = subscriptionId[0]; // Database ID
+      stripeSubscriptionId = subscriptionId[1]; // Stripe subscription ID
+    } else {
+      stripeSubscriptionId = subscriptionId;
+      dbId = subscriptionId;
+    }
+
+    console.log(`[Subscriptions] Parsed IDs - DB ID: ${dbId}, Stripe ID: ${stripeSubscriptionId}`);
+
+    // Cancel subscription in Stripe
+    try {
+      await stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
+      console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} canceled successfully`);
+    } catch (stripeError) {
+      console.error(`[Subscriptions] Error canceling Stripe subscription ${stripeSubscriptionId}:`, stripeError);
+    }
+
+    // Update subscription status in database
+    const { executeQuery } = await import('../config/database');
+    await executeQuery(
+      'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE id = @id OR subscription_id = @subId',
+      { 
+        status: 'canceled', 
+        now: new Date().toISOString(), 
+        id: typeof dbId === 'number' ? dbId : parseInt(dbId as string),
+        subId: stripeSubscriptionId
+      }
+    );
+
+    console.log(`[Subscriptions] Updated subscription status in database`);
+
+    res.json({
+      success: true,
+      message: 'Subscription canceled successfully',
+      data: {
+        dbId,
+        stripeSubscriptionId
+      }
+    });
+  } catch (error) {
+    console.error('[Subscriptions] Error canceling subscription:', error);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+/**
  * DELETE /api/v1/subscriptions/:subscriptionId
- * Cancel a subscription
+ * Cancel a subscription by ID
  */
 router.delete('/:subscriptionId', async (req: Request, res: Response) => {
   try {
     const { subscriptionId } = req.params;
 
+    console.log(`[Subscriptions] Canceling subscription with ID: ${subscriptionId}`);
+    console.log('Body:', req.body);
+    console.log('Headers:', req.headers);
+
     if (!subscriptionId) {
       return res.status(400).json({ error: 'subscriptionId is required' });
     }
 
-    // Update subscription status to canceled
+    // Get subscription from database
     const subscription = await stripeService.getSubscriptionFromDB(subscriptionId);
 
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
 
+    // Cancel in Stripe if we have the Stripe subscription ID
+    if (subscription.subscription_id) {
+      try {
+        await stripe.subscriptions.update(subscription.subscription_id, { cancel_at_period_end: true });
+        console.log(`[Subscriptions] Stripe subscription ${subscription.subscription_id} canceled successfully`);
+      } catch (stripeError) {
+        console.error(`[Subscriptions] Error canceling Stripe subscription:`, stripeError);
+      }
+    }
+
+    // Update subscription status in database
     const { executeQuery } = await import('../config/database');
     await executeQuery(
       'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE subscription_id = @subId',
-      { status: 'canceled', now: new Date(), subId: subscriptionId }
+      { status: 'canceled', now: new Date().toISOString(), subId: subscriptionId }
     );
 
     res.json({
@@ -141,6 +266,27 @@ router.delete('/:subscriptionId', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Subscriptions] Error deleting subscription:', error);
     res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+
+router.delete('/cancel/:subscriptionId', async (req: Request, res: Response) => {
+  try {
+    const { subscriptionId } = req.params;
+    console.log(`[Subscriptions] Canceling Stripe subscription with ID: ${subscriptionId}`);
+
+    if (!subscriptionId) {
+      return res.status(400).json({ error: 'subscriptionId is required' });
+    } 
+    await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+    console.log(`[Subscriptions] Stripe subscription ${subscriptionId} canceled successfully`);
+    res.json({
+      success: true,
+      message: 'Stripe subscription canceled'
+      });
+  } catch (error) {
+    console.error('[Subscriptions] Error canceling Stripe subscription:', error);
+    res.status(500).json({ error: 'Failed to cancel Stripe subscription' });
   }
 });
 
@@ -256,7 +402,7 @@ router.get('/stripe/product', async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         error: 'Product not found in Stripe',
-       productId: productIdParam
+        productId: productIdParam
       });
     }
 
@@ -392,7 +538,7 @@ router.get('/stripe/all', async (req: Request, res: Response) => {
     });
   }
 });
- 
+
 // POST /api/v1/subscriptions/checkout
 // Create a Stripe checkout session for subscription
 router.post('/checkout', async (req: Request, res: Response) => {
@@ -407,7 +553,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
       });
     }
 
-    if (!userId ) {
+    if (!userId) {
       return res.status(400).json({
         error: 'clerkId or email is required',
       });
@@ -468,17 +614,17 @@ router.post('/checkout', async (req: Request, res: Response) => {
 router.get('/success', async (req: express.Request, res: express.Response) => {
   try {
     const { session_id } = req.query;
-    
+
     if (!session_id) {
       return res.status(400).json({ error: 'session_id is required' });
     }
- 
+
     const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
-    
+
     res.json(result);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to process checkout session',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -486,5 +632,5 @@ router.get('/success', async (req: express.Request, res: express.Response) => {
 });
 
 
- 
+
 export default router;

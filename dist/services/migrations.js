@@ -31,7 +31,7 @@ exports.migrationService = {
         BEGIN TRY
           IF NOT EXISTS (
             SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
-            WHERE TABLE_NAME = 'migrations' AND TABLE_SCHEMA = 'dbo'
+            WHERE TABLE_NAME = 'migrations' AND TABLE_SCHEMA = 'db-xur'
           )
           CREATE TABLE migrations (
             id INT PRIMARY KEY IDENTITY(1,1),

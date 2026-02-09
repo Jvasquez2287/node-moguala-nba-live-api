@@ -245,6 +245,33 @@ export const stripeService = {
     }
   },
 
+  async getSubscriptionFromDBWithClerkId(clerkId: string) {
+    try {
+      const result = await executeQuery(
+        'SELECT * FROM subscriptions WHERE clerk_id = @clerkId',
+        { clerkId }
+      );
+      return result.recordset[0] || null;
+      
+    } catch (error) {
+      console.error('[Stripe] Error getting subscription status:', error);
+      throw error;
+    }
+  },
+
+ async getSubscriptionFromDBWithUserId(userId: string) {
+    try {
+      const result = await executeQuery(
+        'SELECT * FROM subscriptions WHERE user_id = @userId',
+        { userId }
+      );
+      return result.recordset[0] || null;
+    } catch (error) {
+      console.error('[Stripe] Error getting subscription status:', error);
+      throw error;
+    }
+  },
+
   /**
    * Get subscription from database
    */

@@ -557,6 +557,27 @@ exports.clerkService = {
             throw error;
         }
     },
+    async getSubscriptionStatus(clerkId) {
+        try {
+            const user = await this.getUserByClerkId(clerkId);
+            if (!user) {
+                throw new Error('User not found');
+            }
+            if (!user.stripe_id) {
+                throw new Error('User has no associated Stripe customer');
+            }
+            const subscriptions = await stripe_1.default.getCustomerSubscriptions(user.stripe_id);
+            if (subscriptions.length === 0) {
+                return 'no_subscription';
+            }
+            const activeSubscription = subscriptions.find(sub => sub.status === 'active');
+            return activeSubscription ? 'active' : 'inactive';
+        }
+        catch (error) {
+            console.error('[Clerk] Error getting subscription status:', error);
+            throw error;
+        }
+    },
     /**
      * Start automatic user sync every 24 hours
      */

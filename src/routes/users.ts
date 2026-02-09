@@ -9,13 +9,16 @@ const router = express.Router();
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    console.log('[Users] Fetching users with subscription check', req.headers);
+    console.log('[Users] Fetching users with subscription check' );
     const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
     if (!validationResult.valid) {
       return res.status(401).json({ success: false, error: 'Invalid or missing security parameters' });
     }
      
     const user = await  userService.getUserByClerkIdWithSubscription(validationResult.user?.clerk_id || '');
+
+    console.log('[Users] User fetched with subscription info:', user);
+
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }

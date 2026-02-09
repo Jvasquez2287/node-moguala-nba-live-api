@@ -230,6 +230,26 @@ exports.stripeService = {
             throw error;
         }
     },
+    async getSubscriptionFromDBWithClerkId(clerkId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT * FROM subscriptions WHERE clerk_id = @clerkId', { clerkId });
+            return result.recordset[0] || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting subscription status:', error);
+            throw error;
+        }
+    },
+    async getSubscriptionFromDBWithUserId(userId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT * FROM subscriptions WHERE user_id = @userId', { userId });
+            return result.recordset[0] || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting subscription status:', error);
+            throw error;
+        }
+    },
     /**
      * Get subscription from database
      */

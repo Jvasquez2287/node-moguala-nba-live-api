@@ -68,6 +68,7 @@ export declare const clerkService: {
         updated: number;
         failed: number;
     }>;
+    getSubscriptionStatus(clerkId: string): Promise<"no_subscription" | "active" | "inactive">;
     /**
      * Start automatic user sync every 24 hours
      */

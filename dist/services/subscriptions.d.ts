@@ -22,10 +22,10 @@ export declare const subscriptionsService: {
             subscription: {
                 id: string;
                 status: string;
-                currentPeriodStart: Date;
-                currentPeriodEnd: Date;
-                cancelAt: Date | null;
-                canceledAt: Date | null;
+                currentPeriodStart: string;
+                currentPeriodEnd: string;
+                cancelAt: string | null;
+                canceledAt: string | null;
             };
         };
     }>;

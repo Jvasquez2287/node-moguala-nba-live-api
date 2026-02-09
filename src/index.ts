@@ -176,7 +176,7 @@ app.use('/api/v1/user', usersRouter);
 const handleSubscriptionSuccess = async (req: express.Request, res: express.Response) => {
   try {
     const { session_id } = req.query;
-    const templatesDir = path.join(__dirname, '..', 'templates');
+    const templatesDir = path.join(__dirname, 'templates');
     
     if (!session_id) {
       const invalidTemplate = await fs.readFile(path.join(templatesDir, 'invalid.html'), 'utf-8');
@@ -192,9 +192,11 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
     
     const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
     const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
-    const periodStart = new Date(result.data.subscription.currentPeriodStart).toLocaleDateString();
-    const periodEnd = new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString();
+    const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
+    const periodEnd = result.data.subscription.currentPeriodEnd ? new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString() : 'N/A';
     const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
+    
+    console.log(`[SubscriptionsRouter] Parsed dates - Start: ${periodStart}, End: ${periodEnd}`);
     
     successTemplate = successTemplate
       .replace('{{USER_NAME}}', userName)
@@ -211,7 +213,7 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const templatesDir = path.join(__dirname, '..', 'templates');
+    const templatesDir = path.join(__dirname, 'templates');
     
     try {
       let errorTemplate = await fs.readFile(path.join(templatesDir, 'error.html'), 'utf-8');
@@ -236,7 +238,7 @@ app.get('/subscriptions/success', handleSubscriptionSuccess);
 // Subscription cancel redirect handler
 app.get('/subscription/cancel', async (req: express.Request, res: express.Response) => {
   try {
-    const templatesDir = path.join(__dirname, '..', 'templates');
+    const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(cancelTemplate);
@@ -248,7 +250,7 @@ app.get('/subscription/cancel', async (req: express.Request, res: express.Respon
 
 app.get('/subscriptions/cancel', async (req: express.Request, res: express.Response) => {
   try {
-    const templatesDir = path.join(__dirname, '..', 'templates');
+    const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(cancelTemplate);

@@ -15,6 +15,8 @@ interface StripeSubscription {
         product: string;
         nickname?: string;
       };
+      current_period_start: number;
+      current_period_end: number;
     }>;
   };
   current_period_start: number;
@@ -82,16 +84,25 @@ export const subscriptionsService = {
         user.stripe_id = subscription.customer;
       }
 
-      // Step 6: Get product ID from subscription items
+      // Step 6: Get product ID and dates from subscription items
       const productId = subscription.items?.data?.[0]?.plan?.product;
+      const itemStartDate = subscription.items?.data?.[0]?.current_period_start;
+      const itemEndDate = subscription.items?.data?.[0]?.current_period_end;
 
       // Debug logging for timestamps
-      console.log(`[SubscriptionsService] Timestamps - start: ${subscription.current_period_start}, end: ${subscription.current_period_end}, canceled: ${subscription.canceled_at}`);
+      console.log(`[SubscriptionsService] Timestamps - start: ${itemStartDate}, end: ${itemEndDate}, canceled: ${subscription.canceled_at}`);
+      console.log(`[SubscriptionsService] Timestamp types - start: ${typeof itemStartDate}, end: ${typeof itemEndDate}`);
+      
+      // Calculate the difference to verify they're different
+      if (itemStartDate && itemEndDate) {
+        const diff = itemEndDate - itemStartDate;
+        console.log(`[SubscriptionsService] Period difference in seconds: ${diff}`);
+      }
 
       // Helper function to safely convert Unix timestamp to ISO string
       const convertTimestampToISO = (timestamp: number | null | undefined): string | null => {
         if (!timestamp || typeof timestamp !== 'number') {
-          console.warn(`[SubscriptionsService] Invalid timestamp: ${timestamp}`);
+          console.warn(`[SubscriptionsService] Invalid timestamp: ${timestamp}, type: ${typeof timestamp}`);
           return null;
         }
         try {
@@ -100,25 +111,28 @@ export const subscriptionsService = {
             console.warn(`[SubscriptionsService] Date is NaN for timestamp: ${timestamp}`);
             return null;
           }
-          return date.toISOString();
+          const iso = date.toISOString();
+          console.log(`[SubscriptionsService] Converted timestamp ${timestamp} to ${iso}`);
+          return iso;
         } catch (error) {
           console.error(`[SubscriptionsService] Error converting timestamp ${timestamp}:`, error);
           return null;
         }
       };
 
-      // Step 7: Check if subscription already exists
+      // Step 7: Check if user already has a subscription
       const existingSubscription = await executeQuery(
-        'SELECT id FROM subscriptions WHERE subscription_id = @subscription_id',
-        { subscription_id: subscription.id }
+        'SELECT id FROM subscriptions WHERE user_id = @user_id',
+        { user_id: user.id }
       );
 
       const subscriptionData = {
         stripe_id: subscription.customer,
         subscription_id: subscription.id,
         user_id: user.id,
-        subscription_start_date: convertTimestampToISO(subscription.current_period_start) || new Date().toISOString(),
-        subscription_end_date: convertTimestampToISO(subscription.current_period_end) || new Date().toISOString(),
+        clerk_id: user.clerk_id,
+        subscription_start_date: convertTimestampToISO(itemStartDate) || new Date().toISOString(),
+        subscription_end_date: convertTimestampToISO(itemEndDate) || new Date().toISOString(),
         subscription_status: subscription.status,
         subscription_title: (subscription as any).items?.data?.[0]?.plan?.nickname || 'Premium Subscription',
         subscription_next_billing_date: convertTimestampToISO(subscription.current_period_end) || new Date().toISOString(),
@@ -131,40 +145,44 @@ export const subscriptionsService = {
 
       // Step 8: Create or update subscription in database
       if (existingSubscription.recordset && existingSubscription.recordset.length > 0) {
-        // Update existing subscription
+        // Update existing subscription for this user
         await executeQuery(
           `UPDATE subscriptions 
-           SET subscription_status = @status, 
+           SET subscription_id = @subscription_id,
+               subscription_status = @status, 
                subscription_start_date = @start_date,
                subscription_end_date = @end_date,
                subscription_next_billing_date = @next_billing,
                subscription_latest_invoice_Id = @invoice_id,
-               user_id = @user_id,
+               stripe_id = @stripe_id,
+               clerk_id = @clerk_id,
                updated_at = @updated_at
-           WHERE subscription_id = @subscription_id`,
+           WHERE user_id = @user_id`,
           {
+            subscription_id: subscription.id,
             status: subscriptionData.subscription_status,
             start_date: subscriptionData.subscription_start_date,
             end_date: subscriptionData.subscription_end_date,
             next_billing: subscriptionData.subscription_next_billing_date,
             invoice_id: subscriptionData.subscription_latest_invoice_Id,
+            stripe_id: subscriptionData.stripe_id,
+            clerk_id: subscriptionData.clerk_id,
             user_id: user.id,
-            subscription_id: subscription.id,
             updated_at: new Date().toISOString()
           }
         );
-        console.log(`[SubscriptionsService] Updated existing subscription: ${subscription.id}`);
+        console.log(`[SubscriptionsService] Updated existing subscription for user: ${user.id}`);
       } else {
         // Create new subscription
         await executeQuery(
           `INSERT INTO subscriptions (
-            stripe_id, subscription_id, user_id, subscription_start_date, 
+            stripe_id, subscription_id, user_id, clerk_id, subscription_start_date, 
             subscription_end_date, subscription_status, subscription_title,
             subscription_next_billing_date, subscription_latest_invoice_Id,
             subscription_invoice_pdf_url, subscription_canceled_at, product_id, 
             created_at, updated_at
           ) VALUES (
-            @stripe_id, @subscription_id, @user_id, @start_date,
+            @stripe_id, @subscription_id, @user_id, @clerk_id, @start_date,
             @end_date, @status, @title,
             @next_billing, @invoice_id,
             @invoice_pdf, @canceled_at, @product_id,
@@ -174,6 +192,7 @@ export const subscriptionsService = {
             stripe_id: subscriptionData.stripe_id,
             subscription_id: subscriptionData.subscription_id,
             user_id: user.id,
+            clerk_id: subscriptionData.clerk_id,
             start_date: subscriptionData.subscription_start_date,
             end_date: subscriptionData.subscription_end_date,
             status: subscriptionData.subscription_status,
@@ -191,6 +210,11 @@ export const subscriptionsService = {
       }
 
       // Step 9: Return success response
+      const startISO = convertTimestampToISO(itemStartDate) || new Date().toISOString();
+      const endISO = convertTimestampToISO(itemEndDate) || new Date().toISOString();
+      
+      console.log(`[SubscriptionsService] Final response dates - Start: ${startISO}, End: ${endISO}`);
+      
       return {
         success: true,
         message: 'Subscription updated successfully',
@@ -210,10 +234,10 @@ export const subscriptionsService = {
           subscription: {
             id: subscription.id,
             status: subscription.status,
-            currentPeriodStart: new Date(subscription.current_period_start * 1000),
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-            cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
-            canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null
+            currentPeriodStart: startISO,
+            currentPeriodEnd: endISO,
+            cancelAt: convertTimestampToISO(subscription.cancel_at),
+            canceledAt: convertTimestampToISO(subscription.canceled_at)
           }
         }
       };

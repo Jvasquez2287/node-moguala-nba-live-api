@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc && npm run copy:migrations",
+    "build": "tsc && npm run copy:migrations && npm run copy:templates",
     "copy:migrations": "node -e \"const fs=require('fs'); const path=require('path'); const src='src/migrations'; const dst='dist/migrations'; if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true}); fs.readdirSync(src).forEach(f=>{fs.copyFileSync(path.join(src,f),path.join(dst,f))})\"",
+    "copy:templates": "node -e \"const fs=require('fs'); const path=require('path'); const src='src/templates'; const dst='dist/templates'; if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true}); fs.readdirSync(src).forEach(f=>{fs.copyFileSync(path.join(src,f),path.join(dst,f))})\"",
     "watch": "tsc --watch",
     "iisnode": "node dist/index.js"
   },

@@ -196,7 +196,7 @@ app.use('/api/v1/user', users_1.default);
 const handleSubscriptionSuccess = async (req, res) => {
     try {
         const { session_id } = req.query;
-        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        const templatesDir = path_1.default.join(__dirname, 'templates');
         if (!session_id) {
             const invalidTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'invalid.html'), 'utf-8');
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -208,9 +208,10 @@ const handleSubscriptionSuccess = async (req, res) => {
         let successTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'success.html'), 'utf-8');
         const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
         const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
-        const periodStart = new Date(result.data.subscription.currentPeriodStart).toLocaleDateString();
-        const periodEnd = new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString();
+        const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
+        const periodEnd = result.data.subscription.currentPeriodEnd ? new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString() : 'N/A';
         const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
+        console.log(`[SubscriptionsRouter] Parsed dates - Start: ${periodStart}, End: ${periodEnd}`);
         successTemplate = successTemplate
             .replace('{{USER_NAME}}', userName)
             .replace('{{USER_EMAIL}}', result.data.user.email)
@@ -226,7 +227,7 @@ const handleSubscriptionSuccess = async (req, res) => {
     catch (error) {
         console.error('[SubscriptionsRouter] Error processing checkout success:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        const templatesDir = path_1.default.join(__dirname, 'templates');
         try {
             let errorTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'error.html'), 'utf-8');
             errorTemplate = errorTemplate.replace('{{ERROR_MESSAGE}}', errorMessage);
@@ -249,7 +250,7 @@ app.get('/subscriptions/success', handleSubscriptionSuccess);
 // Subscription cancel redirect handler
 app.get('/subscription/cancel', async (req, res) => {
     try {
-        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        const templatesDir = path_1.default.join(__dirname, 'templates');
         const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(cancelTemplate);
@@ -261,7 +262,7 @@ app.get('/subscription/cancel', async (req, res) => {
 });
 app.get('/subscriptions/cancel', async (req, res) => {
     try {
-        const templatesDir = path_1.default.join(__dirname, '..', 'templates');
+        const templatesDir = path_1.default.join(__dirname, 'templates');
         const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(cancelTemplate);
