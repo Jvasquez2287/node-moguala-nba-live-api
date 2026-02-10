@@ -201,7 +201,7 @@ router.get('/clerk/users/:email', async (req: Request, res: Response) => {
     const user = await clerkService.getUserByEmail(email);
 
     if (!user) {
-      return res.status(404).json({
+      return res.json({
         success: false,
         error: 'User not found',
         email: email
