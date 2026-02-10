@@ -84,12 +84,12 @@ app.get("/", (req, res) => {
 // Allow access to assets/logos/ via /logos
 app.get('/logos', (req, res) => {
     res.json({
-        message: 'Access team logos at /logos/150x150/{abbreviation}.png or /logos/250x250/{abbreviation}.png',
-        example: '/logos/250x250/LAL.png'
+        message: 'Access team logos at /logos/150/{abbreviation}.png or /logos/250/{abbreviation}.png',
+        example: '/logos/250/LAL.png'
     });
 });
-app.use('/logos/150x150', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '150x150')));
-app.use('/logos/250x250', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '250x250')));
+app.use('/logos/150', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '150x150')));
+app.use('/logos/250', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '250x250')));
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
