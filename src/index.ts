@@ -52,7 +52,14 @@ app.get("/", (req, res) => {
 });
 
 // Allow access to assets/logos/ via /logos
-app.use('/logos', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png')));
+app.get('/logos', (req, res) => {
+  res.json({
+    message: 'Access team logos at /logos/150x150/{abbreviation}.png or /logos/250x250/{abbreviation}.png',
+    example: '/logos/250x250/LAL.png'
+  });
+});
+app.use('/logos/150x150', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png','150x150')));
+app.use('/logos/250x250', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png','250x250')));
  
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
