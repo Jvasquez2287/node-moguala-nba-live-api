@@ -71,7 +71,8 @@ router.get('/team/:code', (req, res) => {
     const logoPath = path.join(process.cwd(), 'assets', 'logos', `${code.toUpperCase()}`);
     if(!fs.existsSync(logoPath)) {
       console.warn(`Logo file not found: ${logoPath}`);
-      return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
+      return res.json({ success: false, error: `Invalid or missing team code: ${code}`,
+      'path': logoPath });
     }
     return res.sendFile(logoPath, err => {
       if (err) {
