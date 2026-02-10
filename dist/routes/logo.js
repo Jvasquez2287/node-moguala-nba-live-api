@@ -63,7 +63,7 @@ router.get('/debug/list', (req, res) => {
  * Get logos for a specific team code
  * GET /api/v1/logo/team?code=ATL
  */
-router.get('/team/:code', (req, res) => {
+router.get('/:code', (req, res) => {
     try {
         let { code } = req.params;
         const logoPath = path_1.default.join(__dirname, '..', '..', 'assets', 'logos', `${code.toUpperCase()}`);
