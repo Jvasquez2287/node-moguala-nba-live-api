@@ -82,7 +82,18 @@ app.get("/", (req, res) => {
     });
 });
 // Allow access to assets/logos/ via /logos
-app.use('/logos', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos')));
+app.use('/logos', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png')));
+app.get("/download-logos", async (req, res) => {
+    try {
+        const downloadLogos = await Promise.resolve().then(() => __importStar(require('./services/downloadNBALogos'))).then(m => m.default);
+        await downloadLogos();
+        res.json({ success: true, message: "Logos downloaded successfully" });
+    }
+    catch (error) {
+        console.error('Error downloading logos:', error);
+        res.status(500).json({ success: false, error: 'Failed to download logos' });
+    }
+});
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
