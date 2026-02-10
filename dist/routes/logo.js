@@ -61,11 +61,11 @@ router.get('/debug/list', (req, res) => {
 });
 /**
  * Get logos for a specific team code
- * GET /api/v1/logo/team/:code
+ * GET /api/v1/logo/team?code=ATL
  */
-router.get('/team/:code', (req, res) => {
+router.get('/team', (req, res) => {
     try {
-        const { code } = req.params;
+        const { code } = req.query;
         if (!code || typeof code !== 'string') {
             return res.status(400).json({ error: 'Team code is required and must be a string' });
         }
@@ -83,7 +83,7 @@ router.get('/team/:code', (req, res) => {
     }
     catch (error) {
         console.log('Error fetching team codes:', error);
-        res.status(500).json({ error: 'Failed to fetch team codes' });
+        res.status(500).json({ error: 'Failed to fetch team codes ' });
     }
 });
 exports.default = router;
