@@ -66,20 +66,12 @@ router.get('/debug/list', (req, res) => {
  */
 router.get('/team/:code', (req, res) => {
   try {
-    let { code } = req.params;
+    let { code } = req.params; 
 
-    if (code && code.endsWith('.png')) {
-      code = code.slice(0, -4);
-    }
-
-    if (!code || !validTeamCodes.includes(code.toUpperCase())) {
-      return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
-    }
-
-    const logoPath = path.join(process.cwd(), 'assets', 'logos', 'png', `${code.toUpperCase()}.png`);
+    const logoPath = path.join(process.cwd(), 'assets', 'logos', `${code.toUpperCase()}`);
     if(!fs.existsSync(logoPath)) {
       console.warn(`Logo file not found: ${logoPath}`);
-      return res.json({ success: false, error: 'Logo not found' });
+      return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
     }
     return res.sendFile(logoPath, err => {
       if (err) {
