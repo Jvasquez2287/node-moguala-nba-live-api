@@ -65,11 +65,11 @@ router.get('/debug/list', (req, res) => {
  */
 router.get('/team', (req, res) => {
     try {
-        return res.status(400).json({ error: 'Please use the endpoint /api/v1/team-logo/:code.png to fetch team logos' });
+        return res.json({ success: true, teamCodes: validTeamCodes });
     }
     catch (error) {
         console.log('Error fetching team codes:', error);
-        res.status(500).json({ error: 'Failed to fetch team codes ' });
+        res.json({ success: false, error: 'Failed to fetch team codes ' });
     }
 });
 exports.default = router;
