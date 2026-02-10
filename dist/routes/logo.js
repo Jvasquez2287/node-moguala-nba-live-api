@@ -172,16 +172,18 @@ router.get('/:teamCode', (req, res) => {
         // Set the content type and send the file
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
-        console.log(`Sending file: ${logoPath}`);
-        res.sendFile(logoPath, (err) => {
+        console.log(`Reading file: ${logoPath}`);
+        // Read and send the file using fs.readFile
+        fs_1.default.readFile(logoPath, (err, data) => {
             if (err) {
-                console.error(`Error sending file ${logoPath}:`, err);
+                console.error(`Error reading file ${logoPath}:`, err);
                 if (!res.headersSent) {
-                    res.status(500).json({ error: 'Failed to send file', details: err.message });
+                    res.status(500).json({ error: 'Failed to read file', details: err.message });
                 }
             }
             else {
-                console.log(`File sent successfully: ${logoPath}`);
+                console.log(`File read successfully, sending ${data.length} bytes from ${logoPath}`);
+                res.send(data);
             }
         });
     }
