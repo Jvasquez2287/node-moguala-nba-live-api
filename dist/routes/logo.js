@@ -65,11 +65,11 @@ router.get('/debug/list', (req, res) => {
  */
 router.get('/team', (req, res) => {
     try {
-        return res.status(500).json({ error: 'Failed to fetch team codes' });
+        return res.json({ success: true, teamCodes: validTeamCodes });
     }
     catch (error) {
         console.log('Error fetching team codes:', error);
-        res.status(500).json({ error: 'Failed to fetch team codes ' });
+        res.json({ success: false, error: 'Failed to fetch team codes ' });
     }
 });
 exports.default = router;
