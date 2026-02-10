@@ -63,7 +63,7 @@ router.get('/debug/list', (req, res) => {
  * Get logos for a specific team code
  * GET /api/v1/logo/team?code=ATL
  */
-router.get('/team', (req, res) => {
+router.get('/team/', (req, res) => {
     try {
         return res.json({ success: true, teamCodes: validTeamCodes });
     }
