@@ -107,7 +107,8 @@ app.get("/api/v1/test", async (req, res) => {
     try {
         var status = 202;
         var http = require('http');
-        res.status(500).json({
+        res.send({
+            status: status,
             success: false,
             error: 'Failed to refresh cache',
             message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
