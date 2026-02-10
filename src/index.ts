@@ -262,6 +262,10 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
 });
 
  
+// Serve team logos as static files
+const logosPath = path.join(__dirname, '..', 'assets', 'logos');
+app.use('/api/v1/team-logo', express.static(logosPath));
+ 
 
 // Import WebSocket managers and services
 import {

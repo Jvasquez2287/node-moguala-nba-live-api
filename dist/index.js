@@ -272,6 +272,9 @@ app.get('/subscriptions/cancel', async (req, res) => {
         res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
     }
 });
+// Serve team logos as static files
+const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos');
+app.use('/api/v1/team-logo', express_1.default.static(logosPath));
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");
