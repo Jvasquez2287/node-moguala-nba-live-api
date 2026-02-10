@@ -190,7 +190,7 @@ router.post('/clerk', express.json(), async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error('[Webhook] Clerk webhook error:', error);
-   return res.json({ error: 'Webhook processing failed' });
+   return res.json({ error: 'Webhook processing failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
