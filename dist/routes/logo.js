@@ -14,15 +14,59 @@ const validTeamCodes = [
     'OKC', 'ORL', 'PHI', 'PHX', 'POR', 'SAC', 'SAS', 'TOR', 'UTA', 'WAS'
 ];
 /**
+ * Debug endpoint - List all available logos
+ * GET /api/v1/logo/debug/list
+ */
+router.get('/debug/list', (req, res) => {
+    try {
+        const possibleDirs = [
+            path_1.default.join(process.cwd(), 'assets', 'logos'),
+            path_1.default.join(__dirname, '..', 'assets', 'logos'),
+            path_1.default.join(__dirname, '..', '..', 'assets', 'logos')
+        ];
+        console.log(`Current working directory: ${process.cwd()}`);
+        console.log(`__dirname: ${__dirname}`);
+        const availableDirs = {};
+        for (const dir of possibleDirs) {
+            console.log(`Checking directory: ${dir}`);
+            if (fs_1.default.existsSync(dir)) {
+                try {
+                    const files = fs_1.default.readdirSync(dir).filter(f => f.endsWith('.png'));
+                    availableDirs[dir] = files;
+                    console.log(`  ✓ Found ${files.length} PNG files`);
+                }
+                catch (e) {
+                    console.log(`  Error reading directory: ${e}`);
+                }
+            }
+            else {
+                console.log(`  Directory does not exist`);
+            }
+        }
+        res.json({
+            cwd: process.cwd(),
+            dirname: __dirname,
+            checkedDirectories: possibleDirs,
+            availableLogo: availableDirs
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to list logos', details: String(error) });
+    }
+});
+/**
  * Get logo image for a team by team code
- * GET /api/v1/logo/:teamCode?size=150
- * size parameter: 150 or 250 (default: 150)
+ * GET /api/v1/logo/:teamCode or /api/v1/team-logo/:teamCode (.png extension optional)
  */
 router.get('/:teamCode', (req, res) => {
-    const { teamCode } = req.params || {};
-    const size = req.query.size || '150';
+    let { teamCode } = req.params || {};
+    // Remove .png extension if provided
+    if (teamCode && teamCode.endsWith('.png')) {
+        teamCode = teamCode.slice(0, -4);
+    }
     const uppercaseCode = teamCode ? teamCode.toUpperCase() : '';
-    console.log(`Received request for logo. Team code: ${teamCode}, Size: ${size}`);
+    console.log(`Received request for logo. Team code: ${teamCode}`);
+    console.log(`Current working directory: ${process.cwd()}`);
     // Validate team code
     if (!uppercaseCode || !validTeamCodes.includes(uppercaseCode)) {
         console.log(`Invalid team code requested: ${teamCode}`);
@@ -32,23 +76,28 @@ router.get('/:teamCode', (req, res) => {
         });
     }
     console.log(`Valid team code received: ${uppercaseCode}`);
-    // Validate size parameter
-    if (size !== '150' && size !== '250') {
-        return res.status(400).json({
-            error: 'Invalid size parameter',
-            message: 'Size must be either 150 or 250'
-        });
-    }
-    console.log(`Logo requested for team: ${uppercaseCode}, size: ${size}`);
     try {
-        // Build the path to the logo file
-        const logoPath = path_1.default.join(process.cwd(), 'assets', 'logos', `${size}x${size}`, `${uppercaseCode}.png`);
-        // Check if file exists
-        if (!fs_1.default.existsSync(logoPath)) {
-            console.log(`Logo file not found: ${logoPath}`);
+        // Try multiple possible paths
+        const possiblePaths = [
+            path_1.default.join(process.cwd(), 'assets', 'logos', `${uppercaseCode}.png`),
+            path_1.default.join(__dirname, '..', 'assets', 'logos', `${uppercaseCode}.png`),
+            path_1.default.join(__dirname, '..', '..', 'assets', 'logos', `${uppercaseCode}.png`)
+        ];
+        console.log(`Checking paths for ${uppercaseCode}:`, possiblePaths);
+        let logoPath = null;
+        for (const possiblePath of possiblePaths) {
+            console.log(`  Checking: ${possiblePath}`);
+            if (fs_1.default.existsSync(possiblePath)) {
+                logoPath = possiblePath;
+                console.log(`  ✓ Found at: ${logoPath}`);
+                break;
+            }
+        }
+        if (!logoPath) {
+            console.log(`Logo file not found at any location for team ${uppercaseCode}`);
             return res.status(404).json({
                 error: 'Logo not found',
-                message: `Logo file for team ${uppercaseCode} not found`
+                message: `Logo file for team ${uppercaseCode} not found. Checked paths: ${possiblePaths.join(', ')}`
             });
         }
         // Set the content type and send the file
