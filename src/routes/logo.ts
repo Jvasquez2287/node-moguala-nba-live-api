@@ -66,7 +66,7 @@ router.get('/debug/list', (req, res) => {
  */
 router.get('/team', (req, res) => {
   try {
-    return  res.status(500).json({ error: 'Failed to fetch team codes ' });
+    return  res.status(500).json({ error: 'Failed to fetch team codes' });
   } catch (error) {
     console.log('Error fetching team codes:', error);
     res.status(500).json({ error: 'Failed to fetch team codes ' });
