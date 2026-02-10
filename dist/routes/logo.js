@@ -27,6 +27,7 @@ router.get('/debug/list', (req, res) => {
         console.log(`Current working directory: ${process.cwd()}`);
         console.log(`__dirname: ${__dirname}`);
         const availableDirs = {};
+        let foundDir = null;
         for (const dir of possibleDirs) {
             console.log(`Checking directory: ${dir}`);
             if (fs_1.default.existsSync(dir)) {
@@ -34,6 +35,8 @@ router.get('/debug/list', (req, res) => {
                     const files = fs_1.default.readdirSync(dir).filter(f => f.endsWith('.png'));
                     availableDirs[dir] = files;
                     console.log(`  ✓ Found ${files.length} PNG files`);
+                    if (!foundDir)
+                        foundDir = dir;
                 }
                 catch (e) {
                     console.log(`  Error reading directory: ${e}`);
@@ -47,7 +50,9 @@ router.get('/debug/list', (req, res) => {
             cwd: process.cwd(),
             dirname: __dirname,
             checkedDirectories: possibleDirs,
-            availableLogo: availableDirs
+            foundDirectory: foundDir,
+            availableLogos: availableDirs,
+            example: foundDir ? `Try: GET /api/v1/team-logo/ATL.png` : 'No logos directory found'
         });
     }
     catch (error) {

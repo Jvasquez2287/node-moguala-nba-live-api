@@ -28,6 +28,7 @@ router.get('/debug/list', (req, res) => {
     console.log(`__dirname: ${__dirname}`);
 
     const availableDirs: { [key: string]: string[] } = {};
+    let foundDir = null;
 
     for (const dir of possibleDirs) {
       console.log(`Checking directory: ${dir}`);
@@ -36,6 +37,7 @@ router.get('/debug/list', (req, res) => {
           const files = fs.readdirSync(dir).filter(f => f.endsWith('.png'));
           availableDirs[dir] = files;
           console.log(`  ✓ Found ${files.length} PNG files`);
+          if (!foundDir) foundDir = dir;
         } catch (e) {
           console.log(`  Error reading directory: ${e}`);
         }
@@ -48,7 +50,9 @@ router.get('/debug/list', (req, res) => {
       cwd: process.cwd(),
       dirname: __dirname,
       checkedDirectories: possibleDirs,
-      availableLogo: availableDirs
+      foundDirectory: foundDir,
+      availableLogos: availableDirs,
+      example: foundDir ? `Try: GET /api/v1/team-logo/ATL.png` : 'No logos directory found'
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to list logos', details: String(error) });
