@@ -51,6 +51,10 @@ app.get("/", (req, res) => {
   });
 });
 
+// Allow access to assets/logos/ via /logos
+app.use('/api/v1/logos', express.static(path.join(__dirname, '..', 'assets', 'logos')));
+
+
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
   try {
@@ -159,7 +163,7 @@ app.use("/api/v1", predictionsRoutes);
 app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
-app.use('/api/v1/logos', logoRouter);
+//app.use('/api/v1/logos', logoRouter);
 
 // Webhook routes
 app.use('/api/v1/webhooks', webhooksRouter);
@@ -260,10 +264,11 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
   }
 });
 
+/*
 // Serve team logos as static files
 const logosPath = path.join(__dirname, '..', 'assets', 'logos');
 app.use('/api/v1/team-logo', express.static(logosPath));
-
+*/
 
 // Import WebSocket managers and services
 import {

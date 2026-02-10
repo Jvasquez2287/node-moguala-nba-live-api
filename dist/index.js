@@ -81,6 +81,8 @@ app.get("/", (req, res) => {
         }
     });
 });
+// Allow access to assets/logos/ via /logos
+app.use('/api/v1/logos', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos')));
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
@@ -169,7 +171,6 @@ const search_1 = __importDefault(require("./routes/search"));
 const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
-const logo_1 = __importDefault(require("./routes/logo"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
@@ -183,7 +184,7 @@ app.use("/api/v1", predictions_1.default);
 app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
-app.use('/api/v1/logos', logo_1.default);
+//app.use('/api/v1/logos', logoRouter);
 // Webhook routes
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Subscription management routes
@@ -272,9 +273,11 @@ app.get('/subscriptions/cancel', async (req, res) => {
         res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
     }
 });
+/*
 // Serve team logos as static files
-const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos');
-app.use('/api/v1/team-logo', express_1.default.static(logosPath));
+const logosPath = path.join(__dirname, '..', 'assets', 'logos');
+app.use('/api/v1/team-logo', express.static(logosPath));
+*/
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");
