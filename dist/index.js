@@ -169,6 +169,7 @@ const search_1 = __importDefault(require("./routes/search"));
 const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
+const logo_1 = __importDefault(require("./routes/logo"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
@@ -182,7 +183,7 @@ app.use("/api/v1", predictions_1.default);
 app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
-//app.use('/api/v1/logos', logoRouter);
+app.use('/logos', logo_1.default);
 // Webhook routes
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Subscription management routes
@@ -271,9 +272,6 @@ app.get('/subscriptions/cancel', async (req, res) => {
         res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
     }
 });
-// Serve team logos as static files
-const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos/150x150');
-app.use('/logos/150x150', express_1.default.static(logosPath));
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");

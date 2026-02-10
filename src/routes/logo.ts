@@ -1,4 +1,6 @@
-import express from 'express'; 
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
 
@@ -11,46 +13,63 @@ const validTeamCodes = [
 ];
 
 /**
- * Get logo URL for a team by team code
- * GET /api/v1/logo/:teamCode
- */
-/**
- * Get logo URL for a team by team code
- * GET /api/v1/logo/:teamCode
+ * Get logo image for a team by team code
+ * GET /api/v1/logo/:teamCode?size=150
+ * size parameter: 150 or 250 (default: 150)
  */
 router.get('/:teamCode', (req, res) => {
   const { teamCode } = req.params || {};
+  const size = req.query.size || '150';
   const uppercaseCode = teamCode ? teamCode.toUpperCase() : '';
+
+  console.log(`Received request for logo. Team code: ${teamCode}, Size: ${size}`);
 
   // Validate team code
   if (!uppercaseCode || !validTeamCodes.includes(uppercaseCode)) {
-   console.log(`Invalid team code requested: ${teamCode}`);
+    console.log(`Invalid team code requested: ${teamCode}`);
     return res.status(400).json({
       error: 'Invalid team code',
       message: `Team code '${teamCode}' is not valid. Valid codes are: ${validTeamCodes.join(', ')}`
     });
   }
 
- console.log(`Logo requested for team: ${uppercaseCode}`);
+  console.log(`Valid team code received: ${uppercaseCode}`);
+  // Validate size parameter
+  if (size !== '150' && size !== '250') {
+    return res.status(400).json({
+      error: 'Invalid size parameter',
+      message: 'Size must be either 150 or 250'
+    });
+  }
+
+  console.log(`Logo requested for team: ${uppercaseCode}, size: ${size}`);
 
   try {
-    // Simple approach: construct URL directly
-    const logoUrl = `/team-logo/${uppercaseCode}.png`;
+    // Build the path to the logo file
+    const logoPath = path.join(process.cwd(), 'assets', 'logos' , `${size}x${size}`, `${uppercaseCode}.png`);
+    
+    // Check if file exists
+    if (!fs.existsSync(logoPath)) {
+      console.log(`Logo file not found: ${logoPath}`);
+      return res.status(404).json({ 
+        error: 'Logo not found',
+        message: `Logo file for team ${uppercaseCode} not found`
+      });
+    }
 
-    res.json({
-      teamCode: uppercaseCode,
-      logoUrl: logoUrl,
-      filename: `${uppercaseCode}.png`
-    });
+    // Set the content type and send the file
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+    res.sendFile(logoPath);
   } catch (error) {
-   console.log(`Error processing logo request for ${teamCode}:`, error);
-    res.status(500).json({ error: 'Failed to fetch logo URL' });
+    console.log(`Error processing logo request for ${teamCode}:`, error);
+    res.status(500).json({ error: 'Failed to fetch logo' });
   }
 });
 
 /**
  * Get logo URLs for multiple teams
- * GET /api/v1/logos?teams=CHI,MIA,DAL
+ * GET /api/v1/logos-batch?teams=CHI,MIA,DAL
  */
 router.get('/logos-batch', (req, res) => {
   try {
@@ -67,13 +86,15 @@ router.get('/logos-batch', (req, res) => {
 
     const logos = teamCodes.map(teamCode => {
       const isValid = validTeamCodes.includes(teamCode);
-      
+
       return {
         teamCode,
         valid: isValid,
         ...(isValid && {
-          logoUrl: `/team-logo/${teamCode}.png`,
-          filename: `${teamCode}.png`
+          logos: {
+            small: `/logos/150x150/${teamCode}.png`,
+            large: `/logos/250x250/${teamCode}.png`
+          }
         }),
         ...(!isValid && {
           error: `Invalid team code '${teamCode}'`
@@ -87,7 +108,7 @@ router.get('/logos-batch', (req, res) => {
       invalidCount: logos.filter(l => !l.valid).length
     });
   } catch (error) {
-   console.log('Error fetching logos batch:', error);
+    console.log('Error fetching logos batch:', error);
     res.status(500).json({ error: 'Failed to fetch logos batch' });
   }
 });
@@ -100,7 +121,10 @@ router.get('/teams/codes', (req, res) => {
   try {
     const teams = validTeamCodes.map(code => ({
       code: code,
-      logoUrl: `/team-logo/${code}.png`
+      logos: {
+        small: `/logos/150x150/${code}.png`,
+        large: `/logos/250x250/${code}.png`
+      }
     }));
 
     res.json({
@@ -108,7 +132,7 @@ router.get('/teams/codes', (req, res) => {
       teams: teams
     });
   } catch (error) {
-   console.log('Error fetching team codes:', error);
+    console.log('Error fetching team codes:', error);
     res.status(500).json({ error: 'Failed to fetch team codes' });
   }
 });
