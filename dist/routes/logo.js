@@ -73,10 +73,14 @@ router.get('/team/:code', (req, res) => {
             return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
         }
         const logoPath = path_1.default.join(process.cwd(), 'assets', 'logos', 'png', `${code.toUpperCase()}.png`);
+        if (!fs_1.default.existsSync(logoPath)) {
+            console.warn(`Logo file not found: ${logoPath}`);
+            return res.json({ success: false, error: 'Logo not found' });
+        }
         return res.sendFile(logoPath, err => {
             if (err) {
                 console.error(`Error sending file ${logoPath}:`, err);
-                res.status(404).json({ error: 'Logo not found' });
+                res.json({ success: false, error: 'Logo not found' });
             }
         });
     }
