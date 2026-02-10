@@ -67,7 +67,7 @@ router.get('/team/:code', (req, res) => {
     try {
         const { code } = req.params;
         if (!code || !validTeamCodes.includes(code.toUpperCase())) {
-            return res.json({ success: false, error: 'Invalid or missing team code' });
+            return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
         }
         const logoPath = path_1.default.join(process.cwd(), 'assets', 'logos', 'png', `${code.toUpperCase()}.png`);
         return res.sendFile(logoPath, err => {
