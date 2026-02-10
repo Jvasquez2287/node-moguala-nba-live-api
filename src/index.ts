@@ -51,20 +51,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Allow access to assets/logos/ via /logos
-app.get('/logos', (req, res) => {
-  res.json({
-    message: 'Access team logos at /logos/150x150/{abbreviation}.png or /logos/250x250/{abbreviation}.png',
-    example: '/logos/250x250/LAL.png'
-  });
-});
 
-// Serve logo images from assets/logos directory
-const assetsDir = path.join(process.cwd(), 'assets', 'logos', 'png');
-console.log(`[Logos] Serving from: ${assetsDir}`);
-app.use('/logos/150x150', express.static(path.join(assetsDir, '150x150')));
-app.use('/logos/250x250', express.static(path.join(assetsDir, '250x250')));
- 
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
   try {
@@ -173,7 +160,7 @@ app.use("/api/v1", predictionsRoutes);
 app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
-//app.use('/api/v1/logos', logoRouter);
+app.use('/api/v1/logos', logoRouter);
 
 // Webhook routes
 app.use('/api/v1/webhooks', webhooksRouter);
@@ -274,11 +261,11 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
   }
 });
 
-/*
+ 
 // Serve team logos as static files
-const logosPath = path.join(__dirname, '..', 'assets', 'logos');
-app.use('/api/v1/team-logo', express.static(logosPath));
-*/
+const logosPath = path.join(__dirname, '..', 'assets', 'logos', 'png', '150x150');
+app.use('/logos', express.static(logosPath));
+ 
 
 // Import WebSocket managers and services
 import {

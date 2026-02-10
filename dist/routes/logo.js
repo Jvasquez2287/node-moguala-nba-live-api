@@ -33,11 +33,11 @@ router.get('/:teamCode', (req, res) => {
     console.log(`Logo requested for team: ${uppercaseCode}`);
     try {
         // Simple approach: construct URL directly
-        const logoUrl = `/team-logo/${uppercaseCode}.svg`;
+        const logoUrl = `/team-logo/${uppercaseCode}.png`;
         res.json({
             teamCode: uppercaseCode,
             logoUrl: logoUrl,
-            filename: `${uppercaseCode}.svg`
+            filename: `${uppercaseCode}.png`
         });
     }
     catch (error) {
@@ -65,8 +65,8 @@ router.get('/logos-batch', (req, res) => {
                 teamCode,
                 valid: isValid,
                 ...(isValid && {
-                    logoUrl: `/team-logo/${teamCode}.svg`,
-                    filename: `${teamCode}.svg`
+                    logoUrl: `/team-logo/${teamCode}.png`,
+                    filename: `${teamCode}.png`
                 }),
                 ...(!isValid && {
                     error: `Invalid team code '${teamCode}'`
@@ -92,7 +92,7 @@ router.get('/teams/codes', (req, res) => {
     try {
         const teams = validTeamCodes.map(code => ({
             code: code,
-            logoUrl: `/team-logo/${code}.svg`
+            logoUrl: `/team-logo/${code}.png`
         }));
         res.json({
             count: teams.length,

@@ -81,18 +81,6 @@ app.get("/", (req, res) => {
         }
     });
 });
-// Allow access to assets/logos/ via /logos
-app.get('/logos', (req, res) => {
-    res.json({
-        message: 'Access team logos at /logos/150x150/{abbreviation}.png or /logos/250x250/{abbreviation}.png',
-        example: '/logos/250x250/LAL.png'
-    });
-});
-// Serve logo images from assets/logos directory
-const assetsDir = path_1.default.join(process.cwd(), 'assets', 'logos', 'png');
-console.log(`[Logos] Serving from: ${assetsDir}`);
-app.use('/logos/150x150', express_1.default.static(path_1.default.join(assetsDir, '150x150')));
-app.use('/logos/250x250', express_1.default.static(path_1.default.join(assetsDir, '250x250')));
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
@@ -181,6 +169,7 @@ const search_1 = __importDefault(require("./routes/search"));
 const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
+const logo_1 = __importDefault(require("./routes/logo"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
@@ -194,7 +183,7 @@ app.use("/api/v1", predictions_1.default);
 app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
-//app.use('/api/v1/logos', logoRouter);
+app.use('/api/v1/logos', logo_1.default);
 // Webhook routes
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Subscription management routes
@@ -283,11 +272,9 @@ app.get('/subscriptions/cancel', async (req, res) => {
         res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
     }
 });
-/*
 // Serve team logos as static files
-const logosPath = path.join(__dirname, '..', 'assets', 'logos');
-app.use('/api/v1/team-logo', express.static(logosPath));
-*/
+const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '150x150');
+app.use('/logos', express_1.default.static(logosPath));
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");
