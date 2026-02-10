@@ -94,7 +94,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
     }
     catch (error) {
         console.error('[Webhook] Stripe webhook error:', error);
-        res.status(400).json({ error: 'Webhook processing failed' });
+        return res.json({ error: 'Webhook processing failed' });
     }
 });
 router.get('/stripe', async (req, res) => {
@@ -106,7 +106,7 @@ router.get('/stripe', async (req, res) => {
     }
     catch (error) {
         console.error('Error in Stripe test endpoint:', error);
-        res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to process request',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -122,7 +122,8 @@ router.post('/clerk', express_1.default.json(), async (req, res) => {
         console.log('[Webhook] Received Clerk event');
         const event = await clerk_1.clerkService.verifyWebhook(req);
         if (!event) {
-            throw new Error('Failed to verify webhook');
+            console.warn('[Webhook] Invalid Clerk webhook signature');
+            return res.json({ error: 'Invalid webhook signature' });
         }
         const { type, data } = event;
         switch (type) {
@@ -163,7 +164,7 @@ router.post('/clerk', express_1.default.json(), async (req, res) => {
     }
     catch (error) {
         console.error('[Webhook] Clerk webhook error:', error);
-        res.status(400).json({ error: 'Webhook processing failed' });
+        return res.json({ error: 'Webhook processing failed' });
     }
 });
 router.get('/clerk/users/:email', async (req, res) => {
@@ -195,7 +196,7 @@ router.get('/clerk/users/:email', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching user:', error);
-        res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to fetch user',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -211,7 +212,7 @@ router.get('/clerk', async (req, res) => {
     }
     catch (error) {
         console.error('Error in Clerk test endpoint:', error);
-        res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to process request',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -229,7 +230,7 @@ router.get('/clerk/cusers/:email', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching users:', error);
-        res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to fetch users',
             message: error instanceof Error ? error.message : 'Unknown error'
