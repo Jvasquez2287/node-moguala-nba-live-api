@@ -167,7 +167,8 @@ app.use('/api/v1/webhooks', webhooksRouter);
 // Subscription management routes
 app.use('/api/v1/subscriptions', subscriptionsRouter); 
  
-// User management routes 
+// User management routes
+app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/user', usersRouter);
 
 // Subscription success redirect handlers (from Stripe checkout)
