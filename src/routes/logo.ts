@@ -59,226 +59,34 @@ router.get('/debug/list', (req, res) => {
   }
 });
 
-/**
- * Get logo URLs for multiple teams
- * GET /api/v1/logo/logos-batch?teams=CHI,MIA,DAL
- */
-router.get('/logos-batch', (req, res) => {
-  try {
-    const { teams } = req.query;
-
-    if (!teams || typeof teams !== 'string') {
-      return res.status(400).json({
-        error: 'Missing teams parameter',
-        message: 'Please provide a comma-separated list of team codes (e.g., ?teams=CHI,MIA,DAL)'
-      });
-    }
-
-    const teamCodes = teams.split(',').map(code => (code || '').toUpperCase().trim()).filter(code => code);
-
-    const logos = teamCodes.map(teamCode => {
-      const isValid = validTeamCodes.includes(teamCode);
-
-      return {
-        teamCode,
-        valid: isValid,
-        ...(isValid && {
-          logos: {
-            small: `/logos/150x150/${teamCode}.png`,
-            large: `/logos/250x250/${teamCode}.png`
-          }
-        }),
-        ...(!isValid && {
-          error: `Invalid team code '${teamCode}'`
-        })
-      };
-    });
-
-    res.json({
-      logos: logos,
-      validCount: logos.filter(l => l.valid).length,
-      invalidCount: logos.filter(l => !l.valid).length
-    });
-  } catch (error) {
-    console.log('Error fetching logos batch:', error);
-    res.status(500).json({ error: 'Failed to fetch logos batch' });
-  }
-});
-
-/**
- * List all available team codes
- * GET /api/v1/logo/teams/codes
- */
-router.get('/teams/codes', (req, res) => {
-  try {
-    const teams = validTeamCodes.map(code => ({
-      code: code,
-      logos: {
-        small: `/logos/150x150/${code}.png`,
-        large: `/logos/250x250/${code}.png`
-      }
-    }));
-
-    res.json({
-      count: teams.length,
-      teams: teams
-    });
-  } catch (error) {
-    console.log('Error fetching team codes:', error);
-    res.status(500).json({ error: 'Failed to fetch team codes' });
-  }
-});
-
-/**
- * Get logo image for a team by team code
- * GET /api/v1/logo/:teamCode or /api/v1/team-logo/:teamCode (.png extension optional)
- */
-router.get('/:teamCode', (req, res) => {
-  let { teamCode } = req.params || {};
   
-  // Remove .png extension if provided
-  if (teamCode && teamCode.endsWith('.png')) {
-    teamCode = teamCode.slice(0, -4);
-  }
-  
-  const uppercaseCode = teamCode ? teamCode.toUpperCase() : '';
-
-  console.log(`Received request for logo. Team code: ${teamCode}`);
-  console.log(`Current working directory: ${process.cwd()}`);
-
-  // Validate team code
-  if (!uppercaseCode || !validTeamCodes.includes(uppercaseCode)) {
-    console.log(`Invalid team code requested: ${teamCode}`);
-    return res.status(400).json({
-      error: 'Invalid team code',
-      message: `Team code '${teamCode}' is not valid. Valid codes are: ${validTeamCodes.join(', ')}`
-    });
-  }
-
-  console.log(`Valid team code received: ${uppercaseCode}`);
-
+/**
+ * Get logos for a specific team code
+ * GET /api/v1/logo/team/:code
+ */
+router.get('/team/:code', (req, res) => {
   try {
-    // Try multiple possible paths
-    const possiblePaths = [
-      path.join(process.cwd(), 'assets', 'logos', `${uppercaseCode}.png`),
-      path.join(__dirname, '..', 'assets', 'logos', `${uppercaseCode}.png`),
-      path.join(__dirname, '..', '..', 'assets', 'logos', `${uppercaseCode}.png`)
-    ];
+    const { code } = req.params;
 
-    console.log(`Checking paths for ${uppercaseCode}:`, possiblePaths);
-
-    let logoPath = null;
-    for (const possiblePath of possiblePaths) {
-      console.log(`  Checking: ${possiblePath}`);
-      if (fs.existsSync(possiblePath)) {
-        logoPath = possiblePath;
-        console.log(`  ✓ Found at: ${logoPath}`);
-        break;
-      }
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Team code is required and must be a string' });
     }
-
-    if (!logoPath) {
-      console.log(`Logo file not found at any location for team ${uppercaseCode}`);
-      return res.status(404).json({ 
-        error: 'Logo not found',
-        message: `Logo file for team ${uppercaseCode} not found. Checked paths: ${possiblePaths.join(', ')}`
-      });
+    const upperCode = code.toUpperCase();
+    if (!validTeamCodes.includes(upperCode)) {
+      return res.status(400).json({ error: 'Invalid team code' });
     }
-
-    // Set the content type and send the file
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
-    
-    console.log(`Reading file: ${logoPath}`);
-    
-    // Read and send the file using fs.readFile
-    fs.readFile(logoPath, (err, data) => {
+    const logoPath = path.join(process.cwd(), 'assets', 'logos', 'png', `${upperCode}.png`);
+    return res.sendFile(logoPath, err => {
       if (err) {
-        console.error(`Error reading file ${logoPath}:`, err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to read file', details: err.message });
-        }
-      } else {
-        console.log(`File read successfully, sending ${data.length} bytes from ${logoPath}`);
-        res.send(data);
+        console.error(`Error sending file ${logoPath}:`, err);
+        res.status(404).json({ error: 'Logo not found' });
       }
-    });
-  } catch (error) {
-    console.error(`Error processing logo request for ${teamCode}:`, error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to fetch logo', details: error instanceof Error ? error.message : String(error) });
-    }
-  }
-});
-
-/**
- * Get logo URLs for multiple teams
- * GET /api/v1/logos-batch?teams=CHI,MIA,DAL
- */
-router.get('/logos-batch', (req, res) => {
-  try {
-    const { teams } = req.query;
-
-    if (!teams || typeof teams !== 'string') {
-      return res.status(400).json({
-        error: 'Missing teams parameter',
-        message: 'Please provide a comma-separated list of team codes (e.g., ?teams=CHI,MIA,DAL)'
-      });
-    }
-
-    const teamCodes = teams.split(',').map(code => (code || '').toUpperCase().trim()).filter(code => code);
-
-    const logos = teamCodes.map(teamCode => {
-      const isValid = validTeamCodes.includes(teamCode);
-
-      return {
-        teamCode,
-        valid: isValid,
-        ...(isValid && {
-          logos: {
-            small: `/logos/150x150/${teamCode}.png`,
-            large: `/logos/250x250/${teamCode}.png`
-          }
-        }),
-        ...(!isValid && {
-          error: `Invalid team code '${teamCode}'`
-        })
-      };
-    });
-
-    res.json({
-      logos: logos,
-      validCount: logos.filter(l => l.valid).length,
-      invalidCount: logos.filter(l => !l.valid).length
-    });
-  } catch (error) {
-    console.log('Error fetching logos batch:', error);
-    res.status(500).json({ error: 'Failed to fetch logos batch' });
-  }
-});
-
-/**
- * List all available team codes
- * GET /api/v1/teams/codes
- */
-router.get('/teams/codes', (req, res) => {
-  try {
-    const teams = validTeamCodes.map(code => ({
-      code: code,
-      logos: {
-        small: `/logos/150x150/${code}.png`,
-        large: `/logos/250x250/${code}.png`
-      }
-    }));
-
-    res.json({
-      count: teams.length,
-      teams: teams
     });
   } catch (error) {
     console.log('Error fetching team codes:', error);
     res.status(500).json({ error: 'Failed to fetch team codes' });
   }
 });
+ 
 
 export default router;

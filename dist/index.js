@@ -184,7 +184,6 @@ app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
 app.use('/api/v1/logo', logo_1.default);
-app.use('/api/v1/team-logo', logo_1.default);
 // Webhook routes
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Subscription management routes
