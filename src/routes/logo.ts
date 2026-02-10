@@ -59,14 +59,18 @@ router.get('/debug/list', (req, res) => {
   }
 });
 
-  
+
 /**
  * Get logos for a specific team code
  * GET /api/v1/logo/team?code=ATL
  */
 router.get('/team/:code', (req, res) => {
   try {
-    const { code } = req.params;
+    let { code } = req.params;
+
+    if (code && code.endsWith('.png')) {
+      code = code.slice(0, -4);
+    }
 
     if (!code || !validTeamCodes.includes(code.toUpperCase())) {
       return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
@@ -85,6 +89,6 @@ router.get('/team/:code', (req, res) => {
     res.json({ success: false, error: 'Failed to fetch team codes ' });
   }
 });
- 
+
 
 export default router;

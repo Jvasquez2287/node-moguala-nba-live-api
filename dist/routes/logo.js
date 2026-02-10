@@ -65,7 +65,10 @@ router.get('/debug/list', (req, res) => {
  */
 router.get('/team/:code', (req, res) => {
     try {
-        const { code } = req.params;
+        let { code } = req.params;
+        if (code && code.endsWith('.png')) {
+            code = code.slice(0, -4);
+        }
         if (!code || !validTeamCodes.includes(code.toUpperCase())) {
             return res.json({ success: false, error: `Invalid or missing team code: ${code}` });
         }
