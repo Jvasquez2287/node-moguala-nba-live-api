@@ -169,7 +169,6 @@ const search_1 = __importDefault(require("./routes/search"));
 const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
-const logo_1 = __importDefault(require("./routes/logo"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
@@ -183,7 +182,7 @@ app.use("/api/v1", predictions_1.default);
 app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
-app.use('/api/v1/logos', logo_1.default);
+//app.use('/api/v1/logos', logoRouter);
 // Webhook routes
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Subscription management routes
