@@ -14,21 +14,21 @@ router.get('/', async (req, res) => {
         console.log('[Users] Fetching users with subscription check');
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Invalid or missing security parameters' });
+            return res.json({ success: false, error: 'Invalid or missing security parameters' });
         }
         const user = await users_1.default.getUserByClerkIdWithSubscription(validationResult.user?.clerk_id || '');
         console.log('[Users] User fetched with subscription info:', user);
         if (!user) {
-            return res.status(404).json({ success: false, error: 'User not found' });
+            return res.json({ success: false, error: 'User not found' });
         }
-        res.json({
+        return res.json({
             success: true,
             data: user
         });
     }
     catch (error) {
         console.error('[Users] Error fetching users:', error);
-        res.status(500).json({ success: false, error: 'Failed to fetch users' });
+        res.json({ success: false, error: 'Failed to fetch users' });
     }
 });
 /**
@@ -52,7 +52,7 @@ router.get('/:clerkId', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error fetching user:', error);
-        res.status(500).json({ success: false, error: 'Failed to fetch user' });
+        res.json({ success: false, error: 'Failed to fetch user' });
     }
 });
 /**
@@ -76,7 +76,7 @@ router.get('/email/:email', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error fetching user by email:', error);
-        res.status(500).json({ success: false, error: 'Failed to fetch user' });
+        res.json({ success: false, error: 'Failed to fetch user' });
     }
 });
 /**
@@ -106,7 +106,7 @@ router.post('/', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error creating user:', error);
-        res.status(500).json({ success: false, error: 'Failed to create user' });
+        res.json({ success: false, error: 'Failed to create user' });
     }
 });
 /**
@@ -137,7 +137,7 @@ router.put('/:clerkId', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error updating user:', error);
-        res.status(500).json({ success: false, error: 'Failed to update user' });
+        res.json({ success: false, error: 'Failed to update user' });
     }
 });
 /**
@@ -148,7 +148,7 @@ router.delete('/:clerkId', async (req, res) => {
     try {
         const { clerkId } = req.params;
         if (!clerkId) {
-            return res.status(400).json({ success: false, error: 'clerkId is required' });
+            return res.json({ success: false, error: 'clerkId is required' });
         }
         await (0, database_1.executeQuery)('DELETE FROM users WHERE clerk_id = @clerkId', { clerkId });
         res.json({
@@ -158,7 +158,7 @@ router.delete('/:clerkId', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error deleting user:', error);
-        res.status(500).json({ success: false, error: 'Failed to delete user' });
+        res.json({ success: false, error: 'Failed to delete user' });
     }
 });
 exports.default = router;
