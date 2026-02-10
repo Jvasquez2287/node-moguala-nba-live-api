@@ -40,7 +40,7 @@ const teams = {
     was: 'Washington Wizards',
     nba: 'NBA Logo'
 };
-// Function to convert logos from the folder assets/logos/{name}.png to assets/logos/250x250/{abbreviation}.png
+// Function to convert logos from the folder assets/logos/{name}.png to assets/logos/{size}/{abbreviation}.png
 async function downloadTeamLogos() {
     // Ensure assets/logos directory exists
     const assetsDir = path_1.default.join(process.cwd(), 'assets', 'logos', 'png');
@@ -49,25 +49,29 @@ async function downloadTeamLogos() {
     }
     let errors = [];
     let count = 0;
+    const sizes = [150, 250];
     for (const [abbreviation, name] of Object.entries(teams)) {
         try {
             const inputPath = path_1.default.join(assetsDir, `${name}.png`);
-            const outputDir = path_1.default.join(assetsDir, '250x250');
-            const outputPath = path_1.default.join(outputDir, `${abbreviation.toUpperCase()}.png`);
-            // Ensure output directory exists
-            if (!fs_1.default.existsSync(outputDir)) {
-                fs_1.default.mkdirSync(outputDir, { recursive: true });
-            }
             // Check if input file exists
             if (!fs_1.default.existsSync(inputPath)) {
                 console.warn(`Input file not found for ${name}: ${inputPath}`);
                 continue;
             }
-            // Resize and save the logo (fit: contain to avoid cropping)
-            await (0, sharp_1.default)(inputPath)
-                .resize(250, 250, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } }) // transparent background
-                .toFile(outputPath);
-            console.log(`Converted ${name} logo to 250x250 and saved as ${abbreviation.toUpperCase()}.png`);
+            // Create both 150x150 and 250x250 versions
+            for (const size of sizes) {
+                const outputDir = path_1.default.join(assetsDir, `${size}x${size}`);
+                const outputPath = path_1.default.join(outputDir, `${abbreviation.toUpperCase()}.png`);
+                // Ensure output directory exists
+                if (!fs_1.default.existsSync(outputDir)) {
+                    fs_1.default.mkdirSync(outputDir, { recursive: true });
+                }
+                // Resize and save the logo (fit: contain to avoid cropping)
+                await (0, sharp_1.default)(inputPath)
+                    .resize(size, size, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } }) // transparent background
+                    .toFile(outputPath);
+                console.log(`Converted ${name} logo to ${size}x${size} and saved as ${abbreviation.toUpperCase()}.png`);
+            }
             count++;
         }
         catch (error) {

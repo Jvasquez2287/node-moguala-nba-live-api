@@ -59,8 +59,10 @@ app.get('/logos', (req, res) => {
   });
 });
 
-app.use('/logos/150', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png','150x150')));
-app.use('/logos/250', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png','250x250')));
+// Serve logo images from assets/logos directory
+const assetsDir = path.join(__dirname, '..', '..', 'assets', 'logos', 'png');
+app.use('/logos/150', express.static(path.join(assetsDir, '150x150')));
+app.use('/logos/250', express.static(path.join(assetsDir, '250x250')));
  
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {

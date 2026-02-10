@@ -88,8 +88,10 @@ app.get('/logos', (req, res) => {
         example: '/logos/250/LAL.png'
     });
 });
-app.use('/logos/150', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '150x150')));
-app.use('/logos/250', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '250x250')));
+// Serve logo images from assets/logos directory
+const assetsDir = path_1.default.join(__dirname, '..', '..', 'assets', 'logos', 'png');
+app.use('/logos/150', express_1.default.static(path_1.default.join(assetsDir, '150x150')));
+app.use('/logos/250', express_1.default.static(path_1.default.join(assetsDir, '250x250')));
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
