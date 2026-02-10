@@ -273,8 +273,8 @@ app.get('/subscriptions/cancel', async (req, res) => {
     }
 });
 // Serve team logos as static files
-const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos', 'png', '150x150');
-app.use('/logos', express_1.default.static(logosPath));
+const logosPath = path_1.default.join(__dirname, '..', 'assets', 'logos/150x150');
+app.use('/logos/150x150', express_1.default.static(logosPath));
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
 const dataCache_1 = require("./services/dataCache");
