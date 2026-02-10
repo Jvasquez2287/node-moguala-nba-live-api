@@ -7,7 +7,7 @@ import { WebSocketServer } from "ws";
 import fs from "fs/promises";
 
 // Load environment variables
-dotenv.config({ path: path.join( ".env") });
+dotenv.config({ path: path.join(".env") });
 
 // Detect IISNode environment - use multiple detection methods
 const isIISNode = !!(
@@ -41,13 +41,14 @@ app.get("/", (req, res) => {
     environment: process.env.NODE_ENV || "development",
     iisnode: isIISNode,
     SQLServer: {
-    Configured: (!!process.env.DB_SERVER ? 'Yes' : 'No') + ' - ' + 'Connected: ' + (process.env.DB_SERVER ? 'yes' : 'no'),
-    Configuration: {
-      DB_SERVER: !!process.env.DB_SERVER,
-      DB_USER: !!process.env.DB_USER,
-      DB_PASSWORD: !!process.env.DB_PASSWORD,
-      DB_NAME: !!process.env.DB_NAME
-    }}
+      Configured: (!!process.env.DB_SERVER ? 'Yes' : 'No') + ' - ' + 'Connected: ' + (process.env.DB_SERVER ? 'yes' : 'no'),
+      Configuration: {
+        DB_SERVER: !!process.env.DB_SERVER,
+        DB_USER: !!process.env.DB_USER,
+        DB_PASSWORD: !!process.env.DB_PASSWORD,
+        DB_NAME: !!process.env.DB_NAME
+      }
+    }
   });
 });
 
@@ -78,11 +79,13 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
   try {
+    var status = 202;
+    var http = require('http');
     res.status(500).json({
       success: false,
       error: 'Failed to refresh cache',
-      message:  'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
-    }).end();
+      message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
+    }).end(http.STATUS_CODES[status]);
   } catch (error) {
     console.error('Error refreshing cache:', error);
     res.status(500).send({
@@ -120,7 +123,7 @@ app.get("/api/v1/test/user/:email", async (req, res) => {
   try {
     const email = req.params.email;
     console.log(`[Test] Fetching user info for email: ${email}`);
-    
+
     const user = await clerkService.getUserByEmail(email);
 
     if (!user) {
@@ -169,7 +172,7 @@ import logoRouter from "./routes/logo";
 import webhooksRouter from "./routes/webhooks";
 import subscriptionsRouter from "./routes/subscriptions";
 import usersRouter from "./routes/users";
- 
+
 app.use(express.json());
 app.use("/api/v1", schedulev1Routes);
 app.use("/api/v1", scheduleRoutes);
@@ -180,14 +183,14 @@ app.use("/api/v1", predictionsRoutes);
 app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
-app.use('/api/v1/logo', logoRouter); 
+app.use('/api/v1/logo', logoRouter);
 
 // Webhook routes
 app.use('/api/v1/webhooks', webhooksRouter);
 
 // Subscription management routes
-app.use('/api/v1/subscriptions', subscriptionsRouter); 
- 
+app.use('/api/v1/subscriptions', subscriptionsRouter);
+
 // User management routes
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/user', usersRouter);
@@ -198,7 +201,7 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
   try {
     const { session_id } = req.query;
     const templatesDir = path.join(__dirname, 'templates');
-    
+
     if (!session_id) {
       const invalidTemplate = await fs.readFile(path.join(templatesDir, 'invalid.html'), 'utf-8');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -207,18 +210,18 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
 
     const subscriptionsService = await import('./services/subscriptions').then(m => m.default);
     const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
-    
+
     // Load success template and replace placeholders
     let successTemplate = await fs.readFile(path.join(templatesDir, 'success.html'), 'utf-8');
-    
+
     const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
     const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
     const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
     const periodEnd = result.data.subscription.currentPeriodEnd ? new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString() : 'N/A';
     const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
-    
+
     console.log(`[SubscriptionsRouter] Parsed dates - Start: ${periodStart}, End: ${periodEnd}`);
-    
+
     successTemplate = successTemplate
       .replace('{{USER_NAME}}', userName)
       .replace('{{USER_EMAIL}}', result.data.user.email)
@@ -228,14 +231,14 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       .replace('{{SUBSCRIPTION_ID}}', subscriptionId)
       .replace('{{PERIOD_START}}', periodStart)
       .replace('{{PERIOD_END}}', periodEnd);
-    
+
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(successTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const templatesDir = path.join(__dirname, 'templates');
-    
+
     try {
       let errorTemplate = await fs.readFile(path.join(templatesDir, 'error.html'), 'utf-8');
       errorTemplate = errorTemplate.replace('{{ERROR_MESSAGE}}', errorMessage);
@@ -281,8 +284,8 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
   }
 });
 
- 
- 
+
+
 
 // Import WebSocket managers and services
 import {
@@ -402,7 +405,7 @@ const PORT = parseInt(process.env.PORT || '8000');
   try {
     await connectToDatabase();
     console.log('[Database] SQL Server connection initialized');
-    
+
     // Run pending migrations
     await migrationService.runPendingMigrations();
   } catch (error) {
@@ -439,7 +442,7 @@ if (isIISNode) {
     socket.end();
   });
 
-  
+
   try {
     console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
     server.listen(PORT, '0.0.0.0', () => {

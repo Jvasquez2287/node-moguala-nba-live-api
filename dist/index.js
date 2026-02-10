@@ -105,11 +105,13 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
     try {
+        var status = 202;
+        var http = require('http');
         res.status(500).json({
             success: false,
             error: 'Failed to refresh cache',
             message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
-        }).end();
+        }).end(http.STATUS_CODES[status]);
     }
     catch (error) {
         console.error('Error refreshing cache:', error);
