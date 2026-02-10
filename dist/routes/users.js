@@ -43,7 +43,7 @@ router.get('/:clerkId', async (req, res) => {
         }
         const user = await clerk_1.clerkService.getUserByClerkId(clerkId);
         if (!user) {
-            return res.status(404).json({ success: false, error: 'User not found' });
+            return res.json({ success: false, error: 'User not found' });
         }
         res.json({
             success: true,
@@ -67,7 +67,7 @@ router.get('/email/:email', async (req, res) => {
         }
         const result = await (0, database_1.executeQuery)('SELECT * FROM users WHERE email = @email', { email });
         if (!result || result.recordset.length === 0) {
-            return res.status(404).json({ success: false, error: 'User not found' });
+            return res.json({ success: false, error: 'User not found' });
         }
         res.json({
             success: true,

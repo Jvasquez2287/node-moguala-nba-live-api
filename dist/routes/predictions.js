@@ -89,7 +89,7 @@ router.get('/predictions/date/:date', async (req, res) => {
         // Filter games by date (gameId contains date like 0021900001 where 0021900 = season+date)
         // Or match against gameDate field if available
         if (!predictionsData) {
-            return res.status(404).json({ error: `No predictions available for date ${date}` });
+            return res.json({ error: `No predictions available for date ${date}` });
         }
         // Validate response
         const { error } = predictions_2.predictionsResponseSchema.validate(predictionsData);
@@ -111,14 +111,14 @@ router.get('/predictions/:gameId', async (req, res) => {
         const scoreboardData = await dataCache_1.dataCache.getScoreboard();
         const scoreboard = scoreboardData?.scoreboard;
         if (!scoreboard || !scoreboard.games) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });
         }
         const game = scoreboard.games.find((g) => g.gameId === gameId);
         if (!game) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });

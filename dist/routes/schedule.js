@@ -164,7 +164,7 @@ router.get('/schedule/date/:date', async (req, res) => {
                 }
                 const gamesData = await (0, schedule_1.getGamesForDate)(date);
                 if (!gamesData) {
-                    return res.status(404).json({ error: `No games found for date ${date}` });
+                    return res.json({ error: `No games found for date ${date}` });
                 }
                 // Validate response
                 const { error } = schedule_2.gamesResponseSchema.validate(gamesData);

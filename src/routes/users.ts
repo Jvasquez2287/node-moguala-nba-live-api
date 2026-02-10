@@ -49,7 +49,7 @@ router.get('/:clerkId', async (req: Request, res: Response) => {
     const user = await clerkService.getUserByClerkId(clerkId);
 
     if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+      return res.json({ success: false, error: 'User not found' });
     }
 
     res.json({
@@ -80,7 +80,7 @@ router.get('/email/:email', async (req: Request, res: Response) => {
     );
 
     if (!result || result.recordset.length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+      return res.json({ success: false, error: 'User not found' });
     }
 
     res.json({

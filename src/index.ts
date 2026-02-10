@@ -66,7 +66,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     });
   } catch (error) {
     console.error('Error refreshing cache:', error);
-    res.status(500).json({
+    res.status(500).send({
       success: false,
       error: 'Failed to refresh cache',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -104,7 +104,7 @@ app.get("/api/v1/test/user/:email", async (req, res) => {
     const user = await clerkService.getUserByEmail(email);
 
     if (!user) {
-      return res.status(404).json({
+      return res.json({
         success: false,
         error: 'User not found',
         email: email

@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
         const subscription = await stripe_1.stripeService.getSubscriptionFromDB(customerId);
         console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
         if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
+            return res.json({ error: 'Subscription not found' });
         }
         console.log(`[Subscriptions] Returning subscription for customerId ${customerId}:`, subscription);
         res.json({
@@ -85,7 +85,7 @@ router.get('/current', async (req, res) => {
         const subscription = await stripe_1.stripeService.getSubscriptionFromDBWithClerkId(clerkId);
         console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
         if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
+            return res.json({ error: 'Subscription not found' });
         }
         console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}:`, subscription);
         res.json({
@@ -110,7 +110,7 @@ router.get('/:subscriptionId', async (req, res) => {
         }
         const subscription = await stripe_1.stripeService.getSubscriptionFromDB(subscriptionId);
         if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
+            return res.json({ error: 'Subscription not found' });
         }
         res.json({
             success: true,
@@ -231,7 +231,7 @@ router.delete('/:subscriptionId', async (req, res) => {
         // Get subscription from database
         const subscription = await stripe_1.stripeService.getSubscriptionFromDB(subscriptionId);
         if (!subscription) {
-            return res.status(404).json({ error: 'Subscription not found' });
+            return res.json({ error: 'Subscription not found' });
         }
         // Cancel in Stripe if we have the Stripe subscription ID
         if (subscription.subscription_id) {
@@ -359,7 +359,7 @@ router.get('/product/:productId', async (req, res) => {
       ORDER BY s.created_at DESC
       `, { productId });
         if (!result.recordset || result.recordset.length === 0) {
-            return res.status(404).json({
+            return res.json({
                 success: false,
                 error: 'No subscriptions found for this product',
                 productId
@@ -414,7 +414,7 @@ router.get('/stripe/product', async (req, res) => {
         console.log(`[Subscriptions] Fetching product info from Stripe: ${productIdParam}`);
         const product = await stripe_1.stripeService.getProductsByID(productIdParam);
         if (!product) {
-            return res.status(404).json({
+            return res.json({
                 success: false,
                 error: 'Product not found in Stripe',
                 productId: productIdParam

@@ -115,7 +115,7 @@ router.get('/schedule-v1/game/:gameId', async (req, res) => {
         const game = games?.games?.find((game) => game.gameId === gameId);
         const gameDate = games ? games.gameDate : null;
         if (!game) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });

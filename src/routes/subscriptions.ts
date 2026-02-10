@@ -33,7 +33,7 @@ router.get('/', async (req: Request, res: Response) => {
     console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
 
     if (!subscription) {
-      return res.status(404).json({ error: 'Subscription not found' });
+      return res.json({ error: 'Subscription not found' });
     }
 
     console.log(`[Subscriptions] Returning subscription for customerId ${customerId}:`, subscription);
@@ -67,7 +67,7 @@ router.get('/current', async (req: Request, res: Response) => {
     console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
 
     if (!subscription) {
-      return res.status(404).json({ error: 'Subscription not found' });
+      return res.json({ error: 'Subscription not found' });
     }
 
     console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}:`, subscription);
@@ -98,7 +98,7 @@ router.get('/:subscriptionId', async (req: Request, res: Response) => {
     const subscription = await stripeService.getSubscriptionFromDB(subscriptionId);
 
     if (!subscription) {
-      return res.status(404).json({ error: 'Subscription not found' });
+      return res.json({ error: 'Subscription not found' });
     }
 
     res.json({
@@ -239,7 +239,7 @@ router.delete('/:subscriptionId', async (req: Request, res: Response) => {
     const subscription = await stripeService.getSubscriptionFromDB(subscriptionId);
 
     if (!subscription) {
-      return res.status(404).json({ error: 'Subscription not found' });
+      return res.json({ error: 'Subscription not found' });
     }
 
     // Cancel in Stripe if we have the Stripe subscription ID
@@ -394,7 +394,7 @@ router.get('/product/:productId', async (req: Request, res: Response) => {
     );
 
     if (!result.recordset || result.recordset.length === 0) {
-      return res.status(404).json({
+      return res.json({
         success: false,
         error: 'No subscriptions found for this product',
         productId
@@ -455,7 +455,7 @@ router.get('/stripe/product', async (req: Request, res: Response) => {
     const product = await stripeService.getProductsByID(productIdParam);
 
     if (!product) {
-      return res.status(404).json({
+      return res.json({
         success: false,
         error: 'Product not found in Stripe',
         productId: productIdParam

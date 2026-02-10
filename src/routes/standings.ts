@@ -22,7 +22,7 @@ router.get('/season/:season', async (req, res) => {
     const standingsData = await getSeasonStandings(season);
 
     if (!standingsData) {
-      return res.status(404).json({ error: `No standings found for season ${season}` });
+      return res.json({ error: `No standings found for season ${season}` });
     }
 
     // Validate response

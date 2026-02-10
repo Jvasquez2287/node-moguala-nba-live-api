@@ -42,14 +42,14 @@ router.get('/game/:gameId/boxscore', async (req, res) => {
         const scoreboardData = await dataCache_1.dataCache.getScoreboard();
         const scoreboard = scoreboardData?.scoreboard;
         if (!scoreboard || !scoreboard.games) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });
         }
         const game = scoreboard.games.find((g) => g.gameId === gameId);
         if (!game) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });
@@ -191,14 +191,14 @@ router.get('/game/:gameId/win-probability', async (req, res) => {
         const scoreboardData = await dataCache_1.dataCache.getScoreboard();
         const scoreboard = scoreboardData?.scoreboard;
         if (!scoreboard || !scoreboard.games) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });
         }
         const game = scoreboard.games.find((g) => g.gameId === gameId);
         if (!game) {
-            return res.status(404).json({
+            return res.json({
                 error: 'Game not found',
                 gameId
             });
