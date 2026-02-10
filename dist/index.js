@@ -107,7 +107,7 @@ app.get("/api/v1/test", async (req, res) => {
     try {
         var status = 202;
         var http = require('http');
-        res.send({
+        res.json({
             status: 404,
             success: false,
             error: 'Failed to refresh cache',
