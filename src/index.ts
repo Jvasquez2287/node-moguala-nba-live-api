@@ -28,6 +28,12 @@ console.log('#######################################\n');
 
 const app = express();
 
+// Create HTTP server and WebSocket server
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+console.log('[WebSocket] Server initialized');
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -299,11 +305,6 @@ import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
 import clerkService from "./services/clerk";
 
-// Create HTTP server and WebSocket server
-const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
-
-console.log('[WebSocket] Server initialized');
 
 // Handle WebSocket upgrade requests
 console.log('[Server Setup] Registering upgrade handler');
