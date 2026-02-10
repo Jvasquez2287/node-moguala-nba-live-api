@@ -12,7 +12,7 @@ router.get('/', async (req: Request, res: Response) => {
     console.log('[Users] Fetching users with subscription check' );
     const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
     if (!validationResult.valid) {
-      return res.json({ success: false, error: 'Invalid or missing security parameters', requestQuery: req.headers });
+      return res.json({ success: false, error: 'Invalid or missing security parameters'  });
     }
      
     const user = await  userService.getUserByClerkIdWithSubscription(validationResult.user?.clerk_id || '');
