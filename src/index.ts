@@ -58,6 +58,7 @@ app.get('/logos', (req, res) => {
     example: '/logos/250/LAL.png'
   });
 });
+
 app.use('/logos/150', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png','150x150')));
 app.use('/logos/250', express.static(path.join(__dirname, '..', 'assets', 'logos', 'png','250x250')));
  
