@@ -65,21 +65,7 @@ router.get('/debug/list', (req, res) => {
  */
 router.get('/team', (req, res) => {
     try {
-        const { code } = req.query;
-        if (!code || typeof code !== 'string') {
-            return res.status(400).json({ error: 'Team code is required and must be a string' });
-        }
-        const upperCode = code.toUpperCase();
-        if (!validTeamCodes.includes(upperCode)) {
-            return res.status(400).json({ error: 'Invalid team code' });
-        }
-        const logoPath = path_1.default.join(process.cwd(), 'assets', 'logos', 'png', `${upperCode}.png`);
-        return res.sendFile(logoPath, err => {
-            if (err) {
-                console.error(`Error sending file ${logoPath}:`, err);
-                res.status(404).json({ error: 'Logo not found' });
-            }
-        });
+        return res.status(400).json({ error: 'Please use the endpoint /api/v1/team-logo/:code.png to fetch team logos' });
     }
     catch (error) {
         console.log('Error fetching team codes:', error);
