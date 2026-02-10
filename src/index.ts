@@ -52,7 +52,7 @@ app.get("/", (req, res) => {
 });
 
 // Allow access to assets/logos/ via /logos
-app.use('/api/v1/logos', express.static(path.join(__dirname, '..', 'assets', 'logos')));
+app.use('/logos', express.static(path.join(__dirname, '..', 'assets', 'logos')));
 
 
 // Cache refresh endpoint

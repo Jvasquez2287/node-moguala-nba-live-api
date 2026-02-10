@@ -82,7 +82,7 @@ app.get("/", (req, res) => {
     });
 });
 // Allow access to assets/logos/ via /logos
-app.use('/api/v1/logos', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos')));
+app.use('/logos', express_1.default.static(path_1.default.join(__dirname, '..', 'assets', 'logos')));
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
