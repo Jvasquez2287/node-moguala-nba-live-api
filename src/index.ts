@@ -160,7 +160,7 @@ app.use("/api/v1", predictionsRoutes);
 app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
-app.use('/logos', logoRouter);
+app.use('/api/v1/logos', logoRouter);
 
 // Webhook routes
 app.use('/api/v1/webhooks', webhooksRouter);
