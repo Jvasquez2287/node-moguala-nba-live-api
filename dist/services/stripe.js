@@ -262,6 +262,16 @@ exports.stripeService = {
             console.error('[Stripe] Error getting subscription from DB:', error);
             throw error;
         }
+    },
+    async getAllSubscriptionsFromStripe() {
+        try {
+            const subscriptions = await stripe.subscriptions.list({ limit: 10000 });
+            return subscriptions.data;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting all subscriptions from Stripe:', error);
+            throw error;
+        }
     }
 };
 exports.default = exports.stripeService;

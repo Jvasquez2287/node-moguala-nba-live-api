@@ -145,7 +145,7 @@ export const stripeService = {
         (@stripeId, @subscriptionId, @startDate, @endDate, @status, @title, @nextBillingDate, 
          @invoiceId, @invoicePdfUrl, @canceledAt, @productId)
       `;
-      
+
       return await executeQuery(query, {
         stripeId: data.stripe_id,
         subscriptionId: data.subscription_id,
@@ -175,7 +175,7 @@ export const stripeService = {
         .join(', ');
 
       const query = `UPDATE subscriptions SET ${fields} WHERE stripe_id = @stripeId`;
-      
+
       const params: any = { stripeId };
       Object.keys(data).forEach((key, index) => {
         params[`param${index}`] = (data as any)[key];
@@ -214,14 +214,14 @@ export const stripeService = {
   async getOrCreateCustomer(email: string, name?: string) {
     try {
       let customer = await this.getUserByEmail(email);
-      
+
       if (!customer) {
         console.log(`[Stripe] Customer not found for ${email}, creating new customer...`);
         customer = await this.createCustomer(email, name);
       } else {
         console.log(`[Stripe] Customer found for ${email} (ID: ${customer.id})`);
       }
-      
+
       return customer;
     } catch (error) {
       console.error('[Stripe] Error getting or creating customer:', error);
@@ -252,14 +252,14 @@ export const stripeService = {
         { clerkId }
       );
       return result.recordset[0] || null;
-      
+
     } catch (error) {
       console.error('[Stripe] Error getting subscription status:', error);
       throw error;
     }
   },
 
- async getSubscriptionFromDBWithUserId(userId: string) {
+  async getSubscriptionFromDBWithUserId(userId: string) {
     try {
       const result = await executeQuery(
         'SELECT * FROM subscriptions WHERE user_id = @userId',
@@ -284,6 +284,16 @@ export const stripeService = {
       return result.recordset[0] || null;
     } catch (error) {
       console.error('[Stripe] Error getting subscription from DB:', error);
+      throw error;
+    }
+  },
+
+  async getAllSubscriptionsFromStripe() {
+    try {
+      const subscriptions = await stripe.subscriptions.list({ limit: 10000 });
+      return subscriptions.data;
+    } catch (error) {
+      console.error('[Stripe] Error getting all subscriptions from Stripe:', error);
       throw error;
     }
   }

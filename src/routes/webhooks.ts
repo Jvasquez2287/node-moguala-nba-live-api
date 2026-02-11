@@ -5,17 +5,37 @@ import { clerkService } from '../services/clerk';
 import { executeQuery } from '../config/database';
 
 const router = express.Router();
+
+// Apply raw body parser to this router for Stripe webhook signature verification
+router.use(express.raw({ type: 'application/json' }));
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! , {
   apiVersion: '2026-01-28.clover' as any
 });
 
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET! ;
 
+
+router.get('/stripe-delete-all-subscription', async (req: Request, res: Response) => {
+  try {
+    await executeQuery('DELETE FROM subscriptions');
+    // Delete all from stripe as well (for testing purposes only - be careful with this in production!)
+    const subscriptions = await stripeService.getAllSubscriptionsFromStripe();
+    for (const sub of subscriptions) {
+      await stripe.subscriptions.cancel(sub.id);
+    }
+    res.json({ success: true, message: 'All subscriptions deleted' });
+  } catch (error) {
+    console.error('Error deleting subscriptions:', error);
+    res.json({ success: false, error: 'Failed to delete subscriptions' });
+  }
+});
+
 /**
  * Stripe Webhook endpoint
  * Handles: customer.subscription.created, customer.subscription.updated, customer.subscription.deleted
  */
-router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+router.post('/stripe', async (req: Request, res: Response) => {
   try {
     const sig = req.headers['stripe-signature'] as string;
     const event = stripe.webhooks.constructEvent(
@@ -134,7 +154,7 @@ router.get('/stripe', async (req: Request, res: Response) => {
  * Clerk Webhook endpoint
  * Handles: user.created, user.updated, user.deleted
  */
-router.post('/clerk', express.json(), async (req: Request, res: Response) => {
+router.post('/clerk', async (req: Request, res: Response) => {
   try {
     console.log('[Webhook] Received Clerk event');
 

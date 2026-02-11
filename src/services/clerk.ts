@@ -29,11 +29,22 @@ export const clerkService = {
    */
   async verifyWebhook(req: Request): Promise<WebhookEvent | null> {
     try {
-      const payload = req.body;
-      const headers = req.headers;
-
       const wh = new Webhook(clerkWebhookSecret);
-      const msg = wh.verify(JSON.stringify(payload), headers as any);
+      
+      // Get raw body - it may be a Buffer or string depending on how it was parsed
+      let payload = req.body;
+      let rawBody: string;
+      
+      if (Buffer.isBuffer(payload)) {
+        rawBody = payload.toString('utf-8');
+      } else if (typeof payload === 'string') {
+        rawBody = payload;
+      } else {
+        // If it's already an object, stringify it
+        rawBody = JSON.stringify(payload);
+      }
+      
+      const msg = wh.verify(rawBody, req.headers as any);
 
       console.log('[Clerk] Webhook verified successfully');
       return msg as unknown as WebhookEvent;

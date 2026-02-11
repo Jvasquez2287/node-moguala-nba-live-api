@@ -75,6 +75,7 @@ export declare const stripeService: {
      * Get subscription from database
      */
     getSubscriptionFromDB(stripeId: string): Promise<any>;
+    getAllSubscriptionsFromStripe(): Promise<Stripe.Subscription[]>;
 };
 export default stripeService;
 //# sourceMappingURL=stripe.d.ts.map

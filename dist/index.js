@@ -59,8 +59,7 @@ console.log('CWD:', process.cwd());
 console.log('require.main !== module:', require.main !== module);
 console.log('#######################################\n');
 const app = (0, express_1.default)();
-// Middleware
-app.use(express_1.default.json());
+// Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, cors_1.default)({ origin: "*", credentials: true }));
 // Health check
@@ -105,9 +104,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
     try {
-        var status = 202;
-        var http = require('http');
-        res.send({
+        res.status(404).send({
             status: 404,
             success: false,
             error: 'Failed to refresh cache',
@@ -143,44 +140,26 @@ app.get("/api/v1/cache/status", async (req, res) => {
         });
     }
 });
-// Test endpoint - Get user info by email
-app.get("/api/v1/test/user/:email", async (req, res) => {
-    try {
-        const email = req.params.email;
-        console.log(`[Test] Fetching user info for email: ${email}`);
-        const user = await clerk_1.default.getUserByEmail(email);
-        if (!user) {
-            return res.json({
-                success: false,
-                error: 'User not found',
-                email: email
-            });
-        }
-        res.json({
-            success: true,
-            user: {
-                id: user.id,
-                clerk_id: user.clerk_id,
-                stripe_id: user.stripe_id,
-                email: user.email,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                profile_image: user.profile_image,
-                created_at: user.created_at,
-                updated_at: user.updated_at
-            }
-        });
+// API Endpoints interceptor for security and logging
+app.use('/api/v1', async (req, res, next) => {
+    /*
+    console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
+    const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
+    if (!validationResult.valid) {
+      return res.json({ success: false, error: 'Invalid or missing security parameters' });
     }
-    catch (error) {
-        console.error('Error fetching user:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to fetch user',
-            message: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
+  
+    if(validationResult.valid && validationResult.subscription?.subscription_status !== 'active' &&
+      validationResult.subscription?.subscription_end_date &&
+      new Date(validationResult.subscription.subscription_end_date) < new Date()) {
+        
+      return res.json({ success: false, error: 'Active subscription required to access this endpoint' });
+    }*/
+    // Add any authentication or rate limiting logic here if needed
+    next();
 });
 // Routes
+const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const schedule_http_1 = __importDefault(require("./routes/schedule_http"));
 const schedule_1 = __importDefault(require("./routes/schedule"));
 const standings_1 = __importDefault(require("./routes/standings"));
@@ -191,9 +170,11 @@ const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
 const logo_1 = __importDefault(require("./routes/logo"));
-const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
+// Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
+app.use('/api/v1/webhooks', webhooks_1.default);
+// Apply JSON middleware after webhooks
 app.use(express_1.default.json());
 app.use("/api/v1", schedule_http_1.default);
 app.use("/api/v1", schedule_1.default);
@@ -205,8 +186,6 @@ app.use("/api/v1", league_1.default);
 app.use("/api/v1", players_1.default);
 app.use("/api/v1/scoreboard", scoreboard_1.default);
 app.use('/api/v1/logo', logo_1.default);
-// Webhook routes
-app.use('/api/v1/webhooks', webhooks_1.default);
 // Subscription management routes
 app.use('/api/v1/subscriptions', subscriptions_1.default);
 // User management routes

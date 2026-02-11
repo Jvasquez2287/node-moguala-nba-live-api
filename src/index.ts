@@ -28,8 +28,7 @@ console.log('#######################################\n');
 
 const app = express();
 
-// Middleware
-app.use(express.json());
+// Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "*", credentials: true }));
 
@@ -78,10 +77,8 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
-  try {
-    var status = 202;
-    var http = require('http');
-    res.send ({
+  try { 
+    res.status(404).send({
       status: 404,
       success: false,
       error: 'Failed to refresh cache',
@@ -118,48 +115,27 @@ app.get("/api/v1/cache/status", async (req, res) => {
     });
   }
 });
-
-// Test endpoint - Get user info by email
-app.get("/api/v1/test/user/:email", async (req, res) => {
-  try {
-    const email = req.params.email;
-    console.log(`[Test] Fetching user info for email: ${email}`);
-
-    const user = await clerkService.getUserByEmail(email);
-
-    if (!user) {
-      return res.json({
-        success: false,
-        error: 'User not found',
-        email: email
-      });
-    }
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        clerk_id: user.clerk_id,
-        stripe_id: user.stripe_id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        profile_image: user.profile_image,
-        created_at: user.created_at,
-        updated_at: user.updated_at
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch user',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+// API Endpoints interceptor for security and logging
+app.use('/api/v1', async (req, res, next) => {
+  /*
+  console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
+  const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
+  if (!validationResult.valid) {
+    return res.json({ success: false, error: 'Invalid or missing security parameters' });
   }
+
+  if(validationResult.valid && validationResult.subscription?.subscription_status !== 'active' && 
+    validationResult.subscription?.subscription_end_date &&
+    new Date(validationResult.subscription.subscription_end_date) < new Date()) {
+      
+    return res.json({ success: false, error: 'Active subscription required to access this endpoint' });
+  }*/
+  // Add any authentication or rate limiting logic here if needed
+  next();
 });
 
 // Routes
+import webhooksRouter from "./routes/webhooks";
 import schedulev1Routes from "./routes/schedule_http";
 import scheduleRoutes from "./routes/schedule";
 import standingsRoutes from "./routes/standings";
@@ -170,10 +146,13 @@ import predictionsRoutes from "./routes/predictions";
 import leagueRoutes from "./routes/league";
 import scoreboardRoutes from "./routes/scoreboard";
 import logoRouter from "./routes/logo";
-import webhooksRouter from "./routes/webhooks";
 import subscriptionsRouter from "./routes/subscriptions";
 import usersRouter from "./routes/users";
 
+// Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
+app.use('/api/v1/webhooks', webhooksRouter);
+
+// Apply JSON middleware after webhooks
 app.use(express.json());
 app.use("/api/v1", schedulev1Routes);
 app.use("/api/v1", scheduleRoutes);
@@ -185,9 +164,6 @@ app.use("/api/v1", leagueRoutes);
 app.use("/api/v1", playerRoutes);
 app.use("/api/v1/scoreboard", scoreboardRoutes);
 app.use('/api/v1/logo', logoRouter);
-
-// Webhook routes
-app.use('/api/v1/webhooks', webhooksRouter);
 
 // Subscription management routes
 app.use('/api/v1/subscriptions', subscriptionsRouter);
@@ -298,6 +274,7 @@ import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
 import clerkService from "./services/clerk";
+import { tokenCheckService } from "./services/tokenCheck";
 
 // Create HTTP server and WebSocket server
 const server = http.createServer(app);

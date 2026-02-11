@@ -15,10 +15,21 @@ exports.clerkService = {
      */
     async verifyWebhook(req) {
         try {
-            const payload = req.body;
-            const headers = req.headers;
             const wh = new svix_1.Webhook(clerkWebhookSecret);
-            const msg = wh.verify(JSON.stringify(payload), headers);
+            // Get raw body - it may be a Buffer or string depending on how it was parsed
+            let payload = req.body;
+            let rawBody;
+            if (Buffer.isBuffer(payload)) {
+                rawBody = payload.toString('utf-8');
+            }
+            else if (typeof payload === 'string') {
+                rawBody = payload;
+            }
+            else {
+                // If it's already an object, stringify it
+                rawBody = JSON.stringify(payload);
+            }
+            const msg = wh.verify(rawBody, req.headers);
             console.log('[Clerk] Webhook verified successfully');
             return msg;
         }

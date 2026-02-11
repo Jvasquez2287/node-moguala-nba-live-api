@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
             return res.json({ success: false, error: 'Invalid or missing security parameters' });
         }
         const user = await users_1.default.getUserByClerkIdWithSubscription(validationResult.user?.clerk_id || '');
-        console.log('[Users] User fetched with subscription info:', user);
+        console.log('[Users] User fetched with subscription info:', user?.clerk_id);
         if (!user) {
             return res.json({ success: false, error: 'User not found' });
         }

@@ -9,15 +9,32 @@ const stripe_2 = require("../services/stripe");
 const clerk_1 = require("../services/clerk");
 const database_1 = require("../config/database");
 const router = express_1.default.Router();
+// Apply raw body parser to this router for Stripe webhook signature verification
+router.use(express_1.default.raw({ type: 'application/json' }));
 const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
     apiVersion: '2026-01-28.clover'
 });
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+router.get('/stripe-delete-all-subscription', async (req, res) => {
+    try {
+        await (0, database_1.executeQuery)('DELETE FROM subscriptions');
+        // Delete all from stripe as well (for testing purposes only - be careful with this in production!)
+        const subscriptions = await stripe_2.stripeService.getAllSubscriptionsFromStripe();
+        for (const sub of subscriptions) {
+            await stripe.subscriptions.cancel(sub.id);
+        }
+        res.json({ success: true, message: 'All subscriptions deleted' });
+    }
+    catch (error) {
+        console.error('Error deleting subscriptions:', error);
+        res.json({ success: false, error: 'Failed to delete subscriptions' });
+    }
+});
 /**
  * Stripe Webhook endpoint
  * Handles: customer.subscription.created, customer.subscription.updated, customer.subscription.deleted
  */
-router.post('/stripe', express_1.default.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/stripe', async (req, res) => {
     try {
         const sig = req.headers['stripe-signature'];
         const event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
@@ -117,7 +134,7 @@ router.get('/stripe', async (req, res) => {
  * Clerk Webhook endpoint
  * Handles: user.created, user.updated, user.deleted
  */
-router.post('/clerk', express_1.default.json(), async (req, res) => {
+router.post('/clerk', async (req, res) => {
     try {
         console.log('[Webhook] Received Clerk event');
         const event = await clerk_1.clerkService.verifyWebhook(req);

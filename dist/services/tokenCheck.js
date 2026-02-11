@@ -16,6 +16,7 @@ exports.tokenCheckService = {
         try {
             const token = req.headers.authorization?.split(' ')[1];
             const clerkId = req.headers['x-clerk-id'];
+            const userEmail = req.headers['x-user-email'];
             // Step 1: Get user by clerk_id
             console.log(`[TokenCheck] Validating token for clerk_id: ${clerkId}`);
             // Validate required parameters
@@ -26,16 +27,18 @@ exports.tokenCheckService = {
                     message: 'Missing authorization token'
                 };
             }
-            if (!clerkId) {
-                console.warn(`[TokenCheck] Missing clerk ID`);
+            if (!clerkId && !userEmail) {
+                console.warn(`[TokenCheck] Missing clerk ID & user email. Either x-clerk-id or x-user-email header must be provided.`);
                 return {
                     valid: false,
-                    message: 'Missing clerk ID'
+                    message: 'Missing clerk ID and user email'
                 };
             }
-            const userResult = await (0, database_1.executeQuery)('SELECT id, clerk_id, email, first_name, last_name, stripe_id FROM users WHERE clerk_id = @clerkId', { clerkId });
+            const userIdentifier = clerkId ? `clerk_id = @clerkId` : `email = @userEmail`;
+            const userParams = clerkId ? { clerkId } : { userEmail };
+            const userResult = await (0, database_1.executeQuery)(`SELECT id, clerk_id, email, first_name, last_name, stripe_id FROM users WHERE ${userIdentifier}`, userParams);
             if (!userResult.recordset || userResult.recordset.length === 0) {
-                console.warn(`[TokenCheck] User not found for clerk_id: ${clerkId}`);
+                console.warn(`[TokenCheck] User not found for ${userIdentifier}: ${clerkId || userEmail}`);
                 return {
                     valid: false,
                     message: 'User not found'
