@@ -59,10 +59,6 @@ console.log('CWD:', process.cwd());
 console.log('require.main !== module:', require.main !== module);
 console.log('#######################################\n');
 const app = (0, express_1.default)();
-// Create HTTP server and WebSocket server
-const server = http_1.default.createServer(app);
-const wss = new ws_1.WebSocketServer({ noServer: true });
-console.log('[WebSocket] Server initialized');
 // Middleware
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -111,10 +107,11 @@ app.get("/api/v1/test", async (req, res) => {
     try {
         var status = 202;
         var http = require('http');
-        res.status(500).send({
+        res.send({
+            status: 404,
             success: false,
             error: 'Failed to refresh cache',
-            message: 'Unknown error test -- This is a test endpoint to verify error handling and response structure'
+            message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
         });
     }
     catch (error) {
@@ -303,6 +300,10 @@ const keyMoments_1 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
+// Create HTTP server and WebSocket server
+const server = http_1.default.createServer(app);
+const wss = new ws_1.WebSocketServer({ noServer: true });
+console.log('[WebSocket] Server initialized');
 // Handle WebSocket upgrade requests
 console.log('[Server Setup] Registering upgrade handler');
 server.on('upgrade', (req, socket, head) => {

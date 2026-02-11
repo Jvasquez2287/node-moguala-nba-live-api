@@ -28,12 +28,6 @@ console.log('#######################################\n');
 
 const app = express();
 
-// Create HTTP server and WebSocket server
-const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
-
-console.log('[WebSocket] Server initialized');
-
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -87,10 +81,11 @@ app.get("/api/v1/test", async (req, res) => {
   try {
     var status = 202;
     var http = require('http');
-    res.status(500).send({
+    res.send ({
+      status: 404,
       success: false,
       error: 'Failed to refresh cache',
-      message:  'Unknown error test -- This is a test endpoint to verify error handling and response structure'
+      message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
     });
   } catch (error) {
     console.error('Error refreshing cache:', error);
@@ -304,6 +299,11 @@ import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
 import clerkService from "./services/clerk";
 
+// Create HTTP server and WebSocket server
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+console.log('[WebSocket] Server initialized');
 
 // Handle WebSocket upgrade requests
 console.log('[Server Setup] Registering upgrade handler');
