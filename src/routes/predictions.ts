@@ -66,7 +66,7 @@ router.get('/predictions', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching predictions:', error);
-    return res.status(500).json({ error: 'Failed to fetch predictions' });
+    return res.json({ error: 'Failed to fetch predictions' });
   }
 });
 
@@ -79,7 +79,7 @@ router.get('/predictions/date/:date', async (req, res) => {
     // Validate date format (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
-      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      return res.json({ error: 'Invalid date format. Use YYYY-MM-DD' });
     }
 
     // Validate season format if provided (YYYY-YY)
@@ -94,7 +94,7 @@ router.get('/predictions/date/:date', async (req, res) => {
 
     const seasonRegex = /^\d{4}-\d{2}$/;
     if (!seasonRegex.test(seasonParam)) {
-      return res.status(400).json({ error: 'Invalid season format. Use YYYY-YY' });
+      return res.json({ error: 'Invalid season format. Use YYYY-YY' });
     }
 
     const predictionsData = await predictGamesForDate(date, seasonParam);
@@ -109,13 +109,13 @@ router.get('/predictions/date/:date', async (req, res) => {
     const { error } = predictionsResponseSchema.validate(predictionsData);
     if (error) {
      console.log('Predictions validation error:', error);
-      return res.status(500).json({ error: 'Invalid predictions data' });
+      return res.json({ error: 'Invalid predictions data' });
     }
 
    return  res.json(predictionsData);
   } catch (error) {
    console.log('Error fetching predictions:', error);
-    res.status(500).json({ error: 'Failed to fetch predictions' });
+    res.json({ error: 'Failed to fetch predictions' });
   } 
 });
 
@@ -159,7 +159,7 @@ router.get('/predictions/:gameId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching game prediction:', error);
-    res.status(500).json({ error: 'Failed to fetch game prediction' });
+    res.json({ error: 'Failed to fetch game prediction' });
   }
 });
 

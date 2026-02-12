@@ -44,7 +44,7 @@ router.get('/:clerkId', async (req: Request, res: Response) => {
     const { clerkId } = req.params;
 
     if (!clerkId) {
-      return res.status(400).json({ success: false, error: 'clerkId is required' });
+      return res.json({ success: false, error: 'clerkId is required' });
     }
 
     const user = await clerkService.getUserByClerkId(clerkId);
@@ -72,7 +72,7 @@ router.get('/email/:email', async (req: Request, res: Response) => {
     const { email } = req.params;
 
     if (!email) {
-      return res.status(400).json({ success: false, error: 'email is required' });
+      return res.json({ success: false, error: 'email is required' });
     }
 
     const result = await executeQuery(
@@ -104,7 +104,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { clerkId, email, firstName, lastName, profileImage } = req.body;
 
     if (!clerkId || !email) {
-      return res.status(400).json({ success: false, error: 'clerkId and email are required' });
+      return res.json({ success: false, error: 'clerkId and email are required' });
     }
 
     const result = await executeQuery(
@@ -140,7 +140,7 @@ router.put('/:clerkId', async (req: Request, res: Response) => {
     const { email, firstName, lastName, profileImage } = req.body;
 
     if (!clerkId) {
-      return res.status(400).json({ success: false, error: 'clerkId is required' });
+      return res.json({ success: false, error: 'clerkId is required' });
     }
 
     await executeQuery(

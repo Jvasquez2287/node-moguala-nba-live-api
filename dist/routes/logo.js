@@ -56,7 +56,7 @@ router.get('/debug/list', (req, res) => {
         });
     }
     catch (error) {
-        return res.status(500).json({ error: 'Failed to list logos', details: String(error) });
+        return res.json({ error: 'Failed to list logos', details: String(error) });
     }
 });
 /**

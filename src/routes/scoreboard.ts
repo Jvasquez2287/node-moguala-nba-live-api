@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
     return res.json(scoreboard);
   } catch (error) {
     console.error('Error fetching scoreboard:', error);
-    res.status(500).json({ error: 'Failed to fetch scoreboard' });
+    res.json({ error: 'Failed to fetch scoreboard' });
   }
 });
 
@@ -39,7 +39,7 @@ router.get('/playbyplay/:gameId', async (req, res) => {
     return res.json(playByPlay);
   } catch (error) {
     console.error('Error fetching play-by-play:', error);
-    res.status(500).json({ error: 'Failed to fetch play-by-play' });
+    res.json({ error: 'Failed to fetch play-by-play' });
   }
 });
 
@@ -131,7 +131,7 @@ router.get('/game/:gameId/boxscore', async (req, res) => {
     return res.json(boxScore);
   } catch (error) {
     console.error('Error fetching box score:', error);
-    res.status(500).json({ error: 'Failed to fetch box score' });
+    res.json({ error: 'Failed to fetch box score' });
   }
 });
 
@@ -201,7 +201,7 @@ router.get('/game/:gameId/key-moments', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching key moments:', error);
-    res.status(500).json({ error: 'Failed to fetch key moments' });
+    res.json({ error: 'Failed to fetch key moments' });
   }
 });
 
@@ -270,7 +270,7 @@ router.get('/game/:gameId/win-probability', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching win probability:', error);
-    res.status(500).json({ error: 'Failed to fetch win probability' });
+    res.json({ error: 'Failed to fetch win probability' });
   }
 });
 

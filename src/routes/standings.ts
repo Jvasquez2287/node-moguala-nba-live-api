@@ -16,7 +16,7 @@ router.get('/season/:season', async (req, res) => {
     // Validate season format (YYYY-YY)
     const seasonRegex = /^\d{4}-\d{2}$/;
     if (!seasonRegex.test(season)) {
-      return res.status(400).json({ error: 'Invalid season format. Use YYYY-YY' });
+      return res.json({ error: 'Invalid season format. Use YYYY-YY' });
     }
 
     const standingsData = await getSeasonStandings(season);
@@ -29,13 +29,13 @@ router.get('/season/:season', async (req, res) => {
     const { error } = standingsResponseSchema.validate(standingsData);
     if (error) {
      console.log('Standings validation error:', error);
-      return res.status(500).json({ error: 'Invalid standings data' });
+      return res.json({ error: 'Invalid standings data' });
     }
 
     res.json(standingsData);
   } catch (error) {
    console.log('Error fetching standings:', error);
-    res.status(500).json({ error: 'Failed to fetch standings' });
+    res.json({ error: 'Failed to fetch standings' });
   }
 });
 
@@ -151,7 +151,7 @@ return router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching standings:', error);
-    res.status(500).json({ error: 'Failed to fetch standings' });
+    res.json({ error: 'Failed to fetch standings' });
   }
 });
 
@@ -268,7 +268,7 @@ router.get('/season/:season', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching standings by season:', error);
-    res.status(500).json({ error: 'Failed to fetch standings by season' });
+    res.json({ error: 'Failed to fetch standings by season' });
   }
 });
 */

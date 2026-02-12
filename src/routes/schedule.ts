@@ -39,7 +39,7 @@ router.get('/schedule', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching schedule:', error);
-    res.status(500).json({ error: 'Failed to fetch schedule' });
+    res.json({ error: 'Failed to fetch schedule' });
   }
 });
 
@@ -51,7 +51,7 @@ router.get('/schedule/date/:date', async (req, res) => {
     // Validate date format
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(dateParam)) {
-      return res.status(400).json({
+      return res.json({
         error: 'Invalid date format. Use YYYY-MM-DD',
         example: '2026-01-25'
       });
@@ -189,7 +189,7 @@ router.get('/schedule/date/:date', async (req, res) => {
         // Validate date format (YYYY-MM-DD)
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(date)) {
-          return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+          return res.json({ error: 'Invalid date format. Use YYYY-MM-DD' });
         }
 
         const gamesData = await getGamesForDate(date);
@@ -202,13 +202,13 @@ router.get('/schedule/date/:date', async (req, res) => {
         const { error } = gamesResponseSchema.validate(gamesData);
         if (error) {
           console.log('Schedule validation error:', error);
-          return res.status(500).json({ error: 'Invalid schedule data' });
+          return res.json({ error: 'Invalid schedule data' });
         }
 
         return res.json(gamesData);
       } catch (error) {
         console.log('Error fetching games for date:', error);
-        return res.status(500).json({ error: 'Failed to fetch games' });
+        return res.json({ error: 'Failed to fetch games' });
       }
     }
 
@@ -227,7 +227,7 @@ router.get('/schedule/date/:date', async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching schedule by date:', error);
-    res.status(500).json({
+    res.json({
       error: 'Failed to fetch schedule by date',
       details: error instanceof Error ? error.message : String(error)
     });

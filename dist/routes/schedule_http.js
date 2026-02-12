@@ -18,7 +18,7 @@ router.get('/schedule-v1', async (req, res) => {
     }
     catch (error) {
         console.error('[Route] Error fetching schedule:', error);
-        res.status(500).json({ error: 'Failed to fetch schedule' });
+        res.json({ error: 'Failed to fetch schedule' });
     }
 });
 // GET /api/v1/schedule-v1/today - Get today's games
@@ -30,7 +30,7 @@ router.get('/schedule-v1/today', async (req, res) => {
     }
     catch (error) {
         console.error('[Route] Error fetching today\'s games:', error);
-        return res.status(500).json({ error: 'Failed to fetch today\'s games' });
+        return res.json({ error: 'Failed to fetch today\'s games' });
     }
 });
 // GET /api/v1/schedule-v1/date/:date - Get schedule for a specific date
@@ -43,7 +43,7 @@ router.get('/schedule-v1/date/:date', async (req, res) => {
     }
     catch (error) {
         console.error('[Route] Error fetching schedule by date:', error);
-        return res.status(500).json({ error: 'Failed to fetch schedule by date' });
+        return res.json({ error: 'Failed to fetch schedule by date' });
     }
 });
 // POST /api/v1/schedule-v1/refresh - Manually refresh schedule
@@ -61,7 +61,7 @@ router.post('/schedule-v1/refresh', async (req, res) => {
     }
     catch (error) {
         console.error('[Route] Error refreshing schedule:', error);
-        res.status(500).json({
+        res.json({
             success: false,
             error: 'Failed to refresh schedule',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -99,7 +99,7 @@ router.get('/schedule-v1/games', async (req, res) => {
     }
     catch (error) {
         console.error('[Route] Error fetching schedule games:', error);
-        res.status(500).json({ error: 'Failed to fetch schedule games' });
+        res.json({ error: 'Failed to fetch schedule games' });
     }
 });
 // GET /api/v1/schedule-v1/game/:gameId - Get specific game details from schedule
@@ -127,7 +127,7 @@ router.get('/schedule-v1/game/:gameId', async (req, res) => {
     }
     catch (error) {
         console.error('[Route] Error fetching schedule game:', error);
-        res.status(500).json({ error: 'Failed to fetch schedule game' });
+        res.json({ error: 'Failed to fetch schedule game' });
     }
 });
 exports.default = router;

@@ -39,7 +39,7 @@ router.get('/:clerkId', async (req, res) => {
     try {
         const { clerkId } = req.params;
         if (!clerkId) {
-            return res.status(400).json({ success: false, error: 'clerkId is required' });
+            return res.json({ success: false, error: 'clerkId is required' });
         }
         const user = await clerk_1.clerkService.getUserByClerkId(clerkId);
         if (!user) {
@@ -63,7 +63,7 @@ router.get('/email/:email', async (req, res) => {
     try {
         const { email } = req.params;
         if (!email) {
-            return res.status(400).json({ success: false, error: 'email is required' });
+            return res.json({ success: false, error: 'email is required' });
         }
         const result = await (0, database_1.executeQuery)('SELECT * FROM users WHERE email = @email', { email });
         if (!result || result.recordset.length === 0) {
@@ -88,7 +88,7 @@ router.post('/', async (req, res) => {
     try {
         const { clerkId, email, firstName, lastName, profileImage } = req.body;
         if (!clerkId || !email) {
-            return res.status(400).json({ success: false, error: 'clerkId and email are required' });
+            return res.json({ success: false, error: 'clerkId and email are required' });
         }
         const result = await (0, database_1.executeQuery)(`INSERT INTO users (clerk_id, email, first_name, last_name, profile_image, created_at)
        VALUES (@clerkId, @email, @firstName, @lastName, @profileImage, @now)`, {
@@ -118,7 +118,7 @@ router.put('/:clerkId', async (req, res) => {
         const { clerkId } = req.params;
         const { email, firstName, lastName, profileImage } = req.body;
         if (!clerkId) {
-            return res.status(400).json({ success: false, error: 'clerkId is required' });
+            return res.json({ success: false, error: 'clerkId is required' });
         }
         await (0, database_1.executeQuery)(`UPDATE users 
        SET email = @email, first_name = @firstName, last_name = @lastName, profile_image = @profileImage, updated_at = @now

@@ -31,7 +31,7 @@ router.get('/league', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching league info:', error);
-        return res.status(500).json({ error: 'Failed to fetch league information' });
+        return res.json({ error: 'Failed to fetch league information' });
     }
 });
 // GET /api/v1/league/leaders - Get league leaders
@@ -106,7 +106,7 @@ router.get('/league/leaders', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching league leaders:', error);
-        return res.status(500).json({ error: 'Failed to fetch league leaders' });
+        return res.json({ error: 'Failed to fetch league leaders' });
     }
 });
 exports.default = router;

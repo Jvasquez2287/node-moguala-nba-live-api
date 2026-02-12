@@ -55,7 +55,7 @@ router.get('/debug/list', (req, res) => {
       example: foundDir ? `Try: GET /api/v1/team-logo/ATL.png` : 'No logos directory found'
     });
   } catch (error) {
-   return  res.status(500).json({ error: 'Failed to list logos', details: String(error) });
+   return  res.json({ error: 'Failed to list logos', details: String(error) });
   }
 });
 

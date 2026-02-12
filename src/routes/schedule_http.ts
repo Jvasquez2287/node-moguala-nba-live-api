@@ -16,7 +16,7 @@ router.get('/schedule-v1', async (req, res) => {
    return  res.json(schedule);
   } catch (error) {
     console.error('[Route] Error fetching schedule:', error);
-    res.status(500).json({ error: 'Failed to fetch schedule' });
+    res.json({ error: 'Failed to fetch schedule' });
   }
 });
 
@@ -29,7 +29,7 @@ router.get('/schedule-v1/today', async (req, res) => {
    return  res.json(todaysGames);
   } catch (error) {
     console.error('[Route] Error fetching today\'s games:', error);
-    return res.status(500).json({ error: 'Failed to fetch today\'s games' });
+    return res.json({ error: 'Failed to fetch today\'s games' });
   }
 });
 
@@ -42,7 +42,7 @@ router.get('/schedule-v1/date/:date', async (req, res) => {
     return res.json(scheduleByDate);
   } catch (error) {
     console.error('[Route] Error fetching schedule by date:', error);
-    return res.status(500).json({ error: 'Failed to fetch schedule by date' });
+    return res.json({ error: 'Failed to fetch schedule by date' });
   }
 });
 
@@ -61,7 +61,7 @@ router.post('/schedule-v1/refresh', async (req, res) => {
     });
   } catch (error) {
     console.error('[Route] Error refreshing schedule:', error);
-    res.status(500).json({
+    res.json({
       success: false,
       error: 'Failed to refresh schedule',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -107,7 +107,7 @@ router.get('/schedule-v1/games', async (req, res) => {
     });
   } catch (error) {
     console.error('[Route] Error fetching schedule games:', error);
-    res.status(500).json({ error: 'Failed to fetch schedule games' });
+    res.json({ error: 'Failed to fetch schedule games' });
   }
 });
 
@@ -139,7 +139,7 @@ router.get('/schedule-v1/game/:gameId', async (req, res) => {
     });
   } catch (error) {
     console.error('[Route] Error fetching schedule game:', error);
-    res.status(500).json({ error: 'Failed to fetch schedule game' });
+    res.json({ error: 'Failed to fetch schedule game' });
   }
 });
 

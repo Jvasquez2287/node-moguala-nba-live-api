@@ -28,7 +28,7 @@ router.get('/league', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching league info:', error);
-    return res.status(500).json({ error: 'Failed to fetch league information' });
+    return res.json({ error: 'Failed to fetch league information' });
   }
 });
 
@@ -110,7 +110,7 @@ router.get('/league/leaders', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching league leaders:', error);
-   return  res.status(500).json({ error: 'Failed to fetch league leaders' });
+   return  res.json({ error: 'Failed to fetch league leaders' });
   }
 });
 

@@ -97,7 +97,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     }
     catch (error) {
         console.error('Error refreshing cache:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to refresh cache',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -107,7 +107,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
     try {
-        return res.status(404).json({
+        return res.json({
             status: 404,
             success: false,
             error: 'Failed to refresh cache',
@@ -116,7 +116,7 @@ app.get("/api/v1/test", async (req, res) => {
     }
     catch (error) {
         console.error('Error refreshing cache:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to refresh cache',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -137,7 +137,7 @@ app.get("/api/v1/cache/status", async (req, res) => {
     }
     catch (error) {
         console.error('Error getting cache status:', error);
-        return res.status(500).json({
+        return res.json({
             cacheStatus: 'error',
             error: 'Failed to get cache status'
         });
