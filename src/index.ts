@@ -37,6 +37,7 @@ import { dataCache } from "./services/dataCache";
 
 // Health check
 app.get("/", (req, res) => {
+  res.flushHeaders();
   return res.status(404).json({
     message: "NBA Live API is running",
     timestamp: new Date().toISOString(),
