@@ -34,7 +34,7 @@ app.use(cors({ origin: "*", credentials: true }));
 
 // Health check
 app.get("/", (req, res) => {
-  res.json({
+  return res.json({
     message: "NBA Live API is running",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
@@ -48,7 +48,7 @@ app.get("/", (req, res) => {
         DB_NAME: !!process.env.DB_NAME
       }
     }
-  }).end();
+  });
 });
 
 
@@ -78,13 +78,12 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
   try { 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.status(404).send({
+    return res.status(404).json({
       status: 404,
       success: false,
       error: 'Failed to refresh cache',
       message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
-    }).end();
+    });
   } catch (error) {
     console.error('Error refreshing cache:', error);
     res.status(500).send({
