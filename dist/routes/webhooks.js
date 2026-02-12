@@ -84,12 +84,12 @@ router.post('/stripe', async (req, res) => {
                     product_id: data.items.data[0].plan.product
                 };
                 await stripe_2.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
-                console.log(`[Webhook] Subscription updated for customer: ${data.customer}`);
+                console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
                 res.json({ received: true });
                 break;
             }
             case 'customer.subscription.deleted': {
-                await (0, database_1.executeQuery)('UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId', { status: 'canceled', now: new Date(), stripeId: data.customer });
+                await (0, database_1.executeQuery)('UPDATE subscriptions SET subscription_canceled_at = @now WHERE stripe_id = @stripeId', { now: new Date(), stripeId: data.customer });
                 console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`);
                 res.json({ received: true });
                 break;

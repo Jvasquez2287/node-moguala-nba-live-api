@@ -14,8 +14,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! , {
 });
 
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET! ;
-
-
+ 
 router.get('/stripe-delete-all-subscription', async (req: Request, res: Response) => {
   try {
     await executeQuery('DELETE FROM subscriptions');
@@ -95,15 +94,15 @@ router.post('/stripe', async (req: Request, res: Response) => {
         };
 
         await stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
-        console.log(`[Webhook] Subscription updated for customer: ${data.customer}`);
+        console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
         res.json({ received: true });
         break;
       }
 
       case 'customer.subscription.deleted': {
         await executeQuery(
-          'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId',
-          { status: 'canceled', now: new Date(), stripeId: data.customer }
+          'UPDATE subscriptions SET subscription_canceled_at = @now WHERE stripe_id = @stripeId',
+          { now: new Date(), stripeId: data.customer }
         );
         console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`);
         res.json({ received: true });

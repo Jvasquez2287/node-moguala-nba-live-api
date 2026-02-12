@@ -5,8 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.subscriptionsService = void 0;
 const database_1 = require("../config/database");
-const stripe_1 = __importDefault(require("stripe"));
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY || '', {
+const stripe_1 = __importDefault(require("./stripe"));
+const stripe_2 = __importDefault(require("stripe"));
+const stripe = new stripe_2.default(process.env.STRIPE_SECRET_KEY || '', {
     apiVersion: '2026-01-28.clover'
 });
 exports.subscriptionsService = {
@@ -25,10 +26,6 @@ exports.subscriptionsService = {
             console.log(`[SubscriptionsService] Session retrieved: ${session.id}`);
             // Step 2: Get subscription details from Stripe
             const subscription = await stripe.subscriptions.retrieve(session.subscription);
-            console.log(`[SubscriptionsService] Subscription retrieved: ${subscription.id}`);
-            console.log(`[SubscriptionsService] Customer: ${subscription.customer}`);
-            console.log(`[SubscriptionsService] Status: ${subscription.status}`);
-            console.log(`[SubscriptionsService] Full subscription object:`, JSON.stringify(subscription, null, 2));
             // Step 3: Get customer info
             const customer = await stripe.customers.retrieve(subscription.customer);
             console.log(`[SubscriptionsService] Customer email: ${customer.email}`);
@@ -40,7 +37,7 @@ exports.subscriptionsService = {
             const user = userResult.recordset[0];
             console.log(`[SubscriptionsService] Found user: ${user.id}, clerk_id: ${user.clerk_id}`);
             // Step 5: Update user with stripe_id if not already set
-            if (!user.stripe_id) {
+            if (!user.stripe_id || user.stripe_id !== subscription.customer) {
                 await (0, database_1.executeQuery)('UPDATE users SET stripe_id = @stripe_id, updated_at = @updated_at WHERE id = @id', {
                     stripe_id: subscription.customer,
                     updated_at: new Date().toISOString(),
@@ -82,8 +79,6 @@ exports.subscriptionsService = {
                     return null;
                 }
             };
-            // Step 7: Check if user already has a subscription
-            const existingSubscription = await (0, database_1.executeQuery)('SELECT id FROM subscriptions WHERE user_id = @user_id', { user_id: user.id });
             const subscriptionData = {
                 stripe_id: subscription.customer,
                 subscription_id: subscription.id,
@@ -95,14 +90,21 @@ exports.subscriptionsService = {
                 subscription_title: subscription.items?.data?.[0]?.plan?.nickname || 'Premium Subscription',
                 subscription_next_billing_date: convertTimestampToISO(subscription.current_period_end) || new Date().toISOString(),
                 subscription_latest_invoice_Id: subscription.latest_invoice || '',
-                subscription_invoice_pdf_url: '',
+                subscription_invoice_pdf_url: await stripe_1.default.getInvoice(subscription.latest_invoice) || '',
                 subscription_canceled_at: convertTimestampToISO(subscription.canceled_at),
                 product_id: productId || '',
                 updated_at: new Date().toISOString()
             };
+            console.log(`[SubscriptionsService] Prepared subscription data:`, subscriptionData);
+            const newSubscriptionId = subscriptionData.subscription_id;
+            // Step 7: Check if user already has a subscription
+            const existingSubscription = await (0, database_1.executeQuery)('SELECT subscription_id, user_id FROM subscriptions WHERE subscription_id = @subscription_id OR user_id = @user_id', { subscription_id: newSubscriptionId, user_id: user.id });
+            const hasExistingSubscription = existingSubscription.recordset.length > 0;
+            const existingRecord = hasExistingSubscription ? existingSubscription.recordset[0] : null;
+            const existingSubscriptionId = existingRecord?.subscription_id;
             // Step 8: Create or update subscription in database
-            if (existingSubscription.recordset && existingSubscription.recordset.length > 0) {
-                // Update existing subscription for this user
+            if (hasExistingSubscription) {
+                // Update existing subscription using the subscription_id that was found
                 await (0, database_1.executeQuery)(`UPDATE subscriptions 
            SET subscription_id = @subscription_id,
                subscription_status = @status, 
@@ -110,22 +112,24 @@ exports.subscriptionsService = {
                subscription_end_date = @end_date,
                subscription_next_billing_date = @next_billing,
                subscription_latest_invoice_Id = @invoice_id,
+               user_id = @user_id,
                stripe_id = @stripe_id,
                clerk_id = @clerk_id,
                updated_at = @updated_at
-           WHERE user_id = @user_id`, {
+           WHERE subscription_id = @existing_subscription_id`, {
                     subscription_id: subscription.id,
                     status: subscriptionData.subscription_status,
                     start_date: subscriptionData.subscription_start_date,
                     end_date: subscriptionData.subscription_end_date,
                     next_billing: subscriptionData.subscription_next_billing_date,
                     invoice_id: subscriptionData.subscription_latest_invoice_Id,
+                    user_id: user.id,
                     stripe_id: subscriptionData.stripe_id,
                     clerk_id: subscriptionData.clerk_id,
-                    user_id: user.id,
+                    existing_subscription_id: existingSubscriptionId,
                     updated_at: new Date().toISOString()
                 });
-                console.log(`[SubscriptionsService] Updated existing subscription for user: ${user.id}`);
+                console.log(`[SubscriptionsService] Updated existing subscription ${existingSubscriptionId} for user: ${user.id}`);
             }
             else {
                 // Create new subscription

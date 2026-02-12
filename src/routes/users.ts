@@ -23,6 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
       return res.json({ success: false, error: 'User not found' });
     }
     
+    
     return res.json({
       success: true,
       data: user

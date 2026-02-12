@@ -563,6 +563,7 @@ export const clerkService = {
   async syncAllUsersFromClerk(): Promise<{ created: number; updated: number; failed: number }> {
     try {
       console.log('[Clerk] Starting full user sync from Clerk API...');
+      console.log('[Clerk] Using CLERK_SECRET_KEY:', process.env.CLERK_SECRET_KEY ? 'Set' : 'Not set');
       
       let createdCount = 0;
       let updatedCount = 0;
@@ -574,23 +575,30 @@ export const clerkService = {
 
       while (hasMore) {
         try {
-          const response = await fetch(
-            `https://api.clerk.dev/v1/users?offset=${offset}&limit=${limit}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
-                'Content-Type': 'application/json'
-              }
+          const url = `https://api.clerk.dev/v1/users?offset=${offset}&limit=${limit}`;
+          console.log(`[Clerk] Fetching users from: ${url}`);
+          
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+              'Content-Type': 'application/json'
             }
-          );
+          });
 
+          console.log(`[Clerk] API response status: ${response.status}`);
+          
           if (!response.ok) {
-            console.error(`[Clerk] Failed to fetch users from Clerk API: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`[Clerk] Failed to fetch users from Clerk API: ${response.status}`, errorText);
             break;
           }
 
           const data = await response.json() as any;
-          const users = (data?.data || []) as ClerkUser[];
+          console.log(`[Clerk] API response data structure:`, JSON.stringify(data).substring(0, 500));
+          
+          // Handle both array response and wrapped response
+          const users = (Array.isArray(data) ? data : data?.data || []) as ClerkUser[];
+          console.log(`[Clerk] Parsed ${users.length} users from API`);
           totalUsers += users.length;
 
           if (users.length === 0) {

@@ -167,8 +167,6 @@ router.delete('/cancel', async (req, res) => {
     try {
         const { subscriptionId } = req.body;
         console.log(`[Subscriptions] Canceling subscription with ID:`, subscriptionId);
-        console.log('Body:', req.body);
-        console.log('Headers:', req.headers);
         if (!subscriptionId) {
             return res.status(400).json({ error: 'subscriptionId is required in body' });
         }

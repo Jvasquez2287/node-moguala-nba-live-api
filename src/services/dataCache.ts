@@ -47,7 +47,7 @@ class LRUCache {
       if (oldestKey) {
         this.cache.delete(oldestKey);
         this.timestamps.delete(oldestKey);
-        console.log(`LRU eviction: removed game ${oldestKey} from play-by-play cache`);
+        console.log(`LRU eviction: removed game ${oldestKey} from [Play-By-Play] cache`);
       }
     }
   }
@@ -144,14 +144,14 @@ export class DataCache {
       this.lock = true;
       try {
         this.scoreboardCache = scoreboardData;
-        console.log(`Scoreboard refreshed: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
+        console.log(`[ScoreBoard] Scoreboard refreshed: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
       } finally {
         this.lock = false;
       }
 
       return scoreboardData;
     } catch (error) {
-      console.error('Error refreshing scoreboard:', error);
+      console.error('[ScoreBoard] Error refreshing scoreboard:', error);
       return this.scoreboardCache;
     }
   }
@@ -295,7 +295,7 @@ export class DataCache {
       }
 
       if (removedCount > 0) {
-        console.log(`Cleaned up ${removedCount} finished games from play-by-play cache`);
+        console.log(`[PlayByPlay] Cleaned up ${removedCount} finished games from play-by-play cache`);
       }
     } finally {
       this.lock = false;
@@ -303,7 +303,7 @@ export class DataCache {
   }
 
   private async periodicCleanup(): Promise<void> {
-    console.log('Periodic cache cleanup started');
+    console.log('[Cleanup] Periodic cache cleanup started');
 
     const cleanup = async () => {
       try {
@@ -313,13 +313,13 @@ export class DataCache {
         try {
           const removed = this.playbyplayCache.clearOldEntries(24 * 60 * 60 * 1000); // 24 hours
           if (removed > 0) {
-            console.log(`Removed ${removed} old games (older than 24 hours) from play-by-play cache`);
+            console.log(`[PlayByPlay] Removed ${removed} old games (older than 24 hours) from play-by-play cache`);
           }
         } finally {
           this.lock = false;
         }
       } catch (error) {
-        console.error('Error in periodic cache cleanup:', error);
+        console.error('[Cleanup] Error in periodic cache cleanup:', error);
       }
     };
 
@@ -331,7 +331,7 @@ export class DataCache {
   }
 
   private async pollScoreboard(): Promise<void> {
-    console.log('Scoreboard polling started');
+    console.log('[ScoreBoard] Polling started');
 
     const poll = async () => {
       try {
@@ -354,18 +354,18 @@ export class DataCache {
             const finishedGames = Array.from(oldActiveGames).filter(id => !this.activeGameIds.has(id));
             if (finishedGames.length > 0) {
               finishedGames.forEach(gameId => this.playbyplayCache.remove(gameId));
-              console.log(`Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
+              console.log(`[PlayByPlay] Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
             }
           }
           
 
 
-          console.log(`Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
+          console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
         } finally {
           this.lock = false;
         }
       } catch (error) {
-        console.warn('Error fetching scoreboard:', error);
+        console.warn('[ScoreBoard] Error fetching scoreboard:', error);
       }
     };
 
@@ -379,7 +379,7 @@ export class DataCache {
 
 
   private async pollPlaybyplay(): Promise<void> {
-    console.log('Play-by-play polling started');
+    console.log('[PlayByPlay] Polling started');
 
     const poll = async () => {
       try {
@@ -412,7 +412,7 @@ export class DataCache {
 
               if (currentGame && currentGame.gameStatus === 2) {
                 this.playbyplayCache.set(gameId, playbyplayData);
-                console.log(`Play-by-play cache updated for game ${gameId}`);
+                console.log(`[PlayByPlay] Play-by-play cache updated for game ${gameId}`);
                 // Broadcast custom data to all connected clients
                 await playbyplayWebSocketManager.broadcastToAllClients({ playbyplayData, gameId });
               }
@@ -420,14 +420,14 @@ export class DataCache {
               this.lock = false;
             }
           } catch (error) {
-            console.debug(`Error fetching play-by-play for game ${gameId}:`, error);
+            console.debug(`[PlayByPlay] Error fetching play-by-play for game ${gameId}:`, error);
           }
 
           // Small delay between games
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (error) {
-        console.error('Unexpected error in play-by-play polling:', error);
+        console.error('[PlayByPlay] Unexpected error in play-by-play polling:', error);
       }
     };
 
@@ -440,24 +440,19 @@ export class DataCache {
 
   startPolling(): void {
     if (!this.scoreboardTask) {
-      this.pollScoreboard();
-      console.log('Started scoreboard polling');
+      this.pollScoreboard(); 
     }
 
     if (!this.playbyplayTask) {
-      this.pollPlaybyplay();
-      console.log('Started play-by-play polling');
+      this.pollPlaybyplay(); 
     }
 
     if (!this.cleanupTask) {
-      this.periodicCleanup();
-      console.log('Started periodic cache cleanup');
+      this.periodicCleanup(); 
     }
   }
 
-  async stopPolling(): Promise<void> {
-    console.log('Stopping data cache polling...');
-
+  async stopPolling(): Promise<void> { 
     if (this.scoreboardTask) {
       clearInterval(this.scoreboardTask);
       this.scoreboardTask = null;
@@ -473,7 +468,7 @@ export class DataCache {
       this.cleanupTask = null;
     }
 
-    console.log('Data cache polling stopped');
+    console.log('[DataCache] Data cache polling stopped');
   }
 }
 

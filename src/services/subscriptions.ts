@@ -42,19 +42,15 @@ export const subscriptionsService = {
       if (!session.subscription) {
         throw new Error('No subscription found in checkout session');
       }
+      
 
       console.log(`[SubscriptionsService] Session retrieved: ${session.id}`);
       // Step 2: Get subscription details from Stripe
       const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as any as StripeSubscription;
-      
-      console.log(`[SubscriptionsService] Subscription retrieved: ${subscription.id}`);
-      console.log(`[SubscriptionsService] Customer: ${subscription.customer}`);
-      console.log(`[SubscriptionsService] Status: ${subscription.status}`);
-      console.log(`[SubscriptionsService] Full subscription object:`, JSON.stringify(subscription, null, 2));
-
+ 
       // Step 3: Get customer info
       const customer = await stripe.customers.retrieve(subscription.customer as string);
-      
+
       console.log(`[SubscriptionsService] Customer email: ${(customer as any).email}`);
 
       // Step 4: Find user by email
@@ -71,7 +67,7 @@ export const subscriptionsService = {
       console.log(`[SubscriptionsService] Found user: ${user.id}, clerk_id: ${user.clerk_id}`);
 
       // Step 5: Update user with stripe_id if not already set
-      if (!user.stripe_id) {
+      if (!user.stripe_id || user.stripe_id !== subscription.customer) {
         await executeQuery(
           'UPDATE users SET stripe_id = @stripe_id, updated_at = @updated_at WHERE id = @id',
           {
@@ -92,7 +88,7 @@ export const subscriptionsService = {
       // Debug logging for timestamps
       console.log(`[SubscriptionsService] Timestamps - start: ${itemStartDate}, end: ${itemEndDate}, canceled: ${subscription.canceled_at}`);
       console.log(`[SubscriptionsService] Timestamp types - start: ${typeof itemStartDate}, end: ${typeof itemEndDate}`);
-      
+
       // Calculate the difference to verify they're different
       if (itemStartDate && itemEndDate) {
         const diff = itemEndDate - itemStartDate;
@@ -120,11 +116,6 @@ export const subscriptionsService = {
         }
       };
 
-      // Step 7: Check if user already has a subscription
-      const existingSubscription = await executeQuery(
-        'SELECT id FROM subscriptions WHERE user_id = @user_id',
-        { user_id: user.id }
-      );
 
       const subscriptionData = {
         stripe_id: subscription.customer,
@@ -137,16 +128,32 @@ export const subscriptionsService = {
         subscription_title: (subscription as any).items?.data?.[0]?.plan?.nickname || 'Premium Subscription',
         subscription_next_billing_date: convertTimestampToISO(subscription.current_period_end) || new Date().toISOString(),
         subscription_latest_invoice_Id: subscription.latest_invoice as string || '',
-        subscription_invoice_pdf_url: '',
+        subscription_invoice_pdf_url: await stripeService.getInvoice(subscription.latest_invoice as string) || '',
         subscription_canceled_at: convertTimestampToISO(subscription.canceled_at),
         product_id: productId || '',
         updated_at: new Date().toISOString()
       };
 
+      console.log(`[SubscriptionsService] Prepared subscription data:`, subscriptionData);
+
+      const newSubscriptionId = subscriptionData.subscription_id;
+
+      // Step 7: Check if user already has a subscription
+      const existingSubscription = await executeQuery(
+        'SELECT subscription_id, user_id FROM subscriptions WHERE subscription_id = @subscription_id OR user_id = @user_id',
+        { subscription_id: newSubscriptionId, user_id: user.id }
+      );
+
+      const hasExistingSubscription = existingSubscription.recordset.length > 0;
+      const existingRecord = hasExistingSubscription ? existingSubscription.recordset[0] : null;
+      const existingSubscriptionId = existingRecord?.subscription_id;
+
+      
       // Step 8: Create or update subscription in database
-      if (existingSubscription.recordset && existingSubscription.recordset.length > 0) {
-        // Update existing subscription for this user
-        await executeQuery(
+      if (hasExistingSubscription) {
+        
+        // Update existing subscription using the subscription_id that was found
+         await executeQuery(
           `UPDATE subscriptions 
            SET subscription_id = @subscription_id,
                subscription_status = @status, 
@@ -154,10 +161,11 @@ export const subscriptionsService = {
                subscription_end_date = @end_date,
                subscription_next_billing_date = @next_billing,
                subscription_latest_invoice_Id = @invoice_id,
+               user_id = @user_id,
                stripe_id = @stripe_id,
                clerk_id = @clerk_id,
                updated_at = @updated_at
-           WHERE user_id = @user_id`,
+           WHERE subscription_id = @existing_subscription_id`,
           {
             subscription_id: subscription.id,
             status: subscriptionData.subscription_status,
@@ -165,13 +173,14 @@ export const subscriptionsService = {
             end_date: subscriptionData.subscription_end_date,
             next_billing: subscriptionData.subscription_next_billing_date,
             invoice_id: subscriptionData.subscription_latest_invoice_Id,
+            user_id: user.id,
             stripe_id: subscriptionData.stripe_id,
             clerk_id: subscriptionData.clerk_id,
-            user_id: user.id,
+            existing_subscription_id: existingSubscriptionId,
             updated_at: new Date().toISOString()
           }
         );
-        console.log(`[SubscriptionsService] Updated existing subscription for user: ${user.id}`);
+        console.log(`[SubscriptionsService] Updated existing subscription ${existingSubscriptionId} for user: ${user.id}` );
       } else {
         // Create new subscription
         await executeQuery(
@@ -212,9 +221,9 @@ export const subscriptionsService = {
       // Step 9: Return success response
       const startISO = convertTimestampToISO(itemStartDate) || new Date().toISOString();
       const endISO = convertTimestampToISO(itemEndDate) || new Date().toISOString();
-      
+
       console.log(`[SubscriptionsService] Final response dates - Start: ${startISO}, End: ${endISO}`);
-      
+
       return {
         success: true,
         message: 'Subscription updated successfully',

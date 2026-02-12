@@ -316,9 +316,9 @@ wss.on("connection", (ws, req: any) => {
   try {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
-      scoreboardWebSocketManager.handleConnection(ws);
-
-    } else if (url?.startsWith("/api/v1/playbyplay/ws/")) {
+      scoreboardWebSocketManager.handleConnection(ws); 
+    }  
+    if (url?.startsWith("/api/v1/ws/play-by-play/")) {
       const gameId = url.split("/").pop();
       if (gameId) {
         console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
@@ -347,32 +347,25 @@ try {
 
 try {
   startCleanupTask();
-  console.log('Cleanup task started');
+  console.log('[Cleanup] Task started');
 } catch (error) {
-  console.error('Error starting cleanup task:', error);
+  console.error('[Cleanup] Error starting cleanup task:', error);
 }
 
 try {
   scoreboardWebSocketManager.startBroadcasting();
   playbyplayWebSocketManager.startBroadcasting();
-  console.log('WebSocket broadcasting started');
+  console.log('[WebSocket] Broadcasting started');
 } catch (error) {
-  console.error('Error starting WebSocket broadcasting:', error);
+  console.error('[WebSocket] Error starting broadcasting:', error);
 }
 
 try {
   scoreboardWebSocketManager.startCleanupTask();
   playbyplayWebSocketManager.startCleanupTask();
-  console.log('WebSocket cleanup tasks started');
+  console.log('[WebSocket] Cleanup tasks started');
 } catch (error) {
-  console.error('Error starting cleanup tasks:', error);
-}
-
-try {
-  clerkService.startAutoSync();
-  console.log('Clerk auto sync started');
-} catch (error) {
-  console.error('Error starting Clerk auto sync:', error);
+  console.error('[WebSocket] Error starting cleanup tasks:', error);
 }
 
 // Start server
@@ -386,6 +379,14 @@ const PORT = parseInt(process.env.PORT || '8000');
 
     // Run pending migrations
     await migrationService.runPendingMigrations();
+
+    // Start Clerk auto sync AFTER database is ready
+    try {
+      clerkService.startAutoSync();
+      console.log('[Clerk] Auto sync started');
+    } catch (error) {
+      console.error('[Clerk] Error starting auto sync:', error);
+    }
   } catch (error) {
     console.error('[Database] Failed to initialize connection:', error);
     console.log('[Database] Continuing without database connection - operation is non-critical');
@@ -395,7 +396,7 @@ const PORT = parseInt(process.env.PORT || '8000');
 if (isIISNode) {
   // IISNode provides PORT as a named pipe
   server.listen(process.env.PORT || 8000, () => {
-    console.log('Server running under IISNode on pipe:', process.env.PORT);
+    console.log('[Server] Running under IISNode on pipe:', process.env.PORT);
   });
 } else {
   // Development mode
@@ -410,7 +411,7 @@ if (isIISNode) {
   server.on('error', (err: any) => {
     console.error('[Server Error Event]:', err.message);
     if (err.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is already in use`);
+      console.error(`[Server] Port ${PORT} is already in use`);
       process.exit(1);
     }
   });
