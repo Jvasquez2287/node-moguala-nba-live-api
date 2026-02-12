@@ -66,7 +66,7 @@ app.use((0, cors_1.default)({ origin: "*", credentials: true }));
 const dataCache_1 = require("./services/dataCache");
 // Health check
 app.get("/", (req, res) => {
-    return res.json({
+    return res.status(404).json({
         message: "NBA Live API is running",
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || "development",
@@ -80,7 +80,7 @@ app.get("/", (req, res) => {
                 DB_NAME: !!process.env.DB_NAME
             }
         }
-    });
+    }).end().flushHeaders();
 });
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
