@@ -306,7 +306,7 @@ router.post('/reactivate', async (req: Request, res: Response) => {
  
     console.log(`[Subscriptions] Reactivating Stripe subscription with ID: ${stripeSubscriptionId}`);
     if (!subscriptionId || !stripeSubscriptionId) {
-      return res.status(400).json({ error: 'subscriptionId is required in body' });
+      return res.json({ error: 'subscriptionId is required in body' });
     }
     
     // Reactivate subscription in Stripe
