@@ -214,7 +214,7 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       .replace('{{PERIOD_END}}', periodEnd);
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(successTemplate);
+    return res.send(successTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -227,7 +227,7 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       return res.status(500).send(errorTemplate);
     } catch (templateError) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.status(500).send(`
+     return   res.status(500).send(`
         <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
           <h1>Error</h1>
           <p>${errorMessage}</p>
@@ -246,10 +246,10 @@ app.get('/subscription/cancel', async (req: express.Request, res: express.Respon
     const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(cancelTemplate);
+    return res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-    res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+    return  res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
 
@@ -258,10 +258,10 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
     const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(cancelTemplate);
+    return  res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-    res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+    return  res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
 

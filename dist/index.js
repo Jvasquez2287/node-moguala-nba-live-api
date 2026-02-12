@@ -225,7 +225,7 @@ const handleSubscriptionSuccess = async (req, res) => {
             .replace('{{PERIOD_START}}', periodStart)
             .replace('{{PERIOD_END}}', periodEnd);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(successTemplate);
+        return res.send(successTemplate);
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error processing checkout success:', error);
@@ -239,7 +239,7 @@ const handleSubscriptionSuccess = async (req, res) => {
         }
         catch (templateError) {
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.status(500).send(`
+            return res.status(500).send(`
         <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
           <h1>Error</h1>
           <p>${errorMessage}</p>
@@ -256,11 +256,11 @@ app.get('/subscription/cancel', async (req, res) => {
         const templatesDir = path_1.default.join(__dirname, 'templates');
         const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(cancelTemplate);
+        return res.send(cancelTemplate);
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-        res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+        return res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
     }
 });
 app.get('/subscriptions/cancel', async (req, res) => {
@@ -268,11 +268,11 @@ app.get('/subscriptions/cancel', async (req, res) => {
         const templatesDir = path_1.default.join(__dirname, 'templates');
         const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(cancelTemplate);
+        return res.send(cancelTemplate);
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-        res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+        return res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
     }
 });
 // Import WebSocket managers and services
