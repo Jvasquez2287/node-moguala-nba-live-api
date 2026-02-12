@@ -78,7 +78,7 @@ app.get("/", (req, res) => {
                 DB_NAME: !!process.env.DB_NAME
             }
         }
-    });
+    }).end();
 });
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
@@ -109,7 +109,7 @@ app.get("/api/v1/test", async (req, res) => {
             success: false,
             error: 'Failed to refresh cache',
             message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
-        });
+        }).end();
     }
     catch (error) {
         console.error('Error refreshing cache:', error);
