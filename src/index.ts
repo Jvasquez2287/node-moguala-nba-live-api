@@ -152,6 +152,7 @@ import scoreboardRoutes from "./routes/scoreboard";
 import logoRouter from "./routes/logo";
 import subscriptionsRouter from "./routes/subscriptions";
 import usersRouter from "./routes/users";
+import notificationsRouter from "./routes/notifications";
 
 // Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
 app.use('/api/v1/webhooks', webhooksRouter);
@@ -175,6 +176,9 @@ app.use('/api/v1/subscriptions', subscriptionsRouter);
 // User management routes
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/user', usersRouter);
+
+// Notification management routes
+app.use('/api/v1/notifications', notificationsRouter);
 
 // Subscription success redirect handlers (from Stripe checkout)
 // Both /subscription/success and /subscriptions/success for flexibility

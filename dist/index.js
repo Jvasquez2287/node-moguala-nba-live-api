@@ -175,6 +175,7 @@ const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
 const logo_1 = __importDefault(require("./routes/logo"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
+const notifications_1 = __importDefault(require("./routes/notifications"));
 // Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Apply JSON middleware after webhooks
@@ -194,6 +195,8 @@ app.use('/api/v1/subscriptions', subscriptions_1.default);
 // User management routes
 app.use('/api/v1/users', users_1.default);
 app.use('/api/v1/user', users_1.default);
+// Notification management routes
+app.use('/api/v1/notifications', notifications_1.default);
 // Subscription success redirect handlers (from Stripe checkout)
 // Both /subscription/success and /subscriptions/success for flexibility
 const handleSubscriptionSuccess = async (req, res) => {
