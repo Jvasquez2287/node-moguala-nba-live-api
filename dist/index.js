@@ -66,7 +66,6 @@ app.use((0, cors_1.default)({ origin: "*", credentials: true }));
 const dataCache_1 = require("./services/dataCache");
 // Health check
 app.get("/", (req, res) => {
-    res.flushHeaders();
     return res.status(404).json({
         message: "NBA Live API is running",
         timestamp: new Date().toISOString(),
