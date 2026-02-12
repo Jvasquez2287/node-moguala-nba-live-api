@@ -37,7 +37,7 @@ import { dataCache } from "./services/dataCache";
 
 // Health check
 app.get("/", (req, res) => {
-  return res.json({
+  res.json({
     message: "NBA Live API is running",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
@@ -61,7 +61,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     console.log('Manual cache refresh requested');
     const scoreboardData = await dataCache.refreshScoreboard();
 
-    res.json({
+    return res.json({
       success: true,
       message: "Cache refreshed successfully",
       games: scoreboardData?.scoreboard?.games?.length || 0,
@@ -69,7 +69,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     });
   } catch (error) {
     console.error('Error refreshing cache:', error);
-    res.status(500).send({
+    return res.status(500).json({
       success: false,
       error: 'Failed to refresh cache',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -89,7 +89,7 @@ app.get("/api/v1/test", async (req, res) => {
     });
   } catch (error) {
     console.error('Error refreshing cache:', error);
-    res.status(500).send({
+    return res.status(500).json({
       success: false,
       error: 'Failed to refresh cache',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -104,7 +104,7 @@ app.get("/api/v1/cache/status", async (req, res) => {
     const scoreboardData = await dataCache.getScoreboard();
     const games = scoreboardData?.scoreboard?.games || [];
 
-    res.json({
+    return res.json({
       cacheStatus: games.length > 0 ? 'populated' : 'empty',
       games: games.length,
       timestamp: new Date().toISOString(),
@@ -112,9 +112,10 @@ app.get("/api/v1/cache/status", async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting cache status:', error);
-    res.status(500).json({
+    return res.status(500).json({
       cacheStatus: 'error',
-      error: 'Failed to get cache status'
+      error: 'Failed to get cache status',
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
