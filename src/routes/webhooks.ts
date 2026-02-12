@@ -11,7 +11,7 @@ router.use(express.raw({ type: 'application/json' }));
 
 // Get Stripe webhook secret lazily
 function getStripeWebhookSecret(): string {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = process.env.NODE_ENV !== "development" ? process.env.STRIPE_WEBHOOK_SECRET : 'whsec_hSsvZEGxeBSNZanAKvzbXsvTiyT13aLP';
   if (!secret) {
     throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
   }

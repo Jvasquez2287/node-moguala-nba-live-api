@@ -7,7 +7,7 @@ exports.clerkService = void 0;
 const svix_1 = require("svix");
 const database_1 = require("../config/database");
 const stripe_1 = __importDefault(require("./stripe"));
-const clerkWebhookSecret = process.env.CLERK_WEBHOOK_SECRET || 'whsec_acDK0iU7DWXki0/b6LumDLKo6yfd7fTc';
+const clerkWebhookSecret = process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T';
 let syncInterval = null;
 exports.clerkService = {
     /**
@@ -462,7 +462,7 @@ exports.clerkService = {
         try {
             const user = await fetch(`https://api.clerk.dev/v1/users?email_address=${encodeURIComponent(email)}`, {
                 headers: {
-                    'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+                    'Authorization': `Bearer ${process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T'}`,
                     'Content-Type': 'application/json'
                 }
             }).then(res => res.json());
@@ -480,7 +480,7 @@ exports.clerkService = {
         try {
             const response = await fetch(`https://api.clerk.dev/v1/users/${clerkId}`, {
                 headers: {
-                    'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+                    'Authorization': `Bearer ${process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T'}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -516,7 +516,7 @@ exports.clerkService = {
                     console.log(`[Clerk] Fetching users from: ${url}`);
                     const response = await fetch(url, {
                         headers: {
-                            'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+                            'Authorization': `Bearer ${process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T'}`,
                             'Content-Type': 'application/json'
                         }
                     });
