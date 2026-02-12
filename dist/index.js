@@ -72,7 +72,8 @@ app.get("/", (req, res) => {
         environment: process.env.NODE_ENV || "development",
         iisnode: isIISNode,
         SQLServer: {
-            Configured: (!!process.env.DB_SERVER ? 'Yes' : 'No') + ' - ' + 'Connected: ' + (process.env.DB_SERVER ? 'yes' : 'no'),
+            Configured: (!!process.env.DB_SERVER ? 'Yes' : 'No'),
+            Connected: (!!process.env.DB_SERVER ? 'Yes' : 'No'),
             Configuration: {
                 DB_SERVER: !!process.env.DB_SERVER,
                 DB_USER: !!process.env.DB_USER,
