@@ -78,6 +78,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
   try { 
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.status(404).send({
       status: 404,
       success: false,
