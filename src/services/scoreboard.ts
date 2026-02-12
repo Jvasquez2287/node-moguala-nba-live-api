@@ -10,6 +10,7 @@ import {
   Scoreboard,
   GameLeaderStats
 } from '../types';
+import { FiveMinuteMarkCalculator } from './fiveMinuteMarkCalculator';
 
 interface RawScoreboardData {
   gameDate?: string;
@@ -216,7 +217,8 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
                     assists: game.gameLeaders.awayLeaders.assists
                   } : null
                 }
-              } : { gameLeaders: null })
+              } : { gameLeaders: null }),
+              BetPrediction: FiveMinuteMarkCalculator.calculateBetStatus(game)
             }))
           }
         };

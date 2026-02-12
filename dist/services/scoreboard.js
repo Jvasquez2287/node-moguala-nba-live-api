@@ -7,6 +7,7 @@ exports.getScoreboard = getScoreboard;
 exports.getPlayByPlay = getPlayByPlay;
 const axios_1 = __importDefault(require("axios"));
 const config_1 = require("../utils/config");
+const fiveMinuteMarkCalculator_1 = require("./fiveMinuteMarkCalculator");
 // Cache for player season averages to avoid repeated API calls
 // Structure: {player_id: {"stats": dict, "timestamp": number}}
 const playerStatsCache = new Map();
@@ -178,7 +179,8 @@ async function getScoreboard() {
                                 assists: game.gameLeaders.awayLeaders.assists
                             } : null
                         }
-                    } : { gameLeaders: null })
+                    } : { gameLeaders: null }),
+                    BetPrediction: fiveMinuteMarkCalculator_1.FiveMinuteMarkCalculator.calculateBetStatus(game)
                 }))
             }
         };

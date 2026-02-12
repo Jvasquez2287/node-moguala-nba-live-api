@@ -48,17 +48,20 @@ class ScoreboardWebSocketManager {
         });
         websocket.on('message', (data) => {
             try {
-                const message = typeof data === 'string' ? data : data.toString();
-                console.log(`[Scoreboard WebSocket] Message received: ${message}`);
+                const messageStr = typeof data === 'string' ? data : data.toString();
+                const message = JSON.parse(messageStr);
+                console.log(`[Scoreboard WebSocket] Message received: ${message.type || 'unknown type'}`);
+                if (message.type === 'subscribe_scoreboard') {
+                    this.activeConnections.add(websocket);
+                    console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
+                    // Send initial data
+                    this.sendInitialData(websocket);
+                }
             }
             catch (error) {
                 console.error('[Scoreboard WebSocket] Error logging message:', error);
             }
         });
-        this.activeConnections.add(websocket);
-        console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
-        // Send initial data
-        this.sendInitialData(websocket);
     }
     async sendInitialData(websocket) {
         try {

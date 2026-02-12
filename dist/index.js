@@ -107,11 +107,10 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
     try {
+        const result = await fiveMinuteMarkCalculator_1.FiveMinuteMarkCalculator.getCurrentGamesFromAPI();
         return res.json({
-            status: 404,
-            success: false,
-            error: 'Failed to refresh cache',
-            message: 'This is a test endpoint to verify error handling. If you see this message, the endpoint is working but intentionally returns an error.'
+            success: true,
+            data: result
         });
     }
     catch (error) {
@@ -284,6 +283,7 @@ const keyMoments_1 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
+const fiveMinuteMarkCalculator_1 = require("./services/fiveMinuteMarkCalculator");
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });
