@@ -31,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('[Users] Error fetching users:', error);
-    res.json({ success: false, error: 'Failed to fetch users' });
+   return  res.json({ success: false, error: 'Failed to fetch users' });
   }
 });
 
@@ -53,13 +53,13 @@ router.get('/:clerkId', async (req: Request, res: Response) => {
       return res.json({ success: false, error: 'User not found' });
     }
 
-    res.json({
+   return  res.json({
       success: true,
       data: user
     });
   } catch (error) {
     console.error('[Users] Error fetching user:', error);
-    res.json({ success: false, error: 'Failed to fetch user' });
+   return  res.json({ success: false, error: 'Failed to fetch user' });
   }
 });
 
@@ -84,13 +84,13 @@ router.get('/email/:email', async (req: Request, res: Response) => {
       return res.json({ success: false, error: 'User not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: result.recordset[0]
     });
   } catch (error) {
     console.error('[Users] Error fetching user by email:', error);
-    res.json({ success: false, error: 'Failed to fetch user' });
+    return res.json({ success: false, error: 'Failed to fetch user' });
   }
 });
 
@@ -126,7 +126,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Users] Error creating user:', error);
-    res.json({ success: false, error: 'Failed to create user' });
+   return  res.json({ success: false, error: 'Failed to create user' });
   }
 });
 
@@ -157,13 +157,13 @@ router.put('/:clerkId', async (req: Request, res: Response) => {
       }
     );
 
-    res.json({
+   return  res.json({
       success: true,
       message: 'User updated successfully'
     });
   } catch (error) {
     console.error('[Users] Error updating user:', error);
-    res.json({ success: false, error: 'Failed to update user' });
+   return  res.json({ success: false, error: 'Failed to update user' });
   }
 });
 
@@ -184,13 +184,13 @@ router.delete('/:clerkId', async (req: Request, res: Response) => {
       { clerkId }
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'User deleted successfully'
     });
   } catch (error) {
     console.error('[Users] Error deleting user:', error);
-    res.json({ success: false, error: 'Failed to delete user' });
+    return res.json({ success: false, error: 'Failed to delete user' });
   }
 });
 

@@ -14,11 +14,11 @@ router.get('/player/:playerId', async (req, res) => {
             return res.status(400).json({ error: 'Player ID is required' });
         }
         const player = await (0, players_1.getPlayer)(playerId);
-        res.json(player);
+        return res.json(player);
     }
     catch (error) {
         console.log(`Error fetching player ${req.params.playerId}:`, error);
-        res.status(500).json({ error: 'Failed to fetch player details' });
+        return res.status(500).json({ error: 'Failed to fetch player details' });
     }
 });
 // Search players
@@ -29,11 +29,11 @@ router.get('/players/search/:searchTerm', async (req, res) => {
             return res.status(400).json({ error: 'Search term is required' });
         }
         const players = await (0, players_1.searchPlayers)(searchTerm.trim());
-        res.json(players);
+        return res.json(players);
     }
     catch (error) {
         console.log('Error searching players:', error);
-        res.status(500).json({ error: 'Failed to search players' });
+        return res.status(500).json({ error: 'Failed to search players' });
     }
 });
 // Get season leaders
@@ -50,44 +50,44 @@ router.get('/players/season-leaders', async (req, res) => {
             seasonParam = season;
         }
         const seasonLeaders = await (0, players_1.getSeasonLeaders)(seasonParam);
-        res.json(seasonLeaders);
+        return res.json(seasonLeaders);
     }
     catch (error) {
         console.log('Error fetching season leaders:', error);
-        res.status(500).json({ error: 'Failed to fetch season leaders' });
+        return res.status(500).json({ error: 'Failed to fetch season leaders' });
     }
 });
 // Get top players by stat
 router.get('/players/top-by-stat', async (req, res) => {
     try {
         // TODO: Implement getTopPlayersByStat function
-        res.status(501).json({ error: 'Not implemented yet' });
+        return res.status(501).json({ error: 'Not implemented yet' });
     }
     catch (error) {
         console.log('Error fetching top players by stat:', error);
-        res.status(500).json({ error: 'Failed to fetch top players by stat' });
+        return res.status(500).json({ error: 'Failed to fetch top players by stat' });
     }
 });
 // Get player game log
 router.get('/player/:playerId/game-log', async (req, res) => {
     try {
         // TODO: Implement getPlayerGameLog function
-        res.status(501).json({ error: 'Not implemented yet' });
+        return res.status(501).json({ error: 'Not implemented yet' });
     }
     catch (error) {
         console.log('Error fetching player game log:', error);
-        res.status(500).json({ error: 'Failed to fetch player game log' });
+        return res.status(500).json({ error: 'Failed to fetch player game log' });
     }
 });
 // Get league roster (all active players)
 router.get('/players/league-roster', async (req, res) => {
     try {
         const players = await (0, players_1.getLeagueRoster)();
-        res.json(players);
+        return res.json(players);
     }
     catch (error) {
         console.log('Error fetching league roster:', error);
-        res.status(500).json({ error: 'Failed to fetch league roster' });
+        return res.status(500).json({ error: 'Failed to fetch league roster' });
     }
 });
 exports.default = router;

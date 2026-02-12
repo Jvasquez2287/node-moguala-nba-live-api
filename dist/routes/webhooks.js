@@ -188,7 +188,7 @@ router.get('/clerk/users/:email', async (req, res) => {
                 email: email
             });
         }
-        res.json({
+        return res.json({
             success: true,
             user: {
                 id: user.id,
@@ -232,7 +232,7 @@ router.get('/clerk/cusers/:email', async (req, res) => {
     try {
         const email = req.params.email;
         const user = await clerk_1.clerkService.getUserFromClerkAPI(email);
-        res.json({
+        return res.json({
             success: true,
             users: user
         });

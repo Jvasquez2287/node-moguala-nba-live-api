@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
             return res.json({ error: 'Subscription not found' });
         }
         console.log(`[Subscriptions] Returning subscription for customerId ${customerId}:`, subscription);
-        res.json({
+        return res.json({
             success: true,
             data: subscription
         });
@@ -87,7 +87,7 @@ router.get('/current', async (req, res) => {
             return res.json({ error: 'Subscription not found' });
         }
         console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}:`, subscription);
-        res.json({
+        return res.json({
             success: true,
             data: subscription
         });
@@ -111,7 +111,7 @@ router.get('/:subscriptionId', async (req, res) => {
         if (!subscription) {
             return res.json({ error: 'Subscription not found' });
         }
-        res.json({
+        return res.json({
             success: true,
             data: subscription
         });
@@ -198,7 +198,7 @@ router.delete('/cancel', async (req, res) => {
             subId: stripeSubscriptionId
         });
         console.log(`[Subscriptions] Updated subscription status in database`);
-        res.json({
+        return res.json({
             success: true,
             message: 'Subscription canceled successfully',
             data: {
@@ -243,7 +243,7 @@ router.delete('/:subscriptionId', async (req, res) => {
         // Update subscription status in database
         const { executeQuery } = await Promise.resolve().then(() => __importStar(require('../config/database')));
         await executeQuery('UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE subscription_id = @subId', { status: 'canceled', now: new Date().toISOString(), subId: subscriptionId });
-        res.json({
+        return res.json({
             success: true,
             message: 'Subscription canceled'
         });
@@ -262,7 +262,7 @@ router.delete('/cancel/:subscriptionId', async (req, res) => {
         }
         await (0, stripe_1.getStripeClient)().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
         console.log(`[Subscriptions] Stripe subscription ${subscriptionId} canceled successfully`);
-        res.json({
+        return res.json({
             success: true,
             message: 'Stripe subscription canceled'
         });
@@ -302,7 +302,7 @@ router.post('/reactivate', async (req, res) => {
             subId: stripeSubscriptionId
         });
         console.log(`[Subscriptions] Updated subscription status in database`);
-        res.json({
+        return res.json({
             success: true,
             message: 'Subscription reactivated successfully',
             data: {
@@ -386,7 +386,7 @@ router.get('/product/:productId', async (req, res) => {
                 stripe_id: row.user_stripe_id
             } : null
         }));
-        res.json({
+        return res.json({
             success: true,
             productId,
             count: subscriptions.length,
@@ -440,7 +440,7 @@ router.get('/stripe/product', async (req, res) => {
             created: price.created,
             livemode: price.livemode
         }));
-        res.json({
+        return res.json({
             success: true,
             product: {
                 id: product.id,
@@ -527,7 +527,7 @@ router.get('/stripe/all', async (req, res) => {
             metadata: sub.metadata,
             livemode: sub.livemode
         }));
-        res.json({
+        return res.json({
             success: true,
             count: subscriptions.length,
             hasMore: subscriptionsResponse.has_more,
@@ -589,7 +589,7 @@ router.post('/checkout', async (req, res) => {
             },
         });
         console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
-        res.json({
+        return res.json({
             success: true,
             data: {
                 sessionUrl: session.url,
@@ -613,7 +613,7 @@ router.get('/success', async (req, res) => {
             return res.status(400).json({ error: 'session_id is required' });
         }
         const result = await subscriptions_1.default.handleCheckoutSuccess(session_id);
-        res.json(result);
+        return res.json(result);
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error processing checkout success:', error);

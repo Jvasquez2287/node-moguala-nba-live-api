@@ -37,7 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] Returning subscription for customerId ${customerId}:`, subscription);
 
-    res.json({
+   return  res.json({
       success: true,
       data: subscription
     });
@@ -71,7 +71,7 @@ router.get('/current', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}:`, subscription);
 
-    res.json({
+    return res.json({
       success: true,
       data: subscription
     });
@@ -100,7 +100,7 @@ router.get('/:subscriptionId', async (req: Request, res: Response) => {
       return res.json({ error: 'Subscription not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: subscription
     });
@@ -202,7 +202,7 @@ router.delete('/cancel', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] Updated subscription status in database`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Subscription canceled successfully',
       data: {
@@ -256,7 +256,7 @@ router.delete('/:subscriptionId', async (req: Request, res: Response) => {
       { status: 'canceled', now: new Date().toISOString(), subId: subscriptionId }
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Subscription canceled'
     });
@@ -277,7 +277,7 @@ router.delete('/cancel/:subscriptionId', async (req: Request, res: Response) => 
     } 
     await getStripeClient().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
     console.log(`[Subscriptions] Stripe subscription ${subscriptionId} canceled successfully`);
-    res.json({
+    return res.json({
       success: true,
       message: 'Stripe subscription canceled'
       });
@@ -328,7 +328,7 @@ router.post('/reactivate', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] Updated subscription status in database`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Subscription reactivated successfully',
       data: {
@@ -423,7 +423,7 @@ router.get('/product/:productId', async (req: Request, res: Response) => {
       } : null
     }));
 
-    res.json({
+   return  res.json({
       success: true,
       productId,
       count: subscriptions.length,
@@ -484,7 +484,7 @@ router.get('/stripe/product', async (req: Request, res: Response) => {
       livemode: price.livemode
     }));
 
-    res.json({
+    return res.json({
       success: true,
       product: {
         id: product.id,
@@ -577,7 +577,7 @@ router.get('/stripe/all', async (req: Request, res: Response) => {
       livemode: sub.livemode
     }));
 
-    res.json({
+    return res.json({
       success: true,
       count: subscriptions.length,
       hasMore: subscriptionsResponse.has_more,
@@ -646,7 +646,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
 
-    res.json({
+   return  res.json({
       success: true,
       data: {
         sessionUrl: session.url,
@@ -674,7 +674,7 @@ router.get('/success', async (req: express.Request, res: express.Response) => {
 
     const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
 
-    res.json(result);
+   return  res.json(result);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     res.status(500).json({

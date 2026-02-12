@@ -9,7 +9,7 @@ const router = express_1.default.Router();
 // GET /api/v1/league - Get league information
 router.get('/league', async (req, res) => {
     try {
-        res.json({
+        return res.json({
             name: 'NBA',
             season: new Date().getFullYear(),
             seasonType: 'Regular Season',
@@ -31,7 +31,7 @@ router.get('/league', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching league info:', error);
-        res.status(500).json({ error: 'Failed to fetch league information' });
+        return res.status(500).json({ error: 'Failed to fetch league information' });
     }
 });
 // GET /api/v1/league/leaders - Get league leaders
@@ -92,7 +92,7 @@ router.get('/league/leaders', async (req, res) => {
         const reboundsLeaders = players.sort((a, b) => b.avgRebounds - a.avgRebounds).slice(0, 10);
         const stealsLeaders = players.sort((a, b) => b.steals - a.steals).slice(0, 10);
         const blocksLeaders = players.sort((a, b) => b.blocks - a.blocks).slice(0, 10);
-        res.json({
+        return res.json({
             season: new Date().getFullYear(),
             leaders: {
                 scoring: scoringLeaders,
@@ -106,7 +106,7 @@ router.get('/league/leaders', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching league leaders:', error);
-        res.status(500).json({ error: 'Failed to fetch league leaders' });
+        return res.status(500).json({ error: 'Failed to fetch league leaders' });
     }
 });
 exports.default = router;

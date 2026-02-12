@@ -26,7 +26,7 @@ router.get('/teams/:teamId', async (req, res) => {
     }
 
     const team = await getTeam(teamId);
-    res.json(team);
+    return res.json(team);
   } catch (error) {
    console.log(`Error fetching team ${req.params.teamId}:`, error);
     res.status(500).json({ error: 'Failed to fetch team details' });
@@ -59,7 +59,7 @@ router.get('/teams/:teamId/player-stats', async (req, res) => {
     }
 
     const playerStats = await getTeamPlayerStats(teamId, season);
-    res.json(playerStats);
+   return  res.json(playerStats);
   } catch (error) {
    console.log(`Error fetching player stats for team ${req.params.teamId}:`, error);
     res.status(500).json({ error: 'Failed to fetch team player stats' });
@@ -70,7 +70,7 @@ router.get('/teams/:teamId/player-stats', async (req, res) => {
 router.get('/teams', async (req, res) => {
   try {
     const teams = await getAllTeams();
-    res.json(teams);
+    return res.json(teams);
   } catch (error) {
    console.log('Error fetching teams:', error);
     res.status(500).json({ error: 'Failed to fetch teams' });
@@ -88,7 +88,7 @@ router.get('/teams/:teamId/roster/:season', async (req, res) => {
     }
 
     const roster = await getTeamRoster(teamId, season);
-    res.json(roster);
+   return  res.json(roster);
   } catch (error) {
    console.log(`Error fetching roster for team ${req.params.teamId}:`, error);
     res.status(500).json({ error: 'Failed to fetch team roster' });

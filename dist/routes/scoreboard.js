@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
         if (!scoreboard) {
             return res.status(503).json({ error: 'Scoreboard data not available' });
         }
-        res.json(scoreboard);
+        return res.json(scoreboard);
     }
     catch (error) {
         console.error('Error fetching scoreboard:', error);
@@ -28,7 +28,7 @@ router.get('/playbyplay/:gameId', async (req, res) => {
     try {
         const { gameId } = req.params;
         const playByPlay = await (0, scoreboard_1.getPlayByPlay)(gameId);
-        res.json(playByPlay);
+        return res.json(playByPlay);
     }
     catch (error) {
         console.error('Error fetching play-by-play:', error);
@@ -115,7 +115,7 @@ router.get('/game/:gameId/boxscore', async (req, res) => {
                 }
             }
         };
-        res.json(boxScore);
+        return res.json(boxScore);
     }
     catch (error) {
         console.error('Error fetching box score:', error);
@@ -173,7 +173,7 @@ router.get('/game/:gameId/key-moments', async (req, res) => {
             lastLeadTeam = currentLeadTeam;
             lastScore = { home: homeScore, away: awayScore };
         }
-        res.json({
+        return res.json({
             gameId,
             moments: moments.slice(-10), // Return last 10 moments
             total: moments.length
@@ -225,7 +225,7 @@ router.get('/game/:gameId/win-probability', async (req, res) => {
         // Clamp between 0.01 and 0.99
         const homeWinProb = Math.min(Math.max(adjustedHomeProb, 0.01), 0.99);
         const awayWinProb = 1 - homeWinProb;
-        res.json({
+        return res.json({
             gameId,
             home_Team: homeTeam.teamName,
             away_Team: awayTeam.teamName,

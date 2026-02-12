@@ -35,7 +35,7 @@ router.get('/schedule', async (req, res) => {
       });
     }
 
-    res.json(scoreboard);
+    return res.json(scoreboard);
 
   } catch (error) {
     console.error('Error fetching schedule:', error);

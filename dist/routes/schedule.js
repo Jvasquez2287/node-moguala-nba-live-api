@@ -24,7 +24,7 @@ router.get('/schedule', async (req, res) => {
                 message: 'No games scheduled for today'
             });
         }
-        res.json(scoreboard);
+        return res.json(scoreboard);
     }
     catch (error) {
         console.error('Error fetching schedule:', error);

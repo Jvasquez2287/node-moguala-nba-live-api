@@ -59,14 +59,14 @@ router.get('/predictions', async (req, res) => {
         };
       });
 
-    res.json({
+   return  res.json({
       predictions: predictions.sort((a: any, b: any) => b.confidence - a.confidence),
       total: predictions.length,
       lastUpdated: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error fetching predictions:', error);
-    res.status(500).json({ error: 'Failed to fetch predictions' });
+    return res.status(500).json({ error: 'Failed to fetch predictions' });
   }
 });
 
@@ -112,7 +112,7 @@ router.get('/predictions/date/:date', async (req, res) => {
       return res.status(500).json({ error: 'Invalid predictions data' });
     }
 
-    res.json(predictionsData);
+   return  res.json(predictionsData);
   } catch (error) {
    console.log('Error fetching predictions:', error);
     res.status(500).json({ error: 'Failed to fetch predictions' });
@@ -144,7 +144,7 @@ router.get('/predictions/:gameId', async (req, res) => {
 
     const { prediction, confidence } = calculatePrediction(game.homeTeam, game.awayTeam);
 
-    res.json({
+   return  res.json({
       gameId,
       away_Team: game.awayTeam?.teamName,
       home_Team: game.homeTeam?.teamName,

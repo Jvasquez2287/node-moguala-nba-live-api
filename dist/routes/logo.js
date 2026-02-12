@@ -46,7 +46,7 @@ router.get('/debug/list', (req, res) => {
                 console.log(`  Directory does not exist`);
             }
         }
-        res.json({
+        return res.json({
             cwd: process.cwd(),
             dirname: __dirname,
             checkedDirectories: possibleDirs,
@@ -56,7 +56,7 @@ router.get('/debug/list', (req, res) => {
         });
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to list logos', details: String(error) });
+        return res.status(500).json({ error: 'Failed to list logos', details: String(error) });
     }
 });
 /**
@@ -75,13 +75,13 @@ router.get('/:code', (req, res) => {
         return res.sendFile(logoPath, err => {
             if (err) {
                 console.error(`Error sending file ${logoPath}:`, err);
-                res.json({ success: false, error: 'Logo not found' });
+                return res.json({ success: false, error: 'Logo not found' });
             }
         });
     }
     catch (error) {
         console.log('Error fetching team codes:', error);
-        res.json({ success: false, error: 'Failed to fetch team codes ' });
+        return res.json({ success: false, error: 'Failed to fetch team codes ' });
     }
 });
 exports.default = router;

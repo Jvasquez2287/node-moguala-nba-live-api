@@ -16,10 +16,10 @@ router.get('/player/:playerId', async (req, res) => {
     }
 
     const player = await getPlayer(playerId);
-    res.json(player);
+   return  res.json(player);
   } catch (error) {
    console.log(`Error fetching player ${req.params.playerId}:`, error);
-    res.status(500).json({ error: 'Failed to fetch player details' });
+    return res.status(500).json({ error: 'Failed to fetch player details' });
   }
 });
 
@@ -33,10 +33,10 @@ router.get('/players/search/:searchTerm', async (req, res) => {
     }
 
     const players = await searchPlayers(searchTerm.trim());
-    res.json(players);
+    return res.json(players);
   } catch (error) {
    console.log('Error searching players:', error);
-    res.status(500).json({ error: 'Failed to search players' });
+    return res.status(500).json({ error: 'Failed to search players' });
   }
 });
 
@@ -56,10 +56,10 @@ router.get('/players/season-leaders', async (req, res) => {
     }
 
     const seasonLeaders = await getSeasonLeaders(seasonParam);
-    res.json(seasonLeaders);
+   return  res.json(seasonLeaders);
   } catch (error) {
    console.log('Error fetching season leaders:', error);
-    res.status(500).json({ error: 'Failed to fetch season leaders' });
+    return res.status(500).json({ error: 'Failed to fetch season leaders' });
   }
 });
 
@@ -67,10 +67,10 @@ router.get('/players/season-leaders', async (req, res) => {
 router.get('/players/top-by-stat', async (req, res) => {
   try {
     // TODO: Implement getTopPlayersByStat function
-    res.status(501).json({ error: 'Not implemented yet' });
+    return res.status(501).json({ error: 'Not implemented yet' });
   } catch (error) {
    console.log('Error fetching top players by stat:', error);
-    res.status(500).json({ error: 'Failed to fetch top players by stat' });
+    return res.status(500).json({ error: 'Failed to fetch top players by stat' });
   }
 });
 
@@ -78,10 +78,10 @@ router.get('/players/top-by-stat', async (req, res) => {
 router.get('/player/:playerId/game-log', async (req, res) => {
   try {
     // TODO: Implement getPlayerGameLog function
-    res.status(501).json({ error: 'Not implemented yet' });
+    return res.status(501).json({ error: 'Not implemented yet' });
   } catch (error) {
    console.log('Error fetching player game log:', error);
-    res.status(500).json({ error: 'Failed to fetch player game log' });
+    return res.status(500).json({ error: 'Failed to fetch player game log' });
   }
 });
 
@@ -89,10 +89,10 @@ router.get('/player/:playerId/game-log', async (req, res) => {
 router.get('/players/league-roster', async (req, res) => {
   try {
     const players = await getLeagueRoster();
-    res.json(players);
+  return   res.json(players);
   } catch (error) {
    console.log('Error fetching league roster:', error);
-    res.status(500).json({ error: 'Failed to fetch league roster' });
+    return res.status(500).json({ error: 'Failed to fetch league roster' });
   }
 });
 

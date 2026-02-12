@@ -7,7 +7,7 @@ const router = express.Router();
 // GET /api/v1/league - Get league information
 router.get('/league', async (req, res) => {
   try {
-    res.json({
+    return res.json({
       name: 'NBA',
       season: new Date().getFullYear(),
       seasonType: 'Regular Season',
@@ -28,7 +28,7 @@ router.get('/league', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching league info:', error);
-    res.status(500).json({ error: 'Failed to fetch league information' });
+    return res.status(500).json({ error: 'Failed to fetch league information' });
   }
 });
 
@@ -97,7 +97,7 @@ router.get('/league/leaders', async (req, res) => {
     const stealsLeaders = players.sort((a: any, b: any) => b.steals - a.steals).slice(0, 10);
     const blocksLeaders = players.sort((a: any, b: any) => b.blocks - a.blocks).slice(0, 10);
 
-    res.json({
+   return  res.json({
       season: new Date().getFullYear(),
       leaders: {
         scoring: scoringLeaders,
@@ -110,7 +110,7 @@ router.get('/league/leaders', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching league leaders:', error);
-    res.status(500).json({ error: 'Failed to fetch league leaders' });
+   return  res.status(500).json({ error: 'Failed to fetch league leaders' });
   }
 });
 

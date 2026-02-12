@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error fetching users:', error);
-        res.json({ success: false, error: 'Failed to fetch users' });
+        return res.json({ success: false, error: 'Failed to fetch users' });
     }
 });
 /**
@@ -45,14 +45,14 @@ router.get('/:clerkId', async (req, res) => {
         if (!user) {
             return res.json({ success: false, error: 'User not found' });
         }
-        res.json({
+        return res.json({
             success: true,
             data: user
         });
     }
     catch (error) {
         console.error('[Users] Error fetching user:', error);
-        res.json({ success: false, error: 'Failed to fetch user' });
+        return res.json({ success: false, error: 'Failed to fetch user' });
     }
 });
 /**
@@ -69,14 +69,14 @@ router.get('/email/:email', async (req, res) => {
         if (!result || result.recordset.length === 0) {
             return res.json({ success: false, error: 'User not found' });
         }
-        res.json({
+        return res.json({
             success: true,
             data: result.recordset[0]
         });
     }
     catch (error) {
         console.error('[Users] Error fetching user by email:', error);
-        res.json({ success: false, error: 'Failed to fetch user' });
+        return res.json({ success: false, error: 'Failed to fetch user' });
     }
 });
 /**
@@ -106,7 +106,7 @@ router.post('/', async (req, res) => {
     }
     catch (error) {
         console.error('[Users] Error creating user:', error);
-        res.json({ success: false, error: 'Failed to create user' });
+        return res.json({ success: false, error: 'Failed to create user' });
     }
 });
 /**
@@ -130,14 +130,14 @@ router.put('/:clerkId', async (req, res) => {
             profileImage: profileImage || null,
             now: new Date()
         });
-        res.json({
+        return res.json({
             success: true,
             message: 'User updated successfully'
         });
     }
     catch (error) {
         console.error('[Users] Error updating user:', error);
-        res.json({ success: false, error: 'Failed to update user' });
+        return res.json({ success: false, error: 'Failed to update user' });
     }
 });
 /**
@@ -151,14 +151,14 @@ router.delete('/:clerkId', async (req, res) => {
             return res.json({ success: false, error: 'clerkId is required' });
         }
         await (0, database_1.executeQuery)('DELETE FROM users WHERE clerk_id = @clerkId', { clerkId });
-        res.json({
+        return res.json({
             success: true,
             message: 'User deleted successfully'
         });
     }
     catch (error) {
         console.error('[Users] Error deleting user:', error);
-        res.json({ success: false, error: 'Failed to delete user' });
+        return res.json({ success: false, error: 'Failed to delete user' });
     }
 });
 exports.default = router;

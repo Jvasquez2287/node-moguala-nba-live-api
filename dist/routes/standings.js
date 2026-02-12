@@ -35,7 +35,7 @@ router.get('/season/:season', async (req, res) => {
 });
 /*
 // GET /api/v1/standings - Get NBA standings
-router.get('/', async (req, res) => {
+return router.get('/', async (req, res) => {
   try {
     const scoreboardData = await dataCache.getScoreboard();
     const scoreboard = scoreboardData?.scoreboard;
@@ -137,7 +137,7 @@ router.get('/', async (req, res) => {
       });
     });
 
-    res.json({
+    return res.json({
       season: new Date().getFullYear(),
       conferences: [conferences.Eastern, conferences.Western],
       lastUpdated: new Date().toISOString()
@@ -254,7 +254,7 @@ router.get('/season/:season', async (req, res) => {
       });
     });
 
-    res.json({
+    return res.json({
       season: seasonParam,
       conferences: [conferences.Eastern, conferences.Western],
       lastUpdated: new Date().toISOString()

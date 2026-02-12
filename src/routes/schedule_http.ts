@@ -13,7 +13,7 @@ router.get('/schedule-v1', async (req, res) => {
       return res.status(503).json({ error: 'Schedule data not available' });
     }
 
-    res.json(schedule);
+   return  res.json(schedule);
   } catch (error) {
     console.error('[Route] Error fetching schedule:', error);
     res.status(500).json({ error: 'Failed to fetch schedule' });
@@ -26,10 +26,10 @@ router.get('/schedule-v1/today', async (req, res) => {
   try {
     console.log('[Route] Today\'s games request received');
     const todaysGames = await scheduleService.getTodaysSchedule();
-    res.json(todaysGames);
+   return  res.json(todaysGames);
   } catch (error) {
     console.error('[Route] Error fetching today\'s games:', error);
-    res.status(500).json({ error: 'Failed to fetch today\'s games' });
+    return res.status(500).json({ error: 'Failed to fetch today\'s games' });
   }
 });
 
@@ -39,10 +39,10 @@ router.get('/schedule-v1/date/:date', async (req, res) => {
     const dateParam = req.params.date;
     console.log(`[Route] Schedule request for date: ${dateParam}`);
     const scheduleByDate = await scheduleService.getScheduleByDate(dateParam);
-    res.json(scheduleByDate);
+    return res.json(scheduleByDate);
   } catch (error) {
     console.error('[Route] Error fetching schedule by date:', error);
-    res.status(500).json({ error: 'Failed to fetch schedule by date' });
+    return res.status(500).json({ error: 'Failed to fetch schedule by date' });
   }
 });
 
@@ -52,7 +52,7 @@ router.post('/schedule-v1/refresh', async (req, res) => {
     console.log('[Route] Schedule refresh requested');
     const schedule = await scheduleService.refreshSchedule();
 
-    res.json({
+   return  res.json({
       success: true,
       message: 'Schedule refreshed successfully',
       games: schedule.games.length,
@@ -101,7 +101,7 @@ router.get('/schedule-v1/games', async (req, res) => {
       );
     }
 
-    res.json({
+   return  res.json({
       gameCount: games.length,
       games
     });
@@ -133,7 +133,7 @@ router.get('/schedule-v1/game/:gameId', async (req, res) => {
       });
     }
 
-    res.json({
+   return  res.json({
       gameDate: gameDate, 
       game:game
     });
