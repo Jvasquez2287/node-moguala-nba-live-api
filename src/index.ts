@@ -32,6 +32,9 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "*", credentials: true }));
 
+// Import services needed by early routes
+import { dataCache } from "./services/dataCache";
+
 // Health check
 app.get("/", (req, res) => {
   return res.json({
@@ -269,7 +272,6 @@ import {
   scoreboardWebSocketManager,
   playbyplayWebSocketManager
 } from "./services/websocketManager";
-import { dataCache } from "./services/dataCache";
 import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
@@ -317,8 +319,7 @@ wss.on("connection", (ws, req: any) => {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
       scoreboardWebSocketManager.handleConnection(ws); 
-    }  
-    if (url?.startsWith("/api/v1/ws/play-by-play/")) {
+    } else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
       const gameId = url.split("/").pop();
       if (gameId) {
         console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);

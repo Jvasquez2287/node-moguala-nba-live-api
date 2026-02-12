@@ -62,6 +62,8 @@ const app = (0, express_1.default)();
 // Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, cors_1.default)({ origin: "*", credentials: true }));
+// Import services needed by early routes
+const dataCache_1 = require("./services/dataCache");
 // Health check
 app.get("/", (req, res) => {
     return res.json({
@@ -274,7 +276,6 @@ app.get('/subscriptions/cancel', async (req, res) => {
 });
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
-const dataCache_1 = require("./services/dataCache");
 const keyMoments_1 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
@@ -316,7 +317,7 @@ wss.on("connection", (ws, req) => {
             console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
             websocketManager_1.scoreboardWebSocketManager.handleConnection(ws);
         }
-        if (url?.startsWith("/api/v1/ws/play-by-play/")) {
+        else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
             const gameId = url.split("/").pop();
             if (gameId) {
                 console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
