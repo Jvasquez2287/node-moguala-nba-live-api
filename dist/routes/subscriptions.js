@@ -42,7 +42,6 @@ const subscriptions_1 = __importDefault(require("../services/subscriptions"));
 const router = express_1.default.Router();
 const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID || 'prod_QDRXMY3ecBW5bP';
 const PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1PN0eXC9Z59e8GjO06cltizs';
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 /**
  * GET /api/v1/subscriptions
  * List all subscriptions for a customer
@@ -184,7 +183,7 @@ router.delete('/cancel', async (req, res) => {
         console.log(`[Subscriptions] Parsed IDs - DB ID: ${dbId}, Stripe ID: ${stripeSubscriptionId}`);
         // Cancel subscription in Stripe
         try {
-            await stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
+            await (0, stripe_1.getStripeClient)().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
             console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} canceled successfully`);
         }
         catch (stripeError) {
@@ -234,7 +233,7 @@ router.delete('/:subscriptionId', async (req, res) => {
         // Cancel in Stripe if we have the Stripe subscription ID
         if (subscription.subscription_id) {
             try {
-                await stripe.subscriptions.update(subscription.subscription_id, { cancel_at_period_end: true });
+                await (0, stripe_1.getStripeClient)().subscriptions.update(subscription.subscription_id, { cancel_at_period_end: true });
                 console.log(`[Subscriptions] Stripe subscription ${subscription.subscription_id} canceled successfully`);
             }
             catch (stripeError) {
@@ -261,7 +260,7 @@ router.delete('/cancel/:subscriptionId', async (req, res) => {
         if (!subscriptionId) {
             return res.status(400).json({ error: 'subscriptionId is required' });
         }
-        await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+        await (0, stripe_1.getStripeClient)().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
         console.log(`[Subscriptions] Stripe subscription ${subscriptionId} canceled successfully`);
         res.json({
             success: true,
@@ -292,7 +291,7 @@ router.post('/reactivate', async (req, res) => {
             return res.status(400).json({ error: 'subscriptionId is required in body' });
         }
         // Reactivate subscription in Stripe
-        await stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
+        await (0, stripe_1.getStripeClient)().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
         console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} reactivated successfully`);
         // Update subscription status in database
         const { executeQuery } = await Promise.resolve().then(() => __importStar(require('../config/database')));
@@ -420,7 +419,7 @@ router.get('/stripe/product', async (req, res) => {
         }
         // Get Stripe client and fetch prices for this product
         const stripe = stripe_1.stripeService.getClient();
-        const pricesResponse = await stripe.prices.list({
+        const pricesResponse = await (0, stripe_1.getStripeClient)().prices.list({
             product: productIdParam,
             limit: 100
         });
@@ -489,7 +488,7 @@ router.get('/stripe/all', async (req, res) => {
                 params.status = status;
             }
         }
-        const subscriptionsResponse = await stripe.subscriptions.list(params);
+        const subscriptionsResponse = await (0, stripe_1.getStripeClient)().subscriptions.list(params);
         const subscriptions = subscriptionsResponse.data.map((sub) => ({
             id: sub.id,
             customer: sub.customer,
@@ -570,7 +569,7 @@ router.post('/checkout', async (req, res) => {
         }
         console.log(`[Subscriptions] Using base URL for redirects: ${baseUrl}`);
         // Create Stripe checkout session
-        const session = await stripe.checkout.sessions.create({
+        const session = await (0, stripe_1.getStripeClient)().checkout.sessions.create({
             payment_method_types: ['card'],
             mode: 'subscription',
             line_items: [

@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { stripeService } from '../services/stripe';
+import { stripeService, getStripeClient } from '../services/stripe';
 import { clerkService } from '../services/clerk';
 import { executeQuery } from '../config/database';
 
@@ -9,19 +9,22 @@ const router = express.Router();
 // Apply raw body parser to this router for Stripe webhook signature verification
 router.use(express.raw({ type: 'application/json' }));
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY! , {
-  apiVersion: '2026-01-28.clover' as any
-});
+// Get Stripe webhook secret lazily
+function getStripeWebhookSecret(): string {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
+  }
+  return secret;
+}
 
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET! ;
- 
 router.get('/stripe-delete-all-subscription', async (req: Request, res: Response) => {
   try {
     await executeQuery('DELETE FROM subscriptions');
     // Delete all from stripe as well (for testing purposes only - be careful with this in production!)
     const subscriptions = await stripeService.getAllSubscriptionsFromStripe();
     for (const sub of subscriptions) {
-      await stripe.subscriptions.cancel(sub.id);
+      await getStripeClient().subscriptions.cancel(sub.id);
     }
     res.json({ success: true, message: 'All subscriptions deleted' });
   } catch (error) {
@@ -37,10 +40,10 @@ router.get('/stripe-delete-all-subscription', async (req: Request, res: Response
 router.post('/stripe', async (req: Request, res: Response) => {
   try {
     const sig = req.headers['stripe-signature'] as string;
-    const event = stripe.webhooks.constructEvent(
+    const event = getStripeClient().webhooks.constructEvent(
       req.body,
       sig,
-      stripeWebhookSecret
+      getStripeWebhookSecret()
     );
 
     console.log(`[Webhook] Received Stripe event: ${event.type}`);

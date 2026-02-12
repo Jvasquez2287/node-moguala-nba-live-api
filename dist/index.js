@@ -316,7 +316,7 @@ wss.on("connection", (ws, req) => {
             console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
             websocketManager_1.scoreboardWebSocketManager.handleConnection(ws);
         }
-        else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
+        if (url?.startsWith("/api/v1/ws/play-by-play/")) {
             const gameId = url.split("/").pop();
             if (gameId) {
                 console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);

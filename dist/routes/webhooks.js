@@ -4,24 +4,27 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const stripe_1 = __importDefault(require("stripe"));
-const stripe_2 = require("../services/stripe");
+const stripe_1 = require("../services/stripe");
 const clerk_1 = require("../services/clerk");
 const database_1 = require("../config/database");
 const router = express_1.default.Router();
 // Apply raw body parser to this router for Stripe webhook signature verification
 router.use(express_1.default.raw({ type: 'application/json' }));
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover'
-});
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// Get Stripe webhook secret lazily
+function getStripeWebhookSecret() {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!secret) {
+        throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
+    }
+    return secret;
+}
 router.get('/stripe-delete-all-subscription', async (req, res) => {
     try {
         await (0, database_1.executeQuery)('DELETE FROM subscriptions');
         // Delete all from stripe as well (for testing purposes only - be careful with this in production!)
-        const subscriptions = await stripe_2.stripeService.getAllSubscriptionsFromStripe();
+        const subscriptions = await stripe_1.stripeService.getAllSubscriptionsFromStripe();
         for (const sub of subscriptions) {
-            await stripe.subscriptions.cancel(sub.id);
+            await (0, stripe_1.getStripeClient)().subscriptions.cancel(sub.id);
         }
         res.json({ success: true, message: 'All subscriptions deleted' });
     }
@@ -37,12 +40,12 @@ router.get('/stripe-delete-all-subscription', async (req, res) => {
 router.post('/stripe', async (req, res) => {
     try {
         const sig = req.headers['stripe-signature'];
-        const event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
+        const event = (0, stripe_1.getStripeClient)().webhooks.constructEvent(req.body, sig, getStripeWebhookSecret());
         console.log(`[Webhook] Received Stripe event: ${event.type}`);
         const data = event.data.object;
         switch (event.type) {
             case 'customer.subscription.created': {
-                const productData = await stripe_2.stripeService.getProductsByID(data.items.data[0].plan.product);
+                const productData = await stripe_1.stripeService.getProductsByID(data.items.data[0].plan.product);
                 const subscriptionData = {
                     stripe_id: data.customer,
                     subscription_id: data.id,
@@ -52,24 +55,24 @@ router.post('/stripe', async (req, res) => {
                     subscription_title: productData.name,
                     subscription_next_billing_date: new Date(data.current_period_end * 1000),
                     subscription_latest_invoice_Id: data.latest_invoice || '',
-                    subscription_invoice_pdf_url: await stripe_2.stripeService.getInvoice(data.latest_invoice) || '',
+                    subscription_invoice_pdf_url: await stripe_1.stripeService.getInvoice(data.latest_invoice) || '',
                     subscription_canceled_at: null,
                     product_id: data.items.data[0].plan.product
                 };
                 // Check if subscription already exists
-                const existing = await stripe_2.stripeService.getSubscriptionFromDB(data.customer);
+                const existing = await stripe_1.stripeService.getSubscriptionFromDB(data.customer);
                 if (existing) {
-                    await stripe_2.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+                    await stripe_1.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
                 }
                 else {
-                    await stripe_2.stripeService.createSubscriptionInDB(subscriptionData);
+                    await stripe_1.stripeService.createSubscriptionInDB(subscriptionData);
                 }
                 console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
                 res.json({ received: true });
                 break;
             }
             case 'customer.subscription.updated': {
-                const productData = await stripe_2.stripeService.getProductsByID(data.items.data[0].plan.product);
+                const productData = await stripe_1.stripeService.getProductsByID(data.items.data[0].plan.product);
                 const subscriptionData = {
                     stripe_id: data.customer,
                     subscription_id: data.id,
@@ -79,11 +82,11 @@ router.post('/stripe', async (req, res) => {
                     subscription_title: productData.name,
                     subscription_next_billing_date: new Date(data.current_period_end * 1000),
                     subscription_latest_invoice_Id: data.latest_invoice || '',
-                    subscription_invoice_pdf_url: await stripe_2.stripeService.getInvoice(data.latest_invoice) || '',
+                    subscription_invoice_pdf_url: await stripe_1.stripeService.getInvoice(data.latest_invoice) || '',
                     subscription_canceled_at: data.canceled_at ? new Date(data.canceled_at * 1000) : null,
                     product_id: data.items.data[0].plan.product
                 };
-                await stripe_2.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+                await stripe_1.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
                 console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
                 res.json({ received: true });
                 break;

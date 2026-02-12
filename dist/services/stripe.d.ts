@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+declare function getStripeClient(): Stripe;
 interface SubscriptionData {
     stripe_id: string;
     subscription_id: string;
@@ -77,5 +78,6 @@ export declare const stripeService: {
     getSubscriptionFromDB(stripeId: string): Promise<any>;
     getAllSubscriptionsFromStripe(): Promise<Stripe.Subscription[]>;
 };
+export { getStripeClient };
 export default stripeService;
 //# sourceMappingURL=stripe.d.ts.map

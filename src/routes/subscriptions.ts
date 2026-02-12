@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { stripeService } from '../services/stripe';
+import { stripeService, getStripeClient } from '../services/stripe';
 import clerkService from '../services/clerk';
 import subscriptionsService from '../services/subscriptions';
 
@@ -8,7 +8,6 @@ const router = express.Router();
 
 const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID || 'prod_QDRXMY3ecBW5bP';
 const PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1PN0eXC9Z59e8GjO06cltizs';
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 
 /**
@@ -183,7 +182,7 @@ router.delete('/cancel', async (req: Request, res: Response) => {
 
     // Cancel subscription in Stripe
     try {
-      await stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
+      await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
       console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} canceled successfully`);
     } catch (stripeError) {
       console.error(`[Subscriptions] Error canceling Stripe subscription ${stripeSubscriptionId}:`, stripeError);
@@ -243,7 +242,7 @@ router.delete('/:subscriptionId', async (req: Request, res: Response) => {
     // Cancel in Stripe if we have the Stripe subscription ID
     if (subscription.subscription_id) {
       try {
-        await stripe.subscriptions.update(subscription.subscription_id, { cancel_at_period_end: true });
+        await getStripeClient().subscriptions.update(subscription.subscription_id, { cancel_at_period_end: true });
         console.log(`[Subscriptions] Stripe subscription ${subscription.subscription_id} canceled successfully`);
       } catch (stripeError) {
         console.error(`[Subscriptions] Error canceling Stripe subscription:`, stripeError);
@@ -276,7 +275,7 @@ router.delete('/cancel/:subscriptionId', async (req: Request, res: Response) => 
     if (!subscriptionId) {
       return res.status(400).json({ error: 'subscriptionId is required' });
     } 
-    await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+    await getStripeClient().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
     console.log(`[Subscriptions] Stripe subscription ${subscriptionId} canceled successfully`);
     res.json({
       success: true,
@@ -311,7 +310,7 @@ router.post('/reactivate', async (req: Request, res: Response) => {
     }
     
     // Reactivate subscription in Stripe
-    await stripe.subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
+    await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
     console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} reactivated successfully`);
 
     // Update subscription status in database
@@ -462,7 +461,7 @@ router.get('/stripe/product', async (req: Request, res: Response) => {
 
     // Get Stripe client and fetch prices for this product
     const stripe = stripeService.getClient();
-    const pricesResponse = await stripe.prices.list({
+    const pricesResponse = await getStripeClient().prices.list({
       product: productIdParam,
       limit: 100
     });
@@ -537,7 +536,7 @@ router.get('/stripe/all', async (req: Request, res: Response) => {
       }
     }
 
-    const subscriptionsResponse = await stripe.subscriptions.list(params);
+    const subscriptionsResponse = await getStripeClient().subscriptions.list(params);
 
     const subscriptions = subscriptionsResponse.data.map((sub: any) => ({
       id: sub.id,
@@ -625,7 +624,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
     console.log(`[Subscriptions] Using base URL for redirects: ${baseUrl}`);
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripeClient().checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: [

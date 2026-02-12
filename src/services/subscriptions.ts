@@ -1,10 +1,5 @@
 import { executeQuery } from '../config/database';
-import stripeService from './stripe';
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover' as any
-});
+import stripeService, { getStripeClient } from './stripe';
 
 interface StripeSubscription {
   id: string;
@@ -37,7 +32,7 @@ export const subscriptionsService = {
       console.log(`[SubscriptionsService] Processing checkout success for session: ${sessionId}`);
 
       // Step 1: Retrieve the checkout session from Stripe
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const session = await getStripeClient().checkout.sessions.retrieve(sessionId);
 
       if (!session.subscription) {
         throw new Error('No subscription found in checkout session');
@@ -46,10 +41,10 @@ export const subscriptionsService = {
 
       console.log(`[SubscriptionsService] Session retrieved: ${session.id}`);
       // Step 2: Get subscription details from Stripe
-      const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as any as StripeSubscription;
+      const subscription = await getStripeClient().subscriptions.retrieve(session.subscription as string) as any as StripeSubscription;
  
       // Step 3: Get customer info
-      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const customer = await getStripeClient().customers.retrieve(subscription.customer as string);
 
       console.log(`[SubscriptionsService] Customer email: ${(customer as any).email}`);
 

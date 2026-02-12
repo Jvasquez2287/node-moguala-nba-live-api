@@ -4,25 +4,36 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stripeService = void 0;
+exports.getStripeClient = getStripeClient;
 const stripe_1 = __importDefault(require("stripe"));
 const database_1 = require("../config/database");
-// Initialize Stripe client
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover'
-});
+// Initialize Stripe client lazily to ensure env vars are loaded
+let stripeClient = null;
+function getStripeClient() {
+    if (!stripeClient) {
+        const apiKey = process.env.STRIPE_SECRET_KEY;
+        if (!apiKey) {
+            throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+        }
+        stripeClient = new stripe_1.default(apiKey, {
+            apiVersion: '2026-01-28.clover'
+        });
+    }
+    return stripeClient;
+}
 exports.stripeService = {
     /**
      * Get Stripe client
      */
     getClient() {
-        return stripe;
+        return getStripeClient();
     },
     /**
      * Get all customer subscriptions
      */
     async getUsersSubscriptionID() {
         try {
-            const customers = await stripe.customers.list({ limit: 10000 });
+            const customers = await getStripeClient().customers.list({ limit: 10000 });
             return customers.data.map(c => c.id);
         }
         catch (error) {
@@ -35,7 +46,7 @@ exports.stripeService = {
      */
     async getUsersSubscription() {
         try {
-            const subscriptions = await stripe.subscriptions.list({ limit: 10000 });
+            const subscriptions = await getStripeClient().subscriptions.list({ limit: 10000 });
             return subscriptions.data;
         }
         catch (error) {
@@ -48,7 +59,7 @@ exports.stripeService = {
      */
     async getUserByID(customerID) {
         try {
-            return await stripe.customers.retrieve(customerID);
+            return await getStripeClient().customers.retrieve(customerID);
         }
         catch (error) {
             console.error('[Stripe] Error getting user by ID:', error);
@@ -60,7 +71,7 @@ exports.stripeService = {
      */
     async getUserByEmail(email) {
         try {
-            const customers = await stripe.customers.list({ email, limit: 1 });
+            const customers = await getStripeClient().customers.list({ email, limit: 1 });
             return customers.data[0] || null;
         }
         catch (error) {
@@ -86,7 +97,7 @@ exports.stripeService = {
      */
     async getProductsByID(productID) {
         try {
-            return await stripe.products.retrieve(productID);
+            return await getStripeClient().products.retrieve(productID);
         }
         catch (error) {
             console.error('[Stripe] Error getting product:', error);
@@ -98,7 +109,7 @@ exports.stripeService = {
      */
     async getInvoice(invoiceID) {
         try {
-            const invoice = await stripe.invoices.retrieve(invoiceID);
+            const invoice = await getStripeClient().invoices.retrieve(invoiceID);
             return invoice.hosted_invoice_url || null;
         }
         catch (error) {
@@ -114,7 +125,7 @@ exports.stripeService = {
             const customer = await this.getUserByEmail(email);
             if (!customer)
                 return null;
-            return await stripe.customers.del(customer.id);
+            return await getStripeClient().customers.del(customer.id);
         }
         catch (error) {
             console.error('[Stripe] Error deleting user:', error);
@@ -179,7 +190,7 @@ exports.stripeService = {
      */
     async createCustomer(email, name) {
         try {
-            const customer = await stripe.customers.create({
+            const customer = await getStripeClient().customers.create({
                 email,
                 name: name || undefined,
                 metadata: {
@@ -219,7 +230,7 @@ exports.stripeService = {
      */
     async getCustomerSubscriptions(customerId) {
         try {
-            const subscriptions = await stripe.subscriptions.list({
+            const subscriptions = await getStripeClient().subscriptions.list({
                 customer: customerId,
                 limit: 100
             });
@@ -265,7 +276,7 @@ exports.stripeService = {
     },
     async getAllSubscriptionsFromStripe() {
         try {
-            const subscriptions = await stripe.subscriptions.list({ limit: 10000 });
+            const subscriptions = await getStripeClient().subscriptions.list({ limit: 10000 });
             return subscriptions.data;
         }
         catch (error) {
