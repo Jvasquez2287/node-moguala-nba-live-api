@@ -26,10 +26,10 @@ router.get('/stripe-delete-all-subscription', async (req: Request, res: Response
     for (const sub of subscriptions) {
       await getStripeClient().subscriptions.cancel(sub.id);
     }
-    res.json({ success: true, message: 'All subscriptions deleted' });
+    return res.json({ success: true, message: 'All subscriptions deleted' });
   } catch (error) {
     console.error('Error deleting subscriptions:', error);
-    res.json({ success: false, error: 'Failed to delete subscriptions' });
+    return res.json({ success: false, error: 'Failed to delete subscriptions' });
   }
 });
 
@@ -76,8 +76,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
         }
 
         console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'customer.subscription.updated': {
@@ -98,8 +97,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
         await stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
         console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'customer.subscription.deleted': {
@@ -108,25 +106,22 @@ router.post('/stripe', async (req: Request, res: Response) => {
           { now: new Date(), stripeId: data.customer }
         );
         console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'invoice.paid': {
         console.log(`[Webhook] Invoice paid: ${data.id}`);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'invoice.payment_failed': {
         console.log(`[Webhook] Invoice payment failed: ${data.id}`);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       default:
         console.log(`[Webhook] Unhandled Stripe event: ${event.type}`);
-        res.json({ received: true });
+        return res.json({ received: true });
     }
   } catch (error) {
     console.error('[Webhook] Stripe webhook error:', error);
@@ -171,44 +166,38 @@ router.post('/clerk', async (req: Request, res: Response) => {
     switch (type) {
       case 'user.created': {
         await clerkService.handleUserCreated(data as any);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'user.updated': {
         await clerkService.handleUserUpdated(data as any);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'user.deleted': {
         await clerkService.handleUserDeleted((data as any).id);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'session.created': {
         await clerkService.handleSessionCreated(data as any);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'session.ended': {
         await clerkService.handleSessionEnded(data as any);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
 
       case 'session.renewed': {
         await clerkService.handleSessionRenewed(data as any);
-        res.json({ received: true });
-        break;
+        return res.json({ received: true });
       }
  
 
       default:
         console.log(`[Webhook] Unhandled Clerk event: ${type}`);
-        res.json({ received: true });
+        return res.json({ received: true });
     }
   } catch (error) {
     console.error('[Webhook] Clerk webhook error:', error);
