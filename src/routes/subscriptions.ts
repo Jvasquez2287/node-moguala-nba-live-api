@@ -338,7 +338,7 @@ router.post('/reactivate', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('[Subscriptions] Error reactivating Stripe subscription:', error);
-    res.status(500).json({ error: 'Failed to reactivate Stripe subscription' });
+    return res.json({ error: 'Failed to reactivate Stripe subscription', message: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
