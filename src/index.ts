@@ -81,7 +81,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
 // Cache refresh endpoint
 app.get("/api/v1/test", async (req, res) => {
   try { 
-    return res.status(404).json({
+    return res.status(200).json({
       status: 404,
       success: false,
       error: 'Failed to refresh cache',
