@@ -80,7 +80,7 @@ app.get("/", (req, res) => {
                 DB_NAME: !!process.env.DB_NAME
             }
         }
-    }).end();
+    });
 });
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {

@@ -51,7 +51,7 @@ app.get("/", (req, res) => {
         DB_NAME: !!process.env.DB_NAME
       }
     }
-  }).end() ;
+  });
 });
 
 
