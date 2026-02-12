@@ -213,13 +213,6 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
     res.send(successTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
-    
-    // Check if response has already started being sent
-    if (res.headersSent) {
-      console.error('[SubscriptionsRouter] Headers already sent, cannot send error response');
-      return;
-    }
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const templatesDir = path.join(__dirname, 'templates');
 
@@ -229,17 +222,15 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.status(500).send(errorTemplate);
     } catch (templateError) {
-      // If error template fails, send plain text error
-      if (!res.headersSent) {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.status(500).send(`
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(500).send(`
         <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
           <h1>Error</h1>
           <p>${errorMessage}</p>
         </body></html>
       `);
-      }
     }
+  }
 };
 
 app.get('/subscription/success', handleSubscriptionSuccess);
@@ -254,9 +245,7 @@ app.get('/subscription/cancel', async (req: express.Request, res: express.Respon
     res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-    if (!res.headersSent) {
-      res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
-    }
+    res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
 
@@ -268,9 +257,7 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
     res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-    if (!res.headersSent) {
-      res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
-    }
+    res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
 
