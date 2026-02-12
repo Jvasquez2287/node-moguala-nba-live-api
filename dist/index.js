@@ -84,7 +84,7 @@ app.get("/", (req, res) => {
 app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
         console.log('Manual cache refresh requested');
-        const scoreboardData = await dataCache_1.dataCache.refreshScoreboard();
+        const scoreboardData = await dataCache.refreshScoreboard();
         res.json({
             success: true,
             message: "Cache refreshed successfully",
@@ -123,7 +123,7 @@ app.get("/api/v1/test", async (req, res) => {
 // Cache status endpoint
 app.get("/api/v1/cache/status", async (req, res) => {
     try {
-        const scoreboardData = await dataCache_1.dataCache.getScoreboard();
+        const scoreboardData = await dataCache.getScoreboard();
         const games = scoreboardData?.scoreboard?.games || [];
         res.json({
             cacheStatus: games.length > 0 ? 'populated' : 'empty',
@@ -226,6 +226,11 @@ const handleSubscriptionSuccess = async (req, res) => {
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error processing checkout success:', error);
+        // Check if response has already started being sent
+        if (res.headersSent) {
+            console.error('[SubscriptionsRouter] Headers already sent, cannot send error response');
+            return;
+        }
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const templatesDir = path_1.default.join(__dirname, 'templates');
         try {
@@ -235,226 +240,235 @@ const handleSubscriptionSuccess = async (req, res) => {
             return res.status(500).send(errorTemplate);
         }
         catch (templateError) {
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            res.status(500).send(`
+            // If error template fails, send plain text error
+            if (!res.headersSent) {
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.status(500).send(`
         <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
           <h1>Error</h1>
           <p>${errorMessage}</p>
         </body></html>
       `);
-        }
-    }
-};
-app.get('/subscription/success', handleSubscriptionSuccess);
-app.get('/subscriptions/success', handleSubscriptionSuccess);
-// Subscription cancel redirect handler
-app.get('/subscription/cancel', async (req, res) => {
-    try {
-        const templatesDir = path_1.default.join(__dirname, 'templates');
-        const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(cancelTemplate);
-    }
-    catch (error) {
-        console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-        res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
-    }
-});
-app.get('/subscriptions/cancel', async (req, res) => {
-    try {
-        const templatesDir = path_1.default.join(__dirname, 'templates');
-        const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(cancelTemplate);
-    }
-    catch (error) {
-        console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-        res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
-    }
-});
-// Import WebSocket managers and services
-const websocketManager_1 = require("./services/websocketManager");
-const dataCache_1 = require("./services/dataCache");
-const keyMoments_1 = require("./services/keyMoments");
-const database_1 = require("./config/database");
-const migrations_1 = require("./services/migrations");
-const clerk_1 = __importDefault(require("./services/clerk"));
-// Create HTTP server and WebSocket server
-const server = http_1.default.createServer(app);
-const wss = new ws_1.WebSocketServer({ noServer: true });
-console.log('[WebSocket] Server initialized');
-// Handle WebSocket upgrade requests
-console.log('[Server Setup] Registering upgrade handler');
-server.on('upgrade', (req, socket, head) => {
-    console.log(`[WebSocket] ✅ Upgrade request received for: ${req.url}`);
-    try {
-        wss.handleUpgrade(req, socket, head, (ws) => {
-            console.log(`[WebSocket] ✅ Upgrade successful for: ${req.url}`);
-            wss.emit('connection', ws, req);
-        });
-    }
-    catch (error) {
-        console.error('[WebSocket] ❌ Error during upgrade:', error);
-        socket.destroy();
-    }
-});
-console.log('[Server Setup] Upgrade handler registered');
-// WebSocket connection handling
-wss.on("connection", (ws, req) => {
-    const url = req.url;
-    console.log(`[WebSocket] New connection - URL: "${url}"`);
-    // Send immediate acknowledgement to all WebSocket connections
-    try {
-        // ws.send(JSON.stringify({ status: 'connected', message: 'WebSocket connection established' }));
-        console.log('[WebSocket] ✅ Acknowledgement sent');
-    }
-    catch (error) {
-        console.error('[WebSocket] ❌ Error sending acknowledgement:', error);
-    }
-    try {
-        if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
-            console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
-            websocketManager_1.scoreboardWebSocketManager.handleConnection(ws);
-        }
-        if (url?.startsWith("/api/v1/ws/play-by-play/")) {
-            const gameId = url.split("/").pop();
-            if (gameId) {
-                console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
-                websocketManager_1.playbyplayWebSocketManager.handleConnection(ws, gameId);
-            }
-            else {
-                console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
-                ws.close();
             }
         }
-        else {
-            console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
-            // Don't close for unknown URLs, just log them
-        }
     }
-    catch (error) {
-        console.error(`[WebSocket] ❌ Error handling connection:`, error);
-    }
-});
-// Start background tasks only in development
-try {
-    dataCache_1.dataCache.startPolling();
-    console.log('Data cache polling started');
-}
-catch (error) {
-    console.error('Error starting data cache:', error);
-}
-try {
-    (0, keyMoments_1.startCleanupTask)();
-    console.log('[Cleanup] Task started');
-}
-catch (error) {
-    console.error('[Cleanup] Error starting cleanup task:', error);
-}
-try {
-    websocketManager_1.scoreboardWebSocketManager.startBroadcasting();
-    websocketManager_1.playbyplayWebSocketManager.startBroadcasting();
-    console.log('[WebSocket] Broadcasting started');
-}
-catch (error) {
-    console.error('[WebSocket] Error starting broadcasting:', error);
-}
-try {
-    websocketManager_1.scoreboardWebSocketManager.startCleanupTask();
-    websocketManager_1.playbyplayWebSocketManager.startCleanupTask();
-    console.log('[WebSocket] Cleanup tasks started');
-}
-catch (error) {
-    console.error('[WebSocket] Error starting cleanup tasks:', error);
-}
-// Start server
-const PORT = parseInt(process.env.PORT || '8000');
-// Initialize database connection
-(async () => {
-    try {
-        await (0, database_1.connectToDatabase)();
-        console.log('[Database] SQL Server connection initialized');
-        // Run pending migrations
-        await migrations_1.migrationService.runPendingMigrations();
-        // Start Clerk auto sync AFTER database is ready
+    ;
+    app.get('/subscription/success', handleSubscriptionSuccess);
+    app.get('/subscriptions/success', handleSubscriptionSuccess);
+    // Subscription cancel redirect handler
+    app.get('/subscription/cancel', async (req, res) => {
         try {
-            clerk_1.default.startAutoSync();
-            console.log('[Clerk] Auto sync started');
+            const templatesDir = path_1.default.join(__dirname, 'templates');
+            const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.send(cancelTemplate);
         }
         catch (error) {
-            console.error('[Clerk] Error starting auto sync:', error);
+            console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+            if (!res.headersSent) {
+                res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+            }
         }
+    });
+    app.get('/subscriptions/cancel', async (req, res) => {
+        try {
+            const templatesDir = path_1.default.join(__dirname, 'templates');
+            const cancelTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'cancel.html'), 'utf-8');
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.send(cancelTemplate);
+        }
+        catch (error) {
+            console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+            if (!res.headersSent) {
+                res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+            }
+        }
+    });
+    // Import WebSocket managers and services
+    import { scoreboardWebSocketManager, playbyplayWebSocketManager } from "./services/websocketManager";
+    import { dataCache } from "./services/dataCache";
+    import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
+    import { connectToDatabase, closeDatabase } from "./config/database";
+    import { migrationService } from "./services/migrations";
+    import clerkService from "./services/clerk";
+    import { tokenCheckService } from "./services/tokenCheck";
+    // Create HTTP server and WebSocket server
+    const server = http_1.default.createServer(app);
+    const wss = new ws_1.WebSocketServer({ noServer: true });
+    console.log('[WebSocket] Server initialized');
+    // Handle WebSocket upgrade requests
+    console.log('[Server Setup] Registering upgrade handler');
+    server.on('upgrade', (req, socket, head) => {
+        console.log(`[WebSocket] ✅ Upgrade request received for: ${req.url}`);
+        try {
+            wss.handleUpgrade(req, socket, head, (ws) => {
+                console.log(`[WebSocket] ✅ Upgrade successful for: ${req.url}`);
+                wss.emit('connection', ws, req);
+            });
+        }
+        catch (error) {
+            console.error('[WebSocket] ❌ Error during upgrade:', error);
+            socket.destroy();
+        }
+    });
+    console.log('[Server Setup] Upgrade handler registered');
+    // WebSocket connection handling
+    wss.on("connection", (ws, req) => {
+        const url = req.url;
+        console.log(`[WebSocket] New connection - URL: "${url}"`);
+        // Send immediate acknowledgement to all WebSocket connections
+        try {
+            // ws.send(JSON.stringify({ status: 'connected', message: 'WebSocket connection established' }));
+            console.log('[WebSocket] ✅ Acknowledgement sent');
+        }
+        catch (error) {
+            console.error('[WebSocket] ❌ Error sending acknowledgement:', error);
+        }
+        try {
+            if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
+                console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
+                websocketManager_1.scoreboardWebSocketManager.handleConnection(ws);
+            }
+            if (url?.startsWith("/api/v1/ws/play-by-play/")) {
+                const gameId = url.split("/").pop();
+                if (gameId) {
+                    console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
+                    websocketManager_1.playbyplayWebSocketManager.handleConnection(ws, gameId);
+                }
+                else {
+                    console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
+                    ws.close();
+                }
+            }
+            else {
+                console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
+                // Don't close for unknown URLs, just log them
+            }
+        }
+        catch (error) {
+            console.error(`[WebSocket] ❌ Error handling connection:`, error);
+        }
+    });
+    // Start background tasks only in development
+    try {
+        dataCache_1.dataCache.startPolling();
+        console.log('Data cache polling started');
     }
     catch (error) {
-        console.error('[Database] Failed to initialize connection:', error);
-        console.log('[Database] Continuing without database connection - operation is non-critical');
+        console.error('Error starting data cache:', error);
     }
-})();
-if (isIISNode) {
-    // IISNode provides PORT as a named pipe
-    server.listen(process.env.PORT || 8000, () => {
-        console.log('[Server] Running under IISNode on pipe:', process.env.PORT);
-    });
-}
-else {
-    // Development mode
-    process.on('uncaughtException', (err) => {
-        console.error('[Uncaught Exception]:', err);
-    });
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('[Unhandled Rejection]:', reason);
-    });
-    server.on('error', (err) => {
-        console.error('[Server Error Event]:', err.message);
-        if (err.code === 'EADDRINUSE') {
-            console.error(`[Server] Port ${PORT} is already in use`);
-            process.exit(1);
-        }
-    });
-    server.on('clientError', (err, socket) => {
-        console.error('[Client Error]:', err);
-        socket.end();
-    });
     try {
-        console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
-        server.listen(PORT, '0.0.0.0', () => {
-            const addr = server.address();
-            console.log(`[Server] ✅ Successfully listening on ${addr?.address}:${addr?.port}`);
-            console.log(`[WebSocket] Ready to accept WebSocket connections`);
+        (0, keyMoments_1.startCleanupTask)();
+        console.log('[Cleanup] Task started');
+    }
+    catch (error) {
+        console.error('[Cleanup] Error starting cleanup task:', error);
+    }
+    try {
+        websocketManager_1.scoreboardWebSocketManager.startBroadcasting();
+        websocketManager_1.playbyplayWebSocketManager.startBroadcasting();
+        console.log('[WebSocket] Broadcasting started');
+    }
+    catch (error) {
+        console.error('[WebSocket] Error starting broadcasting:', error);
+    }
+    try {
+        websocketManager_1.scoreboardWebSocketManager.startCleanupTask();
+        websocketManager_1.playbyplayWebSocketManager.startCleanupTask();
+        console.log('[WebSocket] Cleanup tasks started');
+    }
+    catch (error) {
+        console.error('[WebSocket] Error starting cleanup tasks:', error);
+    }
+    // Start server
+    const PORT = parseInt(process.env.PORT || '8000');
+    // Initialize database connection
+    (async () => {
+        try {
+            await (0, database_1.connectToDatabase)();
+            console.log('[Database] SQL Server connection initialized');
+            // Run pending migrations
+            await migrations_1.migrationService.runPendingMigrations();
+            // Start Clerk auto sync AFTER database is ready
+            try {
+                clerk_1.default.startAutoSync();
+                console.log('[Clerk] Auto sync started');
+            }
+            catch (error) {
+                console.error('[Clerk] Error starting auto sync:', error);
+            }
+        }
+        catch (error) {
+            console.error('[Database] Failed to initialize connection:', error);
+            console.log('[Database] Continuing without database connection - operation is non-critical');
+        }
+    })();
+    if (isIISNode) {
+        // IISNode provides PORT as a named pipe
+        server.listen(process.env.PORT || 8000, () => {
+            console.log('[Server] Running under IISNode on pipe:', process.env.PORT);
         });
     }
-    catch (err) {
-        console.error(`[Server] Error calling listen():`, err);
+    else {
+        // Development mode
+        process.on('uncaughtException', (err) => {
+            console.error('[Uncaught Exception]:', err);
+        });
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('[Unhandled Rejection]:', reason);
+        });
+        server.on('error', (err) => {
+            console.error('[Server Error Event]:', err.message);
+            if (err.code === 'EADDRINUSE') {
+                console.error(`[Server] Port ${PORT} is already in use`);
+                process.exit(1);
+            }
+        });
+        server.on('clientError', (err, socket) => {
+            console.error('[Client Error]:', err);
+            socket.end();
+        });
+        try {
+            console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
+            server.listen(PORT, '0.0.0.0', () => {
+                const addr = server.address();
+                console.log(`[Server] ✅ Successfully listening on ${addr?.address}:${addr?.port}`);
+                console.log(`[WebSocket] Ready to accept WebSocket connections`);
+            });
+        }
+        catch (err) {
+            console.error(`[Server] Error calling listen():`, err);
+        }
+        // Verify server is actually listening
+        setInterval(() => {
+            const addr = server.address();
+            console.log(`[Server Check] Listening: ${server.listening}, Address: ${addr?.address}:${addr?.port}`);
+        }, 30000);
     }
-    // Verify server is actually listening
-    setInterval(() => {
-        const addr = server.address();
-        console.log(`[Server Check] Listening: ${server.listening}, Address: ${addr?.address}:${addr?.port}`);
-    }, 30000);
-}
-// Graceful shutdown
-process.on("SIGTERM", async () => {
-    console.log('[Shutdown] SIGTERM received - closing gracefully');
-    await dataCache_1.dataCache.stopPolling();
-    await (0, keyMoments_1.stopCleanupTask)();
-    await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
-    await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
-    clerk_1.default.stopAutoSync();
-    await (0, database_1.closeDatabase)();
-    server.close();
-    process.exit(0);
-});
-process.on("SIGINT", async () => {
-    console.log('[Shutdown] SIGINT received - closing gracefully');
-    await dataCache_1.dataCache.stopPolling();
-    await (0, keyMoments_1.stopCleanupTask)();
-    await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
-    await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
-    clerk_1.default.stopAutoSync();
-    await (0, database_1.closeDatabase)();
-    server.close();
-    process.exit(0);
-});
-// Export server for IISNode
-exports.default = server;
+    // Graceful shutdown
+    process.on("SIGTERM", async () => {
+        console.log('[Shutdown] SIGTERM received - closing gracefully');
+        await dataCache_1.dataCache.stopPolling();
+        await (0, keyMoments_1.stopCleanupTask)();
+        await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
+        await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
+        clerk_1.default.stopAutoSync();
+        await (0, database_1.closeDatabase)();
+        server.close();
+        process.exit(0);
+    });
+    process.on("SIGINT", async () => {
+        console.log('[Shutdown] SIGINT received - closing gracefully');
+        await dataCache_1.dataCache.stopPolling();
+        await (0, keyMoments_1.stopCleanupTask)();
+        await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
+        await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
+        clerk_1.default.stopAutoSync();
+        await (0, database_1.closeDatabase)();
+        server.close();
+        process.exit(0);
+    });
+    // Export server for IISNode
+    export default server;
+};
 //# sourceMappingURL=index.js.map
