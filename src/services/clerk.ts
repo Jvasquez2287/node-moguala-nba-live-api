@@ -3,7 +3,7 @@ import { Request } from 'express';
 import { executeQuery } from '../config/database';
 import stripeService from './stripe';
 
-const clerkWebhookSecret = process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T';
+const clerkWebhookSecret = process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET! : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T';
 
 interface ClerkUser {
   id: string;

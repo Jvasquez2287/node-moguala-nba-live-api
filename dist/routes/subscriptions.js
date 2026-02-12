@@ -295,7 +295,7 @@ router.post('/reactivate', async (req, res) => {
         console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} reactivated successfully`);
         // Update subscription status in database
         const { executeQuery } = await Promise.resolve().then(() => __importStar(require('../config/database')));
-        const result = await executeQuery('UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = NULL, updated_at = @now WHERE id = @id OR subscription_id = @subId', {
+        await executeQuery('UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = NULL, updated_at = @now WHERE id = @id OR subscription_id = @subId', {
             status: 'active',
             now: new Date().toISOString(),
             id: typeof dbId === 'number' ? dbId : parseInt(dbId),

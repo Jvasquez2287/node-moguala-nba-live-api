@@ -316,7 +316,7 @@ router.post('/reactivate', async (req: Request, res: Response) => {
     // Update subscription status in database
     const { executeQuery } = await import('../config/database');
     
-    const result = await executeQuery(
+    await executeQuery(
       'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = NULL, updated_at = @now WHERE id = @id OR subscription_id = @subId',
       { 
         status: 'active', 
