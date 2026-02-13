@@ -158,27 +158,27 @@ const logo_1 = __importDefault(require("./routes/logo"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
+const testRoutes_1 = __importDefault(require("./routes/testRoutes"));
 // Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Apply JSON middleware after webhooks
 app.use(express_1.default.json());
-app.use("/api/v1", schedule_http_1.default);
-app.use("/api/v1", schedule_1.default);
-app.use("/api/v1/standings", standings_1.default);
-app.use("/api/v1", teams_1.default);
-app.use("/api/v1", search_1.default);
-app.use("/api/v1", predictions_1.default);
-app.use("/api/v1", league_1.default);
-app.use("/api/v1", players_1.default);
-app.use("/api/v1/scoreboard", scoreboard_1.default);
-app.use('/api/v1/logo', logo_1.default);
-// Subscription management routes
-app.use('/api/v1/subscriptions', subscriptions_1.default);
-// User management routes
-app.use('/api/v1/users', users_1.default);
-app.use('/api/v1/user', users_1.default);
-// Notification management routes
-app.use('/api/v1/notifications', notifications_1.default);
+/** Routes **/
+app.use("/api/v1", schedule_http_1.default); // Keep old schedule routes for backward compatibility, but new ones should use /schedule
+app.use("/api/v1", schedule_1.default); // New schedule routes with improved performance and features
+app.use("/api/v1/standings", standings_1.default); // Standings routes mounted on /standings for clarity
+app.use("/api/v1", teams_1.default); // Team routes mounted after schedule and standings to ensure they are accessible without subscription checks, as they are used in multiple places including the homepage and search
+app.use("/api/v1", search_1.default); // Search routes mounted after teams to ensure team search is accessible without subscription checks, as it's used in the homepage and other non-subscription areas
+app.use("/api/v1", predictions_1.default); // Predictions routes mounted after search and teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
+app.use("/api/v1", league_1.default); // League routes mounted after teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
+app.use("/api/v1", players_1.default); // Player routes mounted after teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
+app.use("/api/v1/scoreboard", scoreboard_1.default); // Scoreboard routes mounted on /scoreboard to avoid conflicts with schedule and ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
+app.use('/api/v1/logo', logo_1.default); // Logo routes mounted before subscriptions and users to ensure they are accessible without subscription checks
+app.use('/api/v1/subscriptions', subscriptions_1.default); // Subscription management routes
+app.use('/api/v1/users', users_1.default); // User management routes - moved after subscriptions to ensure any subscription checks in user routes have access to subscription data
+app.use('/api/v1/user', users_1.default); // Alias for /users
+app.use('/api/v1/notifications', notifications_1.default); // Notification management routes
+app.use('/api/v1/test', testRoutes_1.default); // Test routes
 // Subscription success redirect handlers (from Stripe checkout)
 // Both /subscription/success and /subscriptions/success for flexibility
 const handleSubscriptionSuccess = async (req, res) => {
