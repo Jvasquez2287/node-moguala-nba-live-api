@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const stripe_1 = require("../services/stripe");
 const clerk_1 = require("../services/clerk");
+const emailService_1 = require("../services/emailService");
 const database_1 = require("../config/database");
 const router = express_1.default.Router();
 // Apply raw body parser to this router for Stripe webhook signature verification
@@ -67,6 +68,25 @@ router.post('/stripe', async (req, res) => {
                 else {
                     await stripe_1.stripeService.createSubscriptionInDB(subscriptionData);
                 }
+                // Send success email
+                try {
+                    const customerEmail = data.billing_details?.email || data.customer_email;
+                    if (customerEmail) {
+                        const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
+                        const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
+                        await emailService_1.emailService.sendSuccessEmail({
+                            userEmail: customerEmail,
+                            userClerkId: data.customer,
+                            subscriptionStatus: data.status.toUpperCase(),
+                            subscriptionId: data.id,
+                            periodStart,
+                            periodEnd,
+                        });
+                    }
+                }
+                catch (emailError) {
+                    console.error('[Webhook] Error sending success email:', emailError);
+                }
                 console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
                 return res.json({ received: true });
             }
@@ -85,7 +105,36 @@ router.post('/stripe', async (req, res) => {
                     subscription_canceled_at: data.canceled_at ? new Date(data.canceled_at * 1000) : null,
                     product_id: data.items.data[0].plan.product
                 };
+                // Get previous status to detect status changes
+                const previousSub = await stripe_1.stripeService.getSubscriptionFromDB(data.customer);
+                const previousStatus = previousSub?.subscription_status;
                 await stripe_1.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+                // Send email based on status change
+                try {
+                    const customerEmail = data.billing_details?.email || data.customer_email;
+                    if (customerEmail && data.status === 'active' && previousStatus !== 'active') {
+                        // Subscription became active
+                        const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
+                        const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
+                        await emailService_1.emailService.sendSuccessEmail({
+                            userEmail: customerEmail,
+                            userClerkId: data.customer,
+                            subscriptionStatus: data.status.toUpperCase(),
+                            subscriptionId: data.id,
+                            periodStart,
+                            periodEnd,
+                        });
+                    }
+                    else if (customerEmail && data.status === 'canceled') {
+                        // Subscription was canceled
+                        await emailService_1.emailService.sendCanceledEmail({
+                            userEmail: customerEmail,
+                        });
+                    }
+                }
+                catch (emailError) {
+                    console.error('[Webhook] Error sending update email:', emailError);
+                }
                 console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
                 return res.json({ received: true });
             }
@@ -100,6 +149,19 @@ router.post('/stripe', async (req, res) => {
             }
             case 'invoice.payment_failed': {
                 console.log(`[Webhook] Invoice payment failed: ${data.id}`);
+                // Send payment failed email
+                try {
+                    const customerEmail = data.customer_email;
+                    if (customerEmail) {
+                        await emailService_1.emailService.sendErrorEmail({
+                            userEmail: customerEmail,
+                            errorMessage: 'Your subscription payment failed. Please update your payment method to avoid service interruption.',
+                        });
+                    }
+                }
+                catch (emailError) {
+                    console.error('[Webhook] Error sending payment failed email:', emailError);
+                }
                 return res.json({ received: true });
             }
             default:

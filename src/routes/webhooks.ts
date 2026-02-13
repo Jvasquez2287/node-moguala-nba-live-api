@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { stripeService, getStripeClient } from '../services/stripe';
 import { clerkService } from '../services/clerk';
+import { emailService } from '../services/emailService';
 import { executeQuery } from '../config/database';
 
 const router = express.Router();
@@ -75,6 +76,26 @@ router.post('/stripe', async (req: Request, res: Response) => {
           await stripeService.createSubscriptionInDB(subscriptionData);
         }
 
+        // Send success email
+        try {
+          const customerEmail = data.billing_details?.email || data.customer_email;
+          if (customerEmail) {
+            const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
+            const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
+            
+            await emailService.sendSuccessEmail({
+              userEmail: customerEmail,
+              userClerkId: data.customer,
+              subscriptionStatus: data.status.toUpperCase(),
+              subscriptionId: data.id,
+              periodStart,
+              periodEnd,
+            });
+          }
+        } catch (emailError) {
+          console.error('[Webhook] Error sending success email:', emailError);
+        }
+
         console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
         return res.json({ received: true });
       }
@@ -95,7 +116,38 @@ router.post('/stripe', async (req: Request, res: Response) => {
           product_id: data.items.data[0].plan.product
         };
 
+        // Get previous status to detect status changes
+        const previousSub = await stripeService.getSubscriptionFromDB(data.customer);
+        const previousStatus = previousSub?.subscription_status;
+
         await stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+
+        // Send email based on status change
+        try {
+          const customerEmail = data.billing_details?.email || data.customer_email;
+          if (customerEmail && data.status === 'active' && previousStatus !== 'active') {
+            // Subscription became active
+            const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
+            const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
+            
+            await emailService.sendSuccessEmail({
+              userEmail: customerEmail,
+              userClerkId: data.customer,
+              subscriptionStatus: data.status.toUpperCase(),
+              subscriptionId: data.id,
+              periodStart,
+              periodEnd,
+            });
+          } else if (customerEmail && data.status === 'canceled') {
+            // Subscription was canceled
+            await emailService.sendCanceledEmail({
+              userEmail: customerEmail,
+            });
+          }
+        } catch (emailError) {
+          console.error('[Webhook] Error sending update email:', emailError);
+        }
+
         console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
         return res.json({ received: true });
       }
@@ -116,6 +168,20 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
       case 'invoice.payment_failed': {
         console.log(`[Webhook] Invoice payment failed: ${data.id}`);
+        
+        // Send payment failed email
+        try {
+          const customerEmail = data.customer_email;
+          if (customerEmail) {
+            await emailService.sendErrorEmail({
+              userEmail: customerEmail,
+              errorMessage: 'Your subscription payment failed. Please update your payment method to avoid service interruption.',
+            });
+          }
+        } catch (emailError) {
+          console.error('[Webhook] Error sending payment failed email:', emailError);
+        }
+        
         return res.json({ received: true });
       }
 
