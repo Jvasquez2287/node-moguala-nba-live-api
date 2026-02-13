@@ -357,7 +357,7 @@ catch (error) {
     console.error('[WebSocket] Error starting cleanup tasks:', error);
 }
 // Start server
-const PORT = parseInt(process.env.PORT || '8000');
+const PORT = isIISNode ? (process.env.PORT || 'nba-api.local') : parseInt(process.env.PORT || '8000');
 // Initialize database connection
 (async () => {
     try {
@@ -380,9 +380,9 @@ const PORT = parseInt(process.env.PORT || '8000');
     }
 })();
 if (isIISNode) {
-    // IISNode provides PORT as a named pipe
-    server.listen(process.env.PORT || 8000, () => {
-        console.log('[Server] Running under IISNode on pipe:', process.env.PORT);
+    // IISNode provides PORT as a named pipe string - listen directly on it
+    server.listen(PORT, () => {
+        console.log('[Server] Running under IISNode on pipe:', PORT);
     });
 }
 else {
@@ -401,16 +401,31 @@ else {
         }
     });
     server.on('clientError', (err, socket) => {
-        console.error('[Client Error]:', err);
+        // Silently ignore protocol-related errors (e.g., TLS handshake on HTTP port)
+        if (err.code === 'HPE_INVALID_METHOD' || err.code === 'HPE_HEADER_OVERFLOW') {
+            // These are typically HTTPS traffic on HTTP port - just close connection quietly
+            socket.end();
+            return;
+        }
+        console.error('[Client Error]:', err.code, err.message);
         socket.end();
     });
     try {
-        console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
-        server.listen(PORT, '0.0.0.0', () => {
-            const addr = server.address();
-            console.log(`[Server] ✅ Successfully listening on ${addr?.address}:${addr?.port}`);
-            console.log(`[WebSocket] Ready to accept WebSocket connections`);
-        });
+        if (typeof PORT === 'string') {
+            console.log(`[Server] Attempting to listen on named pipe ${PORT}...`);
+            server.listen(PORT, () => {
+                console.log(`[Server] ✅ Successfully listening on pipe: ${PORT}`);
+                console.log(`[WebSocket] Ready to accept WebSocket connections`);
+            });
+        }
+        else {
+            console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
+            server.listen(PORT, '0.0.0.0', () => {
+                const addr = server.address();
+                console.log(`[Server] ✅ Successfully listening on ${addr?.address}:${addr?.port}`);
+                console.log(`[WebSocket] Ready to accept WebSocket connections`);
+            });
+        }
     }
     catch (err) {
         console.error(`[Server] Error calling listen():`, err);
