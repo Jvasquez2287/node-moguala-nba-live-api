@@ -210,7 +210,8 @@ const handleSubscriptionSuccess = async (req, res) => {
             .replace('{{PERIOD_START}}', periodStart)
             .replace('{{PERIOD_END}}', periodEnd);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(successTemplate);
+        res.statusCode = 200;
+        return res.end(successTemplate);
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error processing checkout success:', error);

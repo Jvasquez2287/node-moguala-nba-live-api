@@ -199,7 +199,8 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       .replace('{{PERIOD_END}}', periodEnd);
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(successTemplate);
+    res.statusCode = 200;
+    return res.end(successTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
