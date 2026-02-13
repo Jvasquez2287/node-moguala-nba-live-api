@@ -104,22 +104,6 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
         });
     }
 });
-//  Test endpoint for notifications services
-app.get("/api/v1/test", async (req, res) => {
-    try {
-        const notificationsService = await expoNotificationSystem_1.default.sendTestNotificationToAllUsers();
-        ;
-        return res.json({ success: notificationsService, message: 'Test notification sent' });
-    }
-    catch (error) {
-        console.error('Error sending test notification:', error);
-        return res.json({
-            success: false,
-            error: 'Failed to send test notification',
-            message: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-});
 // Cache status endpoint
 app.get("/api/v1/cache/status", async (req, res) => {
     try {
@@ -203,7 +187,7 @@ const handleSubscriptionSuccess = async (req, res) => {
         if (!session_id) {
             const invalidTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'invalid.html'), 'utf-8');
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            return res.status(400).send(invalidTemplate);
+            return res.send(invalidTemplate);
         }
         const subscriptionsService = await Promise.resolve().then(() => __importStar(require('./services/subscriptions'))).then(m => m.default);
         const result = await subscriptionsService.handleCheckoutSuccess(session_id);
@@ -235,7 +219,7 @@ const handleSubscriptionSuccess = async (req, res) => {
             let errorTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'error.html'), 'utf-8');
             errorTemplate = errorTemplate.replace('{{ERROR_MESSAGE}}', errorMessage);
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            return res.status(500).send(errorTemplate);
+            return res.send(errorTemplate);
         }
         catch (templateError) {
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -281,7 +265,6 @@ const keyMoments_1 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
-const expoNotificationSystem_1 = __importDefault(require("./services/expoNotificationSystem"));
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });

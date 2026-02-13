@@ -10,7 +10,7 @@ router.get('/schedule-v1', async (req, res) => {
     const schedule = await scheduleService.getSchedules();
 
     if (!schedule) {
-      return res.status(503).json({ error: 'Schedule data not available' });
+      return res.json({ error: 'Schedule data not available' });
     }
 
    return  res.json(schedule);
@@ -76,7 +76,7 @@ router.get('/schedule-v1/games', async (req, res) => {
     const schedule = await scheduleService.getSchedules();
 
     if (!schedule || schedule.length === 0) {
-      return res.status(503).json({ error: 'Schedule data not available' });
+      return res.json({ error: 'Schedule data not available' });
     }
 
     const { season, status, team } = req.query;
@@ -120,7 +120,7 @@ router.get('/schedule-v1/game/:gameId', async (req, res) => {
     const schedule = await scheduleService.getSchedules();
 
     if (!schedule || schedule.length === 0) {
-      return res.status(503).json({ error: 'Schedule data not available' });
+      return res.json({ error: 'Schedule data not available' });
     }
 
     const games = schedule.find((g: any) => g.games && g.games.some((game: any) => game.gameId === gameId));

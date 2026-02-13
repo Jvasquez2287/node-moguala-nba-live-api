@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
     const scoreboard = await dataCache.getScoreboard();
     console.log('Scoreboard data:', scoreboard ? 'found' : 'null');
     if (!scoreboard) {
-      return res.status(503).json({ error: 'Scoreboard data not available' });
+      return res.json({ error: 'Scoreboard data not available' });
     }
     return res.json(scoreboard);
   } catch (error) {

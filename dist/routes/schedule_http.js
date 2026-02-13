@@ -12,7 +12,7 @@ router.get('/schedule-v1', async (req, res) => {
         console.log('[Route] Schedule request received');
         const schedule = await schedule_1.scheduleService.getSchedules();
         if (!schedule) {
-            return res.status(503).json({ error: 'Schedule data not available' });
+            return res.json({ error: 'Schedule data not available' });
         }
         return res.json(schedule);
     }
@@ -74,7 +74,7 @@ router.get('/schedule-v1/games', async (req, res) => {
         console.log('[Route] Schedule games request received');
         const schedule = await schedule_1.scheduleService.getSchedules();
         if (!schedule || schedule.length === 0) {
-            return res.status(503).json({ error: 'Schedule data not available' });
+            return res.json({ error: 'Schedule data not available' });
         }
         const { season, status, team } = req.query;
         let games = schedule;
@@ -109,7 +109,7 @@ router.get('/schedule-v1/game/:gameId', async (req, res) => {
         console.log(`[Route] Schedule game request for ${gameId}`);
         const schedule = await schedule_1.scheduleService.getSchedules();
         if (!schedule || schedule.length === 0) {
-            return res.status(503).json({ error: 'Schedule data not available' });
+            return res.json({ error: 'Schedule data not available' });
         }
         const games = schedule.find((g) => g.games && g.games.some((game) => game.gameId === gameId));
         const game = games?.games?.find((game) => game.gameId === gameId);

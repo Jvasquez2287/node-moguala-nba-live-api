@@ -67,7 +67,7 @@ router.get('/players/season-leaders', async (req, res) => {
 router.get('/players/top-by-stat', async (req, res) => {
   try {
     // TODO: Implement getTopPlayersByStat function
-    return res.status(501).json({ error: 'Not implemented yet' });
+    return res.json({ error: 'Not implemented yet' });
   } catch (error) {
    console.log('Error fetching top players by stat:', error);
     return res.json({ error: 'Failed to fetch top players by stat' });
@@ -78,7 +78,7 @@ router.get('/players/top-by-stat', async (req, res) => {
 router.get('/player/:playerId/game-log', async (req, res) => {
   try {
     // TODO: Implement getPlayerGameLog function
-    return res.status(501).json({ error: 'Not implemented yet' });
+    return res.json({ error: 'Not implemented yet' });
   } catch (error) {
    console.log('Error fetching player game log:', error);
     return res.json({ error: 'Failed to fetch player game log' });
