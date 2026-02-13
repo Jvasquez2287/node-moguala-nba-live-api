@@ -66,15 +66,7 @@ app.get("/", (req, res) => {
   });
 });
 
-
-app.get("/favicon.ico", (req, res) => {
-  const faviconPath = path.join(publicDir, 'favicon.ico');
-  if (!existsSync(faviconPath)) {
-    return res.status(404).end();
-  }
-  res.sendFile(faviconPath);
-});
-
+  
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
   try {
