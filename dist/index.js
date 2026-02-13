@@ -209,7 +209,8 @@ const handleSubscriptionSuccess = async (req, res) => {
             .replace('{{SUBSCRIPTION_ID}}', subscriptionId)
             .replace('{{PERIOD_START}}', periodStart)
             .replace('{{PERIOD_END}}', periodEnd);
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader("Content-type", "text/html");
+        res.setHeader("Access-Control-Allow-Origin", "*");
         res.statusCode = 200;
         return res.end(successTemplate);
     }

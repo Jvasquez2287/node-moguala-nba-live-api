@@ -37,7 +37,7 @@ app.use(express.json());
 import { dataCache } from "./services/dataCache";
 
 // Health check
-app.get("/", (req, res) => { 
+app.get("/", (req, res) => {
   return res.json({
     message: "NBA Live API is running",
     timestamp: new Date().toISOString(),
@@ -78,7 +78,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     });
   }
 });
- 
+
 
 // Cache status endpoint
 app.get("/api/v1/cache/status", async (req, res) => {
@@ -198,7 +198,8 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       .replace('{{PERIOD_START}}', periodStart)
       .replace('{{PERIOD_END}}', periodEnd);
 
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader("Content-type", "text/html");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.statusCode = 200;
     return res.end(successTemplate);
   } catch (error) {
@@ -213,7 +214,7 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       return res.send(errorTemplate);
     } catch (templateError) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-     return   res.status(500).send(`
+      return res.status(500).send(`
         <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
           <h1>Error</h1>
           <p>${errorMessage}</p>
@@ -235,7 +236,7 @@ app.get('/subscription/cancel', async (req: express.Request, res: express.Respon
     return res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-    return  res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+    return res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
 
@@ -244,10 +245,10 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
     const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return  res.send(cancelTemplate);
+    return res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
-    return  res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
+    return res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
 
@@ -307,7 +308,7 @@ wss.on("connection", (ws, req: any) => {
   try {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
-      scoreboardWebSocketManager.handleConnection(ws); 
+      scoreboardWebSocketManager.handleConnection(ws);
     } else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
       const gameId = url.split("/").pop();
       if (gameId) {
