@@ -11,7 +11,7 @@ import { existsSync, mkdirSync } from "fs";
 dotenv.config({ path: path.join(".env") });
 
 // Fivicon and static files will be served from the "public" directory
-const publicDir = path.join(__dirname, 'public');
+const publicDir = path.join(__dirname,'..', '..', 'public');
  if(!existsSync(publicDir)) {
   mkdirSync(publicDir);
 }

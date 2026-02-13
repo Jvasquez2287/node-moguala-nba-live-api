@@ -47,7 +47,7 @@ const fs_1 = require("fs");
 // Load environment variables
 dotenv_1.default.config({ path: path_1.default.join(".env") });
 // Fivicon and static files will be served from the "public" directory
-const publicDir = path_1.default.join(__dirname, 'public');
+const publicDir = path_1.default.join(__dirname, '..', '..', 'public');
 if (!(0, fs_1.existsSync)(publicDir)) {
     (0, fs_1.mkdirSync)(publicDir);
 }
