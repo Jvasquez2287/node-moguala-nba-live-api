@@ -88,7 +88,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     try {
         console.log('Manual cache refresh requested');
         const scoreboardData = await dataCache_1.dataCache.refreshScoreboard();
-        return res.status(200).json({
+        return res.json({
             success: true,
             message: "Cache refreshed successfully",
             games: scoreboardData?.scoreboard?.games?.length || 0,
@@ -104,20 +104,18 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
         });
     }
 });
-// Cache refresh endpoint
+//  Test endpoint for notifications services
 app.get("/api/v1/test", async (req, res) => {
     try {
-        const result = await fiveMinuteMarkCalculator_1.FiveMinuteMarkCalculator.getCurrentGamesFromAPI();
-        return res.json({
-            success: true,
-            data: result
-        });
+        const notificationsService = await expoNotificationSystem_1.default.sendTestNotificationToAllUsers();
+        ;
+        return res.json({ success: notificationsService, message: 'Test notification sent' });
     }
     catch (error) {
-        console.error('Error refreshing cache:', error);
+        console.error('Error sending test notification:', error);
         return res.json({
             success: false,
-            error: 'Failed to refresh cache',
+            error: 'Failed to send test notification',
             message: error instanceof Error ? error.message : 'Unknown error'
         });
     }
@@ -127,7 +125,7 @@ app.get("/api/v1/cache/status", async (req, res) => {
     try {
         const scoreboardData = await dataCache_1.dataCache.getScoreboard();
         const games = scoreboardData?.scoreboard?.games || [];
-        return res.status(200).json({
+        return res.json({
             cacheStatus: games.length > 0 ? 'populated' : 'empty',
             games: games.length,
             timestamp: new Date().toISOString(),
@@ -283,7 +281,7 @@ const keyMoments_1 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
-const fiveMinuteMarkCalculator_1 = require("./services/fiveMinuteMarkCalculator");
+const expoNotificationSystem_1 = __importDefault(require("./services/expoNotificationSystem"));
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });

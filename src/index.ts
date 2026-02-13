@@ -62,7 +62,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     console.log('Manual cache refresh requested');
     const scoreboardData = await dataCache.refreshScoreboard();
 
-    return res.status(200).json({
+    return res.json({
       success: true,
       message: "Cache refreshed successfully",
       games: scoreboardData?.scoreboard?.games?.length || 0,
@@ -78,20 +78,18 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
   }
 });
 
-
-// Cache refresh endpoint
+ 
+//  Test endpoint for notifications services
 app.get("/api/v1/test", async (req, res) => {
   try { 
-    const result = await FiveMinuteMarkCalculator.getCurrentGamesFromAPI();
-    return res.json({
-      success: true,
-      data: result
-    });
+    const notificationsService = await   expoNotificationSystem.sendTestNotificationToAllUsers(); ;  
+    return res.json({ success: notificationsService, message: 'Test notification sent' });
+    
   } catch (error) {
-    console.error('Error refreshing cache:', error);
+    console.error('Error sending test notification:', error);
     return res.json({
       success: false,
-      error: 'Failed to refresh cache',
+      error: 'Failed to send test notification',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -104,7 +102,7 @@ app.get("/api/v1/cache/status", async (req, res) => {
     const scoreboardData = await dataCache.getScoreboard();
     const games = scoreboardData?.scoreboard?.games || [];
 
-    return res.status(200).json({
+    return res.json({
       cacheStatus: games.length > 0 ? 'populated' : 'empty',
       games: games.length,
       timestamp: new Date().toISOString(),
@@ -282,6 +280,7 @@ import { migrationService } from "./services/migrations";
 import clerkService from "./services/clerk";
 import { tokenCheckService } from "./services/tokenCheck";
 import { FiveMinuteMarkCalculator } from "./services/fiveMinuteMarkCalculator";
+import expoNotificationSystem from "./services/expoNotificationSystem";
 
 // Create HTTP server and WebSocket server
 const server = http.createServer(app);

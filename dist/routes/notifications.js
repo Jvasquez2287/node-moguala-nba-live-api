@@ -16,24 +16,36 @@ router.post('/register-device', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            console.warn('[Notification Route] Invalid token validation');
+            return res.json({ success: false, error: 'Unauthorized' });
+        }
+        const clerkId = validationResult.user?.clerk_id;
+        console.log('[Notification Route] Validation result:', { valid: validationResult.valid, userClerkId: clerkId, user: validationResult.user });
+        if (!clerkId) {
+            console.error('[Notification Route] No clerk_id found in validation result');
+            return res.json({ success: false, error: 'User ID not found' });
         }
         const { token, deviceName, osType } = req.body;
         if (!token) {
-            return res.status(400).json({ success: false, error: 'Device token is required' });
+            console.warn('[Notification Route] No token provided in request body');
+            return res.json({ success: false, error: 'Device token is required' });
         }
-        const success = await expoNotificationSystem_1.default.registerDeviceToken(validationResult.user?.clerk_id || '', token, deviceName, osType);
+        console.log(`[Notification Route] Registering device token for user ${clerkId}:`, { token, deviceName, osType });
+        const success = await expoNotificationSystem_1.default.registerDeviceToken(clerkId, token, deviceName, osType);
         if (!success) {
-            return res.status(400).json({ success: false, error: 'Failed to register device token' });
+            console.error(`[Notification Route] Failed to register device token for user ${clerkId}:`, { token, deviceName, osType });
+            return res.json({ success: false, error: 'Failed to register device token' });
         }
-        return res.status(200).json({
+        console.log(`[Notification Route] Successfully registered device token for user ${clerkId}`);
+        return res.json({
             success: true,
-            message: 'Device token registered successfully'
+            message: 'Device token registered successfully',
+            userId: clerkId
         });
     }
     catch (error) {
         console.error('[Notification Route] Error registering device:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to register device token',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -48,24 +60,24 @@ router.post('/unregister-device', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            return res.json({ success: false, error: 'Unauthorized' });
         }
         const { token } = req.body;
         if (!token) {
-            return res.status(400).json({ success: false, error: 'Device token is required' });
+            return res.json({ success: false, error: 'Device token is required' });
         }
         const success = await expoNotificationSystem_1.default.unregisterDeviceToken(validationResult.user?.clerk_id || '', token);
         if (!success) {
-            return res.status(400).json({ success: false, error: 'Failed to unregister device token' });
+            return res.json({ success: false, error: 'Failed to unregister device token' });
         }
-        return res.status(200).json({
+        return res.json({
             success: true,
             message: 'Device token unregistered successfully'
         });
     }
     catch (error) {
         console.error('[Notification Route] Error unregistering device:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to unregister device token',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -80,12 +92,12 @@ router.get('/history', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            return res.json({ success: false, error: 'Unauthorized' });
         }
         const userId = validationResult.user?.clerk_id || '';
         const limit = Math.min(parseInt(req.query.limit) || 50, 100);
         const history = await expoNotificationSystem_1.default.getNotificationHistory(userId, limit);
-        return res.status(200).json({
+        return res.json({
             success: true,
             data: history,
             count: history.length
@@ -93,7 +105,7 @@ router.get('/history', async (req, res) => {
     }
     catch (error) {
         console.error('[Notification Route] Error getting history:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to retrieve notification history',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -108,7 +120,7 @@ router.get('/preferences', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            return res.json({ success: false, error: 'Unauthorized' });
         }
         const userId = validationResult.user?.clerk_id || '';
         const result = await (0, database_1.executeQuery)('SELECT * FROM user_notification_preferences WHERE user_id = @userId', { userId });
@@ -120,14 +132,14 @@ router.get('/preferences', async (req, res) => {
             subscription_notifications: true,
             promotional_notifications: false,
         };
-        return res.status(200).json({
+        return res.json({
             success: true,
             data: preferences
         });
     }
     catch (error) {
         console.error('[Notification Route] Error getting preferences:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to retrieve notification preferences',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -142,7 +154,7 @@ router.put('/preferences', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            return res.json({ success: false, error: 'Unauthorized' });
         }
         const userId = validationResult.user?.clerk_id || '';
         const { gameUpdates, scoreUpdates, gameEnded, betNotifications, subscriptionNotifications, promotionalNotifications, } = req.body;
@@ -183,14 +195,14 @@ router.put('/preferences', async (req, res) => {
                 promotionalNotifications: promotionalNotifications !== undefined ? promotionalNotifications : 0,
             });
         }
-        return res.status(200).json({
+        return res.json({
             success: true,
             message: 'Notification preferences updated successfully'
         });
     }
     catch (error) {
         console.error('[Notification Route] Error updating preferences:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to update notification preferences',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -205,19 +217,19 @@ router.get('/stats', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            return res.json({ success: false, error: 'Unauthorized' });
         }
         // TODO: Check if user is admin
         // For now, allow any authenticated user
         const stats = await expoNotificationSystem_1.default.getNotificationStats();
-        return res.status(200).json({
+        return res.json({
             success: true,
             data: stats
         });
     }
     catch (error) {
         console.error('[Notification Route] Error getting stats:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to retrieve notification statistics',
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -232,14 +244,14 @@ router.get('/devices', async (req, res) => {
     try {
         const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
         if (!validationResult.valid) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+            return res.json({ success: false, error: 'Unauthorized' });
         }
         const userId = validationResult.user?.clerk_id || '';
         const result = await (0, database_1.executeQuery)(`SELECT token, device_name, os_type, is_active, created_at, last_used 
        FROM device_tokens 
        WHERE user_id = @userId 
        ORDER BY last_used DESC`, { userId });
-        return res.status(200).json({
+        return res.json({
             success: true,
             data: result.recordset,
             count: result.recordset.length
@@ -247,9 +259,86 @@ router.get('/devices', async (req, res) => {
     }
     catch (error) {
         console.error('[Notification Route] Error getting devices:', error);
-        return res.status(500).json({
+        return res.json({
             success: false,
             error: 'Failed to retrieve registered devices',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Debug endpoint - check registration status
+ * GET /api/v1/notifications/debug/check-tokens
+ */
+router.get('/debug/check-tokens', async (req, res) => {
+    try {
+        const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
+        if (!validationResult.valid) {
+            return res.json({ success: false, error: 'Unauthorized' });
+        }
+        const userId = validationResult.user?.clerk_id || '';
+        console.log('[Debug] Checking tokens for user:', userId);
+        const result = await (0, database_1.executeQuery)(`SELECT id, token, device_name, os_type, is_active, created_at, last_used 
+       FROM device_tokens 
+       WHERE user_id = @userId`, { userId });
+        console.log('[Debug] Query result for user tokens:', result.recordset);
+        return res.json({
+            success: true,
+            userId,
+            tokenCount: result.recordset.length,
+            tokens: result.recordset.map((t) => ({
+                token: t.token.substring(0, 30) + '...',
+                device_name: t.device_name,
+                os_type: t.os_type,
+                is_active: t.is_active,
+                created_at: t.created_at,
+                last_used: t.last_used
+            }))
+        });
+    }
+    catch (error) {
+        console.error('[Debug] Error checking tokens:', error);
+        return res.json({
+            success: false,
+            error: 'Failed to check tokens',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Debug endpoint - check user exists in database
+ * GET /api/v1/notifications/debug/check-user
+ */
+router.get('/debug/check-user', async (req, res) => {
+    try {
+        const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
+        if (!validationResult.valid) {
+            return res.json({ success: false, error: 'Unauthorized' });
+        }
+        const userId = validationResult.user?.clerk_id || '';
+        console.log('[Debug] Checking user info for:', userId);
+        const result = await (0, database_1.executeQuery)(`SELECT id, clerk_id, email, first_name, last_name FROM users WHERE clerk_id = @userId`, { userId });
+        if (result.recordset.length === 0) {
+            return res.json({
+                success: false,
+                message: 'User not found in database',
+                userId
+            });
+        }
+        return res.json({
+            success: true,
+            user: result.recordset[0],
+            validationResult: {
+                valid: validationResult.valid,
+                user: validationResult.user
+            }
+        });
+    }
+    catch (error) {
+        console.error('[Debug] Error checking user:', error);
+        return res.json({
+            success: false,
+            error: 'Failed to check user',
             message: error instanceof Error ? error.message : 'Unknown error'
         });
     }

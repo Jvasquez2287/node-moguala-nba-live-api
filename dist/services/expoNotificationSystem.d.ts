@@ -12,6 +12,7 @@ interface NotificationRecord {
 declare class ExpoNotificationSystem {
     private expoClient;
     private readonly BATCH_SIZE;
+    private tokenValid;
     constructor();
     /**
      * Register a device token for push notifications
@@ -82,6 +83,7 @@ declare class ExpoNotificationSystem {
         totalNotificationsSent: number;
         failedNotifications: number;
     }>;
+    sendTestNotificationToAllUsers(): Promise<boolean>;
 }
 declare const _default: ExpoNotificationSystem;
 export default _default;

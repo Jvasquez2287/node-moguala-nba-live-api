@@ -38,31 +38,51 @@ const database_1 = require("../config/database");
 class ExpoNotificationSystem {
     constructor() {
         this.BATCH_SIZE = 100; // Max messages per batch
+        this.tokenValid = false;
+        const accessToken = process.env.EXPO_ACCESS_TOKEN;
+        // Validate token is set
+        if (!accessToken || accessToken.trim() === '') {
+            console.warn('[Expo] WARNING: EXPO_ACCESS_TOKEN environment variable is not set!');
+            console.warn('[Expo] Push notifications will not work. Please set EXPO_ACCESS_TOKEN in your .env file');
+            console.warn('[Expo] Get your token from: https://expo.io/settings/access-tokens');
+        }
+        else {
+            this.tokenValid = true;
+            console.log(`[Expo] Notification system initialized with access token: ${accessToken.substring(0, 10)}...`);
+        }
         this.expoClient = new Expo.Expo({
-            accessToken: process.env.EXPO_ACCESS_TOKEN,
+            accessToken: accessToken || 'missing-token',
         });
-        console.log('[Expo] Notification system initialized');
     }
     /**
      * Register a device token for push notifications
      */
     async registerDeviceToken(userId, token, deviceName, osType) {
         try {
+            console.log('[Expo] registerDeviceToken called with userId:', userId, 'token:', token?.substring(0, 20) + '...');
+            // Validate userId
+            if (!userId || userId.trim() === '') {
+                console.error('[Expo] userId is empty or undefined');
+                return false;
+            }
             // Validate token format
             if (!Expo.Expo.isExpoPushToken(token)) {
                 console.warn(`[Expo] Invalid push token format: ${token}`);
                 return false;
             }
+            console.log('[Expo] Token format is valid, checking if token already exists...');
             // Check if token already exists
             const existing = await (0, database_1.executeQuery)('SELECT token FROM device_tokens WHERE user_id = @userId AND token = @token', { userId, token });
             if (existing.recordset.length > 0) {
+                console.log('[Expo] Token already exists, updating last_used timestamp');
                 // Update last_used timestamp
                 await (0, database_1.executeQuery)('UPDATE device_tokens SET last_used = @now, is_active = 1 WHERE user_id = @userId AND token = @token', { userId, token, now: new Date() });
                 console.log(`[Expo] Device token updated for user: ${userId}`);
                 return true;
             }
+            console.log('[Expo] Token is new, inserting into database...');
             // Insert new token
-            await (0, database_1.executeQuery)(`INSERT INTO device_tokens (user_id, token, device_name, os_type, is_active, created_at, last_used)
+            const insertResult = await (0, database_1.executeQuery)(`INSERT INTO device_tokens (user_id, token, device_name, os_type, is_active, created_at, last_used)
          VALUES (@userId, @token, @deviceName, @osType, 1, @now, @now)`, {
                 userId,
                 token,
@@ -70,7 +90,10 @@ class ExpoNotificationSystem {
                 osType: osType || 'Unknown',
                 now: new Date(),
             });
-            console.log(`[Expo] Device token registered for user: ${userId}`);
+            console.log(`[Expo] Device token registered for user: ${userId}. Insert result:`, insertResult);
+            // Verify the token was actually inserted
+            const verify = await (0, database_1.executeQuery)('SELECT COUNT(*) as count FROM device_tokens WHERE user_id = @userId AND token = @token', { userId, token });
+            console.log(`[Expo] Verification - tokens found for user ${userId}:`, verify.recordset[0].count);
             return true;
         }
         catch (error) {
@@ -97,8 +120,15 @@ class ExpoNotificationSystem {
      */
     async getUserTokens(userId) {
         try {
+            console.log('[Expo] getUserTokens called for userId:', userId);
             const result = await (0, database_1.executeQuery)('SELECT token FROM device_tokens WHERE user_id = @userId AND is_active = 1 ORDER BY last_used DESC', { userId });
-            return result.recordset.map((row) => row.token);
+            console.log('[Expo] Found tokens for user:', userId, 'count:', result.recordset.length);
+            if (result.recordset.length === 0) {
+                console.warn('[Expo] No active tokens found for user:', userId);
+            }
+            const tokens = result.recordset.map((row) => row.token);
+            console.log('[Expo] Returning tokens:', tokens.map((t) => t.substring(0, 20) + '...'));
+            return tokens;
         }
         catch (error) {
             console.error('[Expo] Error retrieving user tokens:', error);
@@ -110,6 +140,11 @@ class ExpoNotificationSystem {
      */
     async sendNotificationToUser(userId, title, body, notificationType, data) {
         try {
+            // Check if token is configured before attempting to send
+            if (!this.tokenValid) {
+                console.warn('[Expo] Cannot send notification - EXPO_ACCESS_TOKEN is not configured');
+                return false;
+            }
             const tokens = await this.getUserTokens(userId);
             if (tokens.length === 0) {
                 console.warn(`[Expo] No active tokens found for user: ${userId}`);
@@ -158,10 +193,28 @@ class ExpoNotificationSystem {
                     // Log receipt tickets
                     for (const ticket of ticketChunk) {
                         if (ticket.status === 'error') {
-                            console.error('[Expo] Ticket error:', ticket.message);
+                            const errorMsg = ticket.message || 'Unknown error';
+                            console.error('[Expo] Ticket error:', errorMsg);
+                            // Detect FCM-specific errors
+                            if (errorMsg.includes('FCM server key') || errorMsg.includes('FCM') || errorMsg.includes('Firebase')) {
+                                console.error('[Expo] ========== FCM CONFIGURATION ERROR ==========');
+                                console.error('[Expo] This error typically means:');
+                                console.error('[Expo] 1. Firebase Cloud Messaging (FCM) credentials are not configured in Expo');
+                                console.error('[Expo] 2. FCM credentials are invalid or expired');
+                                console.error('[Expo] 3. Android app is not properly registered with Firebase');
+                                console.error('[Expo]');
+                                console.error('[Expo] To fix this:');
+                                console.error('[Expo] 1. Create a Firebase project: https://console.firebase.google.com/');
+                                console.error('[Expo] 2. Register your Android app with Firebase');
+                                console.error('[Expo] 3. Generate FCM Server Key from Firebase Console');
+                                console.error('[Expo] 4. Upload FCM credentials to Expo: https://expo.dev/');
+                                console.error('[Expo] 5. Rebuild your Android app with: eas build --platform android');
+                                console.error('[Expo] 6. Full guide: See docs/FCM_SETUP_GUIDE.md');
+                                console.error('[Expo] =============================================');
+                            }
                             allSuccessful = false;
                             notificationRecord.delivery_status = 'failed';
-                            notificationRecord.error_message = ticket.message;
+                            notificationRecord.error_message = errorMsg;
                         }
                     }
                     // Store tickets for later delivery confirmation
@@ -169,7 +222,35 @@ class ExpoNotificationSystem {
                 }
                 catch (error) {
                     console.error('[Expo] Error sending batch:', error);
+                    const errorMsg = error.message || 'Unknown error';
+                    // Check for authentication error
+                    if (error.code === 'AUTHENTICATION_ERROR' || error.statusCode === 401) {
+                        console.error('[Expo] ========== AUTHENTICATION ERROR ==========');
+                        console.error('[Expo] Invalid or missing EXPO_ACCESS_TOKEN');
+                        console.error('[Expo] Please verify your access token is set in environment variables');
+                        console.error('[Expo] Get a valid token from: https://expo.io/settings/access-tokens');
+                        console.error('[Expo] ===========================================');
+                    }
+                    // Check for FCM-related errors in batch catch block
+                    if (errorMsg.includes('FCM server key') || errorMsg.includes('FCM') || errorMsg.includes('Firebase')) {
+                        console.error('[Expo] ========== FCM CONFIGURATION ERROR ==========');
+                        console.error('[Expo] This error typically means:');
+                        console.error('[Expo] 1. Firebase Cloud Messaging (FCM) credentials are not configured in Expo');
+                        console.error('[Expo] 2. FCM credentials are invalid or expired');
+                        console.error('[Expo] 3. Android app is not properly registered with Firebase');
+                        console.error('[Expo]');
+                        console.error('[Expo] To fix this:');
+                        console.error('[Expo] 1. Create a Firebase project: https://console.firebase.google.com/');
+                        console.error('[Expo] 2. Register your Android app with Firebase');
+                        console.error('[Expo] 3. Generate FCM Server Key from Firebase Console');
+                        console.error('[Expo] 4. Upload FCM credentials to Expo: https://expo.dev/');
+                        console.error('[Expo] 5. Rebuild your Android app with: eas build --platform android');
+                        console.error('[Expo] 6. Full guide: See docs/FCM_SETUP_GUIDE.md');
+                        console.error('[Expo] =============================================');
+                    }
                     allSuccessful = false;
+                    notificationRecord.delivery_status = 'failed';
+                    notificationRecord.error_message = errorMsg;
                 }
             }
             if (allSuccessful) {
@@ -406,6 +487,18 @@ class ExpoNotificationSystem {
                 totalNotificationsSent: 0,
                 failedNotifications: 0,
             };
+        }
+    }
+    async sendTestNotificationToAllUsers() {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT DISTINCT user_id FROM device_tokens WHERE is_active = 1');
+            const userIds = result.recordset.map((row) => row.user_id);
+            await this.sendNotificationsToUsers(userIds, 'Test Notification', 'This is a test notification from the NBA API.', 'test_notification', { test: 'This is only a test' });
+            return true;
+        }
+        catch (error) {
+            console.error('[Expo] Error sending test notification:', error);
+            return false;
         }
     }
 }
