@@ -61,7 +61,8 @@ console.log('#######################################\n');
 const app = (0, express_1.default)();
 // Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express_1.default.urlencoded({ extended: true }));
-app.use((0, cors_1.default)({ origin: "*", credentials: true }));
+app.use((0, cors_1.default)({ origin: "*", credentials: true })); // Allow CORS for all origins - adjust in production for security
+app.use(express_1.default.json());
 // Import services needed by early routes
 const dataCache_1 = require("./services/dataCache");
 // Health check
