@@ -5,9 +5,16 @@ import path from "path";
 import http from "http";
 import { WebSocketServer } from "ws";
 import fs from "fs/promises";
+import { existsSync, mkdirSync } from "fs";
 
 // Load environment variables
 dotenv.config({ path: path.join(".env") });
+
+// Fivicon and static files will be served from the "public" directory
+const publicDir = path.join(__dirname, 'public');
+ if(!existsSync(publicDir)) {
+  mkdirSync(publicDir);
+}
 
 // Detect IISNode environment - use multiple detection methods
 const isIISNode = !!(
@@ -27,6 +34,9 @@ console.log('require.main !== module:', require.main !== module);
 console.log('#######################################\n');
 
 const app = express();
+
+// Serve static files from the "public" directory
+app.use(express.static(publicDir));
 
 // Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express.urlencoded({ extended: true }));

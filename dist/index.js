@@ -43,8 +43,14 @@ const path_1 = __importDefault(require("path"));
 const http_1 = __importDefault(require("http"));
 const ws_1 = require("ws");
 const promises_1 = __importDefault(require("fs/promises"));
+const fs_1 = require("fs");
 // Load environment variables
 dotenv_1.default.config({ path: path_1.default.join(".env") });
+// Fivicon and static files will be served from the "public" directory
+const publicDir = path_1.default.join(__dirname, 'public');
+if (!(0, fs_1.existsSync)(publicDir)) {
+    (0, fs_1.mkdirSync)(publicDir);
+}
 // Detect IISNode environment - use multiple detection methods
 const isIISNode = !!(process.env.IISNODE_VERSION ||
     process.env.APP_POOL_ID ||
@@ -59,6 +65,8 @@ console.log('CWD:', process.cwd());
 console.log('require.main !== module:', require.main !== module);
 console.log('#######################################\n');
 const app = (0, express_1.default)();
+// Serve static files from the "public" directory
+app.use(express_1.default.static(publicDir));
 // Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, cors_1.default)({ origin: "*", credentials: true })); // Allow CORS for all origins - adjust in production for security
