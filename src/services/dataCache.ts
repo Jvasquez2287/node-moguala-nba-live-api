@@ -6,282 +6,261 @@ import { LeagueLeadersResponse } from '../schemas/league';
 import { PlayerSummary } from '../schemas/player';
 import { SeasonLeadersResponse } from '../schemas/seasonleaders';
 import { TeamDetailsResponse, TeamRoster } from '../schemas/team';
-
+import { executeQuery } from '../config/database';
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
 }
 
+class DatabaseCache {
+  private readonly CACHE_PREFIX = 'datacache_';
+  private fallbackCache = new Map<string, any>(); // Fallback in-memory cache
 
-class LRUCache {
-  private cache = new Map<string, PlayByPlayResponse>();
-  private timestamps = new Map<string, number>();
-  private maxSize: number;
-
-  constructor(maxSize: number) {
-    this.maxSize = maxSize;
+  private getCacheKey(key: string): string {
+    return `${this.CACHE_PREFIX}${key}`;
   }
 
-  get(key: string): PlayByPlayResponse | null {
-    if (this.cache.has(key)) {
-      // Move to end (most recently used)
-      const value = this.cache.get(key)!;
-      this.cache.delete(key);
-      this.cache.set(key, value);
-      return value;
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const cacheKey = this.getCacheKey(key);
+      const result = await executeQuery(
+        'SELECT [value], expiration FROM cache WHERE [key] = @key',
+        { key: cacheKey }
+      );
+
+      if (!result.recordset || result.recordset.length === 0) {
+        // Try fallback cache
+        return this.fallbackCache.get(key) || null;
+      }
+
+      const record = result.recordset[0];
+      const expiration = record.expiration;
+
+      // Check if expired
+      if (expiration && Date.now() > expiration) {
+        // Clean up expired entry
+        await this.delete(key);
+        return null;
+      }
+
+      try {
+        return JSON.parse(record.value);
+      } catch (error) {
+        console.error(`[DatabaseCache] Error parsing cached value for key ${key}:`, error);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[DatabaseCache] Database error getting cache entry for key ${key}, using fallback:`, error);
+      // Use fallback cache
+      return this.fallbackCache.get(key) || null;
     }
-    return null;
   }
 
-  set(key: string, value: PlayByPlayResponse): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-    this.cache.set(key, value);
-    this.timestamps.set(key, Date.now());
+  async set<T>(key: string, value: T, ttlMs?: number): Promise<void> {
+    try {
+      const cacheKey = this.getCacheKey(key);
+      const serializedValue = JSON.stringify(value);
+      const expiration = ttlMs ? Date.now() + ttlMs : null;
 
-    if (this.cache.size > this.maxSize) {
-      // Remove oldest (first item)
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) {
-        this.cache.delete(oldestKey);
-        this.timestamps.delete(oldestKey);
-        console.log(`LRU eviction: removed game ${oldestKey} from [Play-By-Play] cache`);
+      await executeQuery(
+        `MERGE cache AS target
+         USING (SELECT @key as [key]) AS source
+         ON target.[key] = source.[key]
+         WHEN MATCHED THEN
+           UPDATE SET [value] = @value, expiration = @expiration
+         WHEN NOT MATCHED THEN
+           INSERT ([key], [value], expiration) VALUES (@key, @value, @expiration);`,
+        {
+          key: cacheKey,
+          value: serializedValue,
+          expiration: expiration
+        }
+      );
+    } catch (error) {
+      console.error(`[DatabaseCache] Database error setting cache entry for key ${key}, using fallback:`, error);
+      // Use fallback cache
+      this.fallbackCache.set(key, value);
+      if (ttlMs) {
+        setTimeout(() => this.fallbackCache.delete(key), ttlMs);
       }
     }
   }
 
-  remove(key: string): void {
-    this.cache.delete(key);
-    this.timestamps.delete(key);
-  }
-
-  keys(): string[] {
-    return Array.from(this.cache.keys());
-  }
-
-  getTimestamp(key: string): number | null {
-    return this.timestamps.get(key) || null;
-  }
-
-  clearOldEntries(maxAgeMs: number): number {
-    const currentTime = Date.now();
-    const keysToRemove: string[] = [];
-
-    for (const [key, timestamp] of this.timestamps.entries()) {
-      if (currentTime - timestamp > maxAgeMs) {
-        keysToRemove.push(key);
-      }
+  async delete(key: string): Promise<void> {
+    try {
+      const cacheKey = this.getCacheKey(key);
+      await executeQuery('DELETE FROM cache WHERE [key] = @key', { key: cacheKey });
+    } catch (error) {
+      console.error(`[DatabaseCache] Database error deleting cache entry for key ${key}:`, error);
     }
+    // Always clean up fallback cache
+    this.fallbackCache.delete(key);
+  }
 
-    keysToRemove.forEach(key => this.remove(key));
-    return keysToRemove.length;
+  async clearExpired(): Promise<number> {
+    try {
+      const result = await executeQuery(
+        'DELETE FROM cache WHERE expiration IS NOT NULL AND expiration < @currentTime',
+        { currentTime: Date.now() }
+      );
+      return result.rowsAffected?.[0] || 0;
+    } catch (error) {
+      console.error('[DatabaseCache] Error clearing expired entries:', error);
+      return 0;
+    }
+  }
+
+  async clearAll(): Promise<void> {
+    try {
+      await executeQuery(`DELETE FROM cache WHERE [key] LIKE '${this.CACHE_PREFIX}%'`);
+    } catch (error) {
+      console.error('[DatabaseCache] Error clearing all cache entries:', error);
+    }
+    // Clear fallback cache
+    this.fallbackCache.clear();
   }
 }
 
 export class DataCache {
-  private scoreboardCache: ScoreboardResponse | null = null;
-  private playbyplayCache = new LRUCache(20); // Limit to 20 active games
+  private dbCache = new DatabaseCache();
   private lock = false; // Simple lock for async operations
   private activeGameIds = new Set<string>();
 
   // Callbacks for WebSocket broadcasts
   private scoreChangeCallbacks: (() => Promise<void>)[] = [];
 
-
-  // 10-minute refresh caches (new)
-  private leagueLeadersCache: Map<string, CacheEntry<LeagueLeadersResponse>> = new Map();
-  private playerCache: Map<string, CacheEntry<PlayerSummary>> = new Map();
-  private playerSearchCache: Map<string, CacheEntry<PlayerSummary[]>> = new Map();
-  private seasonLeadersCache: Map<string, CacheEntry<SeasonLeadersResponse>> = new Map();
-  private leagueRosterCache: CacheEntry<PlayerSummary[]> | null = null;
-  private scheduleCache: Map<string, CacheEntry<GamesResponse>> = new Map();
-  private teamCache: Map<number, CacheEntry<TeamDetailsResponse>> = new Map();
-  private teamRosterCache: Map<string, CacheEntry<TeamRoster>> = new Map();
-  private allTeamsCache: CacheEntry<TeamDetailsResponse[]> | null = null;
-
-
   private readonly SCOREBOARD_POLL_INTERVAL = 8000; // 8 seconds
   private readonly PLAYBYPLAY_POLL_INTERVAL = 5000; // 5 seconds
   private readonly CLEANUP_INTERVAL = 300000; // 5 minutes
+  private readonly CACHE_TTL_24H = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly CACHE_TTL_10M = 10 * 60 * 1000; // 10 minutes
 
   private scoreboardTask: NodeJS.Timeout | null = null;
   private playbyplayTask: NodeJS.Timeout | null = null;
   private cleanupTask: NodeJS.Timeout | null = null;
 
 
-  
   // Register callback for score changes
   onScoreChange(callback: () => Promise<void>): void {
     this.scoreChangeCallbacks.push(callback);
   }
 
-    // Trigger score change callbacks
+  // Trigger score change callbacks
   private async triggerScoreChangeCallbacks(): Promise<void> {
     for (const callback of this.scoreChangeCallbacks) {
       try {
         await callback();
       } catch (error: any) {
-       console.error('[DataCache] Error in score change callback:', error?.message || error);
+        console.error('[DataCache] Error in score change callback:', error?.message || error);
       }
     }
   }
 
   async getScoreboard(): Promise<ScoreboardResponse | null> {
-    // Simple async lock
-    while (this.lock) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-    return this.scoreboardCache;
+    return await this.dbCache.get<ScoreboardResponse>('scoreboard');
   }
 
   async refreshScoreboard(): Promise<ScoreboardResponse | null> {
     // Force a fresh fetch from NBA API
     try {
       const scoreboardData = await getScoreboard();
-
-      this.lock = true;
-      try {
-        this.scoreboardCache = scoreboardData;
-        console.log(`[ScoreBoard] Scoreboard refreshed: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
-      } finally {
-        this.lock = false;
-      }
-
+      await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
+      console.log(`[ScoreBoard] Scoreboard refreshed: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
       return scoreboardData;
     } catch (error) {
       console.error('[ScoreBoard] Error refreshing scoreboard:', error);
-      return this.scoreboardCache;
+      return await this.getScoreboard();
     }
   }
 
   async getPlaybyplay(gameId: string): Promise<PlayByPlayResponse | null> {
-    while (this.lock) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-    return this.playbyplayCache.get(gameId);
+    return await this.dbCache.get<PlayByPlayResponse>(`playbyplay_${gameId}`);
   }
 
 
   //////////////////////////////////////////////
 
   setGamesForDate(date: string, data: GamesResponse): void {
-    this.scheduleCache.set(date, { data, timestamp: Date.now() });
+    this.dbCache.set(`schedule_${date}`, data, this.CACHE_TTL_24H);
   }
 
   async getGamesForDate(date: string): Promise<GamesResponse | null> {
-    const entry = this.scheduleCache.get(date);
-    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return entry.data;
-    }
-    return null;
+    return await this.dbCache.get<GamesResponse>(`schedule_${date}`);
   }
 
   /////////////////////////////////////////
 
   setAllTeams(data: TeamDetailsResponse[]): void {
-    this.allTeamsCache = { data, timestamp: Date.now() };
+    this.dbCache.set('all_teams', data, this.CACHE_TTL_24H);
   }
 
-
   async getAllTeams(): Promise<TeamDetailsResponse[] | null> {
-    if (this.allTeamsCache && (Date.now() - this.allTeamsCache.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return this.allTeamsCache.data;
-    }
-    return null;
+    return await this.dbCache.get<TeamDetailsResponse[]>('all_teams');
   }
 
   ///////////////////////////////////////////
 
   setTeam(teamId: number, data: TeamDetailsResponse): void {
-    this.teamCache.set(teamId, { data, timestamp: Date.now() });
+    this.dbCache.set(`team_${teamId}`, data, this.CACHE_TTL_24H);
   }
 
   async getTeam(teamId: number): Promise<TeamDetailsResponse | null> {
-    const entry = this.teamCache.get(teamId);
-    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return entry.data;
-    }
-    return null;
+    return await this.dbCache.get<TeamDetailsResponse>(`team_${teamId}`);
   }
 
   ///////////////////////////////////////////
 
-
   // Cache setters
   setLeagueLeaders(category: string, season: string | undefined, data: LeagueLeadersResponse): void {
-    const key = `${category}_${season || 'current'}`;
-    this.leagueLeadersCache.set(key, { data, timestamp: Date.now() });
+    const key = `league_leaders_${category}_${season || 'current'}`;
+    this.dbCache.set(key, data, this.CACHE_TTL_24H);
   }
 
   setPlayer(playerId: string, data: PlayerSummary): void {
-    this.playerCache.set(playerId, { data, timestamp: Date.now() });
+    this.dbCache.set(`player_${playerId}`, data, this.CACHE_TTL_24H);
   }
 
   setPlayerSearch(query: string, data: PlayerSummary[]): void {
-    this.playerSearchCache.set(query.toLowerCase(), { data, timestamp: Date.now() });
+    this.dbCache.set(`player_search_${query.toLowerCase()}`, data, this.CACHE_TTL_24H);
   }
 
   setSeasonLeaders(season: string, data: SeasonLeadersResponse): void {
-    this.seasonLeadersCache.set(season, { data, timestamp: Date.now() });
+    this.dbCache.set(`season_leaders_${season}`, data, this.CACHE_TTL_24H);
   }
 
   setLeagueRoster(data: PlayerSummary[]): void {
-    this.leagueRosterCache = { data, timestamp: Date.now() };
+    this.dbCache.set('league_roster', data, this.CACHE_TTL_24H);
   }
-
 
   // 24-hour TTL caches (on-demand)
   async getLeagueLeaders(category: string, season?: string): Promise<LeagueLeadersResponse | null> {
-    const key = `${category}_${season || 'current'}`;
-    const entry = this.leagueLeadersCache.get(key);
-    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return entry.data;
-    }
-    return null;
+    const key = `league_leaders_${category}_${season || 'current'}`;
+    return await this.dbCache.get<LeagueLeadersResponse>(key);
   }
 
   async getPlayer(playerId: string): Promise<PlayerSummary | null> {
-    const entry = this.playerCache.get(playerId);
-    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return entry.data;
-    }
-    return null;
+    return await this.dbCache.get<PlayerSummary>(`player_${playerId}`);
   }
 
   async searchPlayers(query: string): Promise<PlayerSummary[] | null> {
-    const entry = this.playerSearchCache.get(query.toLowerCase());
-    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return entry.data;
-    }
-    return null;
+    return await this.dbCache.get<PlayerSummary[]>(`player_search_${query.toLowerCase()}`);
   }
 
   async getSeasonLeaders(season: string): Promise<SeasonLeadersResponse | null> {
-    const entry = this.seasonLeadersCache.get(season);
-    if (entry && (Date.now() - entry.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return entry.data;
-    }
-    return null;
+    return await this.dbCache.get<SeasonLeadersResponse>(`season_leaders_${season}`);
   }
 
   async getLeagueRoster(): Promise<PlayerSummary[] | null> {
-    if (this.leagueRosterCache && (Date.now() - this.leagueRosterCache.timestamp) < (24 * 60 * 60 * 1000)) { // 24 hours
-      return this.leagueRosterCache.data;
-    }
-    return null;
+    return await this.dbCache.get<PlayerSummary[]>('league_roster');
   }
 
  
 
 
-  //////////////////////////////////////////////////////////////
-
   private async cleanupFinishedGames(): Promise<void> {
-    this.lock = true;
     try {
-      const scoreboardData = this.scoreboardCache;
+      const scoreboardData = await this.getScoreboard();
       if (!scoreboardData?.scoreboard?.games) return;
 
       const finishedGameIds = scoreboardData.scoreboard.games
@@ -290,8 +269,9 @@ export class DataCache {
 
       let removedCount = 0;
       for (const gameId of finishedGameIds) {
-        if (this.playbyplayCache.get(gameId)) {
-          this.playbyplayCache.remove(gameId);
+        const exists = await this.dbCache.get<PlayByPlayResponse>(`playbyplay_${gameId}`);
+        if (exists) {
+          await this.dbCache.delete(`playbyplay_${gameId}`);
           removedCount++;
         }
         this.activeGameIds.delete(gameId);
@@ -300,8 +280,8 @@ export class DataCache {
       if (removedCount > 0) {
         console.log(`[PlayByPlay] Cleaned up ${removedCount} finished games from play-by-play cache`);
       }
-    } finally {
-      this.lock = false;
+    } catch (error) {
+      console.error('[DataCache] Error in cleanupFinishedGames:', error);
     }
   }
 
@@ -312,14 +292,10 @@ export class DataCache {
       try {
         await this.cleanupFinishedGames();
 
-        this.lock = true;
-        try {
-          const removed = this.playbyplayCache.clearOldEntries(24 * 60 * 60 * 1000); // 24 hours
-          if (removed > 0) {
-            console.log(`[PlayByPlay] Removed ${removed} old games (older than 24 hours) from play-by-play cache`);
-          }
-        } finally {
-          this.lock = false;
+        // Clear expired entries from database
+        const removed = await this.dbCache.clearExpired();
+        if (removed > 0) {
+          console.log(`[DataCache] Removed ${removed} expired entries from database cache`);
         }
       } catch (error) {
         console.error('[Cleanup] Error in periodic cache cleanup:', error);
@@ -340,33 +316,28 @@ export class DataCache {
       try {
         const scoreboardData = await getScoreboard();
 
-        this.lock = true;
-        try {
+        // Track active games
+        if (scoreboardData?.scoreboard?.games) {
           const oldActiveGames = new Set(this.activeGameIds);
-          this.scoreboardCache = scoreboardData;
+          const activeGames = scoreboardData.scoreboard.games
+            .filter((game: any) => game.gameStatus === 2) // In Progress
+            .map((game: any) => game.gameId);
 
-          // Track active games
-          if (scoreboardData?.scoreboard?.games) {
-            const activeGames = scoreboardData.scoreboard.games
-              .filter((game: any) => game.gameStatus === 2) // In Progress
-              .map((game: any) => game.gameId);
+          this.activeGameIds = new Set(activeGames);
 
-            this.activeGameIds = new Set(activeGames);
-
-            // Check for finished games
-            const finishedGames = Array.from(oldActiveGames).filter(id => !this.activeGameIds.has(id));
-            if (finishedGames.length > 0) {
-              finishedGames.forEach(gameId => this.playbyplayCache.remove(gameId));
-              console.log(`[PlayByPlay] Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
+          // Check for finished games and clean them up immediately
+          const finishedGames = Array.from(oldActiveGames).filter(id => !this.activeGameIds.has(id));
+          if (finishedGames.length > 0) {
+            for (const gameId of finishedGames) {
+              await this.dbCache.delete(`playbyplay_${gameId}`);
             }
+            console.log(`[PlayByPlay] Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
           }
-          
-
-
-          console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
-        } finally {
-          this.lock = false;
         }
+
+        // Update scoreboard cache
+        await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
+        console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
       } catch (error) {
         console.warn('[ScoreBoard] Error fetching scoreboard:', error);
       }
@@ -388,19 +359,15 @@ export class DataCache {
       try {
         await this.cleanupFinishedGames();
 
-        this.lock = true;
         const gamesToPoll = Array.from(this.activeGameIds);
-        this.lock = false;
 
         for (const gameId of gamesToPoll) {
           // Double-check game is still active
-          this.lock = true;
-          const scoreboardData = this.scoreboardCache;
+          const scoreboardData = await this.getScoreboard();
           const game = scoreboardData?.scoreboard?.games?.find((g: any) => g.gameId === gameId);
-          this.lock = false;
 
           if (!game || game.gameStatus !== 2) {
-            this.playbyplayCache.remove(gameId);
+            await this.dbCache.delete(`playbyplay_${gameId}`);
             this.activeGameIds.delete(gameId);
             continue;
           }
@@ -408,19 +375,15 @@ export class DataCache {
           try {
             const playbyplayData = await getPlayByPlay(gameId);
 
-            this.lock = true;
-            try {
-              const currentScoreboard = this.scoreboardCache;
-              const currentGame = currentScoreboard?.scoreboard?.games?.find((g: any) => g.gameId === gameId);
+            // Check again if game is still active before caching
+            const currentScoreboard = await this.getScoreboard();
+            const currentGame = currentScoreboard?.scoreboard?.games?.find((g: any) => g.gameId === gameId);
 
-              if (currentGame && currentGame.gameStatus === 2) {
-                this.playbyplayCache.set(gameId, playbyplayData);
-                console.log(`[PlayByPlay] Play-by-play cache updated for game ${gameId}`);
-                // Broadcast custom data to all connected clients
-                await playbyplayWebSocketManager.broadcastToAllClients({ playbyplayData, gameId });
-              }
-            } finally {
-              this.lock = false;
+            if (currentGame && currentGame.gameStatus === 2) {
+              await this.dbCache.set(`playbyplay_${gameId}`, playbyplayData, this.CACHE_TTL_24H);
+              console.log(`[PlayByPlay] Play-by-play cache updated for game ${gameId}`);
+              // Broadcast custom data to all connected clients
+              await playbyplayWebSocketManager.broadcastToAllClients({ playbyplayData, gameId });
             }
           } catch (error) {
             console.debug(`[PlayByPlay] Error fetching play-by-play for game ${gameId}:`, error);

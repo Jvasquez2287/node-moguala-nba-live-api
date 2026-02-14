@@ -16,7 +16,21 @@ const sqlConfig: config = {
     encrypt: true,
     trustServerCertificate: true, // For self-signed certificates
     connectTimeout: 30000,
-    requestTimeout: 30000
+    requestTimeout: 30000,
+    cancelTimeout: 5000,
+    enableArithAbort: true,
+    abortTransactionOnError: true
+  },
+  pool: {
+    max: 10,
+    min: 1,
+    idleTimeoutMillis: 30000,
+    acquireTimeoutMillis: 30000,
+    createTimeoutMillis: 30000,
+    destroyTimeoutMillis: 5000,
+    reapIntervalMillis: 1000,
+    createRetryIntervalMillis: 200,
+    propagateCreateError: false
   }
 };
 

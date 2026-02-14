@@ -525,7 +525,7 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
         // Get game data from NBA API for the specified date
         const data = await retryAxiosRequest(async () => {
             const response = await axios.get('https://stats.nba.com/stats/scoreboardv2', {
-                headers: {
+                headers: { 
                     "Host": "stats.nba.com",
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
                     "Accept": "application/json, text/plain, */*",
