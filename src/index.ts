@@ -185,6 +185,10 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
     const subscriptionsService = await import('./services/subscriptions').then(m => m.default);
     const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
 
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to process checkout success');
+    }
+
     // Load success template and replace placeholders
     let successTemplate = await fs.readFile(path.join(templatesDir, 'success.html'), 'utf-8');
 

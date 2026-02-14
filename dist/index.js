@@ -200,6 +200,9 @@ const handleSubscriptionSuccess = async (req, res) => {
         }
         const subscriptionsService = await Promise.resolve().then(() => __importStar(require('./services/subscriptions'))).then(m => m.default);
         const result = await subscriptionsService.handleCheckoutSuccess(session_id);
+        if (!result.success || !result.data) {
+            throw new Error(result.message || 'Failed to process checkout success');
+        }
         // Load success template and replace placeholders
         let successTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'success.html'), 'utf-8');
         const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
