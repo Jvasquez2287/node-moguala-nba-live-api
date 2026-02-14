@@ -43,6 +43,16 @@ export const subscriptionsService = {
       // Step 2: Get subscription details from Stripe
       const subscription = await getStripeClient().subscriptions.retrieve(session.subscription as string) as any as StripeSubscription;
  
+      console.log(`[SubscriptionsService] Subscription retrieved: ${subscription.id}, status: ${subscription.status}`, subscription);
+
+      if(subscription.status !== 'active' && subscription.status !== 'trialing') {
+        console.warn(`[SubscriptionsService] Subscription ${subscription.id} is not active or trialing. Status: ${subscription.status}`);
+        return {
+          success: false,
+          message: `Subscription ${subscription.id} is not active or trialing. Status: ${subscription.status}`
+        };
+      }
+
       // Step 3: Get customer info
       const customer = await getStripeClient().customers.retrieve(subscription.customer as string);
 

@@ -14,8 +14,10 @@ export declare class ScoreboardWebSocketManager {
     private readonly CLEANUP_THRESHOLD;
     constructor();
     connect(websocket: WebSocket): void;
-    private sendInitialData;
     disconnect(websocket: WebSocket): void;
+    private sendInitialData;
+    private sendNotificationOngameStatusChange;
+    private sendNotificationOnGameIDChange;
     handleConnection(websocket: WebSocket): void;
     private formatGameResponse;
     private hasGameDataChanged;

@@ -6,7 +6,7 @@ interface EmailData {
   [key: string]: any;  // Allow any key for template variable replacement
 }
 
-type SubscriptionStatus = 'success' | 'cancel' | 'error' | 'invalid';
+type SubscriptionStatus = 'success' | 'cancel' | 'error' | 'invalid' | 'renewal';
 
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
@@ -62,6 +62,7 @@ class EmailService {
         cancel: 'cancel.html',
         error: 'error.html',
         invalid: 'invalid.html',
+        renewal: 'renewal.html',
       };
 
       const templatePath = path.join(__dirname, '..', 'templates', templateMap[templateName]);
@@ -91,6 +92,7 @@ class EmailService {
     subscriptionId: string;
     periodStart: string;
     periodEnd: string;
+    subscriptionInvoicePdfUrl?: string;
   }): Promise<boolean> {
     if (!this.isConfigured) {
       console.warn('[EmailService] Email service not configured. Skipping success email.');
@@ -107,6 +109,7 @@ class EmailService {
         SUBSCRIPTION_ID: data.subscriptionId,
         PERIOD_START: data.periodStart,
         PERIOD_END: data.periodEnd,
+        SUBSCRIPTION_INVOICE_PDF_URL: data.subscriptionInvoicePdfUrl || '',
       });
 
       const mailOptions = {
@@ -121,6 +124,51 @@ class EmailService {
       return true;
     } catch (error) {
       console.error('[EmailService] Error sending success email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send subscription renewal email
+   */
+  async sendRenewalEmail(data: {
+    userEmail: string;
+    userName?: string;
+    subscriptionStatus: string;
+    subscriptionId: string;
+    periodStart: string;
+    periodEnd: string;
+    subscriptionInvoicePdfUrl?: string;
+  }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.warn('[EmailService] Email service not configured. Skipping renewal email.');
+      return false;
+    }
+
+    try {
+      const htmlContent = await this.renderTemplate('renewal', {
+        USER_NAME: data.userName || 'Subscriber',
+        USER_EMAIL: data.userEmail,
+        SUBSCRIPTION_STATUS: data.subscriptionStatus,
+        SUBSCRIPTION_ID: data.subscriptionId,
+        PERIOD_START: data.periodStart,
+        PERIOD_END: data.periodEnd,
+        SUBSCRIPTION_INVOICE_PDF_URL: data.subscriptionInvoicePdfUrl || '',
+        LOGO_URL: 'https://nba.m-api.net/api/v1/test/convert',
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: data.userEmail,
+        subject: '🔄 Subscription Renewed - Premium Access Continues',
+        html: htmlContent,
+      };
+
+      const result = await this.transporter!.sendMail(mailOptions);
+      console.log(`[EmailService] 🔄 Renewal email sent to ${data.userEmail}:`, result.messageId);
+      return true;
+    } catch (error) {
+      console.error('[EmailService] Error sending renewal email:', error);
       return false;
     }
   }
@@ -238,6 +286,8 @@ class EmailService {
     switch (status) {
       case 'success':
         return this.sendSuccessEmail(data as any);
+      case 'renewal':
+        return this.sendRenewalEmail(data as any);
       case 'cancel':
         return this.sendCanceledEmail(data as any);
       case 'error':

@@ -163,4 +163,44 @@ router.post('/send-error-email', async (req, res) => {
   }
 });
 
+/**
+ * Send test renewal email
+ * POST /api/v1/test/send-renewal-email
+ * Body: { email: string, name?: string }
+ */
+router.post('/send-renewal-email', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
+
+    if (!emailService.isReady()) {
+      return res.status(503).json({ 
+        success: false, 
+        error: 'Email service not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASSWORD in .env' 
+      });
+    }
+
+    const success = await emailService.sendRenewalEmail({
+      userEmail: email,
+      userName: name,
+      subscriptionStatus: 'ACTIVE',
+      subscriptionId: 'sub_test_renewal_' + Date.now(),
+      periodStart: new Date().toLocaleDateString(),
+      periodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    });
+
+    if (success) {
+      res.json({ success: true, message: `Renewal email sent to ${email}` });
+    } else {
+      res.status(500).json({ success: false, error: 'Failed to send email' });
+    }
+  } catch (error) {
+    console.error('Error sending renewal email:', error);
+    res.status(500).json({ success: false, error: 'Failed to send renewal email' });
+  }
+});
+
 export default router;

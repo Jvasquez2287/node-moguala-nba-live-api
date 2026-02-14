@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.playbyplayWebSocketManager = exports.scoreboardWebSocketManager = exports.PlaybyplayWebSocketManager = exports.ScoreboardWebSocketManager = void 0;
 const ws_1 = __importDefault(require("ws"));
 const dataCache_1 = require("./dataCache");
+const expoNotificationSystem_1 = __importDefault(require("./expoNotificationSystem"));
 class ScoreboardWebSocketManager {
     constructor() {
         this.activeConnections = new Set();
@@ -63,6 +64,14 @@ class ScoreboardWebSocketManager {
             }
         });
     }
+    disconnect(websocket) {
+        this.activeConnections.delete(websocket);
+        console.log(`[Scoreboard WebSocket] Client disconnected (remaining: ${this.activeConnections.size})`);
+        // Clear timestamps if no more connections
+        if (this.activeConnections.size === 0) {
+            this.lastUpdateTimestamp.clear();
+        }
+    }
     async sendInitialData(websocket) {
         try {
             if (!this.activeConnections.has(websocket)) {
@@ -99,12 +108,31 @@ class ScoreboardWebSocketManager {
             this.activeConnections.delete(websocket);
         }
     }
-    disconnect(websocket) {
-        this.activeConnections.delete(websocket);
-        console.log(`[Scoreboard WebSocket] Client disconnected (remaining: ${this.activeConnections.size})`);
-        // Clear timestamps if no more connections
-        if (this.activeConnections.size === 0) {
-            this.lastUpdateTimestamp.clear();
+    async sendNotificationOngameStatusChange(game, eventType) {
+        const gameId = game.gameId || 'unknown';
+        const awayTeam = game.awayTeam?.teamName || 'Away Team';
+        const homeTeam = game.homeTeam?.teamName || 'Home Team';
+        const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
+        const notificationStatus = await expoNotificationSystem_1.default.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, eventType);
+        if (notificationStatus !== 0) {
+            console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
+        }
+        else {
+            console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
+        }
+    }
+    async sendNotificationOnGameIDChange(game) {
+        const gameId = game.gameId || 'unknown';
+        const awayTeam = game.awayTeam?.teamName || 'Away Team';
+        const homeTeam = game.homeTeam?.teamName || 'Home Team';
+        const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
+        const percentage = "null"; // Placeholder for confidence percentage if available
+        const notificationStatus = await expoNotificationSystem_1.default.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, 'new_prediction', percentage);
+        if (notificationStatus !== 0) {
+            console.log(`[Scoreboard WebSocket] New game notification sent for game ${gameId} - Status: ${notificationStatus}`);
+        }
+        else {
+            console.warn(`[Scoreboard WebSocket] Failed to send new game notification for game ${gameId}`);
         }
     }
     handleConnection(websocket) {
@@ -147,7 +175,15 @@ class ScoreboardWebSocketManager {
         const oldMap = new Map(oldGames.map(g => [g.gameId, g]));
         for (const [gameId, newGame] of newMap) {
             if (!oldMap.has(gameId)) {
+                this.sendNotificationOnGameIDChange(newGame);
                 return true;
+            }
+            // Check for game status change and send notification if changed
+            if (newGame.gameStatus !== oldGames.find((g) => g.gameId === gameId)?.gameStatus) {
+                if (newGame.gameStatus === 1 && oldGames.find((g) => g.gameId === gameId)?.gameStatus !== 1) // Game just started
+                    this.sendNotificationOngameStatusChange(newGame, 'game_started');
+                else if (newGame.gameStatus === 3 && oldGames.find((g) => g.gameId === gameId)?.gameStatus !== 3) // Game just ended
+                    this.sendNotificationOngameStatusChange(newGame, 'game_ended');
             }
             const oldGame = oldMap.get(gameId);
             const lastUpdate = this.lastUpdateTimestamp.get(gameId) || 0;

@@ -1,7 +1,7 @@
 interface EmailData {
     [key: string]: any;
 }
-type SubscriptionStatus = 'success' | 'cancel' | 'error' | 'invalid';
+type SubscriptionStatus = 'success' | 'cancel' | 'error' | 'invalid' | 'renewal';
 declare class EmailService {
     private transporter;
     private isConfigured;
@@ -22,6 +22,19 @@ declare class EmailService {
         subscriptionId: string;
         periodStart: string;
         periodEnd: string;
+        subscriptionInvoicePdfUrl?: string;
+    }): Promise<boolean>;
+    /**
+     * Send subscription renewal email
+     */
+    sendRenewalEmail(data: {
+        userEmail: string;
+        userName?: string;
+        subscriptionStatus: string;
+        subscriptionId: string;
+        periodStart: string;
+        periodEnd: string;
+        subscriptionInvoicePdfUrl?: string;
     }): Promise<boolean>;
     /**
      * Send subscription canceled email

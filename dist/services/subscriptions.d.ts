@@ -6,6 +6,10 @@ export declare const subscriptionsService: {
     handleCheckoutSuccess(sessionId: string): Promise<{
         success: boolean;
         message: string;
+        data?: undefined;
+    } | {
+        success: boolean;
+        message: string;
         data: {
             sessionId: string;
             subscriptionId: string;

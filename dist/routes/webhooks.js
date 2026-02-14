@@ -81,6 +81,7 @@ router.post('/stripe', async (req, res) => {
                             subscriptionId: data.id,
                             periodStart,
                             periodEnd,
+                            subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
                         });
                     }
                 }
@@ -112,24 +113,46 @@ router.post('/stripe', async (req, res) => {
                 // Send email based on status change
                 try {
                     const customerEmail = data.billing_details?.email || data.customer_email;
-                    if (customerEmail && data.status === 'active' && previousStatus !== 'active') {
-                        // Subscription became active
+                    if (customerEmail) {
                         const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
                         const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
-                        await emailService_1.emailService.sendSuccessEmail({
-                            userEmail: customerEmail,
-                            userClerkId: data.customer,
-                            subscriptionStatus: data.status.toUpperCase(),
-                            subscriptionId: data.id,
-                            periodStart,
-                            periodEnd,
-                        });
-                    }
-                    else if (customerEmail && data.status === 'canceled') {
-                        // Subscription was canceled
-                        await emailService_1.emailService.sendCanceledEmail({
-                            userEmail: customerEmail,
-                        });
+                        // Check if this is a renewal (subscription was canceled/inactive and is now active)
+                        if (data.status === 'active' && previousStatus !== 'active') {
+                            // Subscription renewed after being canceled
+                            await emailService_1.emailService.sendRenewalEmail({
+                                userEmail: customerEmail,
+                                subscriptionStatus: data.status.toUpperCase(),
+                                subscriptionId: data.id,
+                                periodStart,
+                                periodEnd,
+                                subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
+                            });
+                        }
+                        // Check if this is a continuation renewal (still active, same period continues)
+                        else if (data.status === 'active' && previousStatus === 'active') {
+                            // Check if period end date changed (indicates renewal)
+                            const previousPeriodEnd = previousSub?.subscription_end_date
+                                ? new Date(previousSub.subscription_end_date).getTime()
+                                : 0;
+                            const currentPeriodEnd = new Date(data.current_period_end * 1000).getTime();
+                            if (currentPeriodEnd > previousPeriodEnd + (30 * 24 * 60 * 60 * 1000)) {
+                                // Period was extended by more than 30 days - likely a renewal
+                                await emailService_1.emailService.sendRenewalEmail({
+                                    userEmail: customerEmail,
+                                    subscriptionStatus: data.status.toUpperCase(),
+                                    subscriptionId: data.id,
+                                    periodStart,
+                                    periodEnd,
+                                    subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
+                                });
+                            }
+                        }
+                        // If subscription was canceled
+                        else if (data.status === 'canceled') {
+                            await emailService_1.emailService.sendCanceledEmail({
+                                userEmail: customerEmail,
+                            });
+                        }
                     }
                 }
                 catch (emailError) {

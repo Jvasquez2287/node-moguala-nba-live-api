@@ -281,14 +281,14 @@ class ExpoNotificationSystem {
     /**
      * Send game update notification
      */
-    async sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType) {
+    async sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType, percentage = "") {
         try {
             let title = '';
             let body = '';
             switch (eventType) {
                 case 'game_started':
                     title = 'Game Started 🏀';
-                    body = `${awayTeam} @ ${homeTeam} - Tip off!`;
+                    body = `${awayTeam} vs ${homeTeam} - Tip off!`;
                     break;
                 case 'score_update':
                     title = 'Score Update 🏀';
@@ -298,11 +298,15 @@ class ExpoNotificationSystem {
                     title = 'Game Ended 🏀';
                     body = `Final: ${awayTeam} vs ${homeTeam} - ${score}`;
                     break;
+                case 'new_prediction':
+                    title = '✨New Prediction 🔮';
+                    body = `${awayTeam} vs ${homeTeam} - (Confidence % In the App 🗑️)`;
+                    break;
             }
             // Get all active users
             const result = await (0, database_1.executeQuery)('SELECT DISTINCT user_id FROM device_tokens WHERE is_active = 1');
             const userIds = result.recordset.map((row) => row.user_id);
-            return await this.sendNotificationsToUsers(userIds, title, body, `game_${eventType}`, { gameId, homeTeam, awayTeam, score });
+            return await this.sendNotificationsToUsers(userIds, title, body, `game_${eventType}`, { gameId, homeTeam, awayTeam, score, percentage });
         }
         catch (error) {
             console.error('[Expo] Error sending game update notification:', error);

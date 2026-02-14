@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Renewed - NBA Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0078D4 0%, #00A4EF 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 120, 212, 0.3);
+            max-width: 600px;
+            width: 100%;
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0078D4 0%, #00A4EF 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.95;
+            font-weight: 500;
+        }
+
+        .icon-badge {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin: 0 auto 20px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .message-box {
+            background: linear-gradient(135deg, #E8F4FD 0%, #F0F8FF 100%);
+            border-left: 4px solid #0078D4;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .message-box h2 {
+            color: #0078D4;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .message-box p {
+            color: #1A1A1A;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .info-item {
+            background: #F5F5F5;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #E0E0E0;
+        }
+
+        .info-label {
+            color: #5B7B99;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #1A1A1A;
+            font-size: 14px;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #0078D4;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .divider {
+            height: 1px;
+            background: #E0E0E0;
+            margin: 30px 0;
+        }
+
+        .what-next {
+            background: #F9F9F9;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #E0E0E0;
+            margin-bottom: 30px;
+        }
+
+        .what-next h3 {
+            color: #1A1A1A;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .what-next p {
+            color: #5B7B99;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .what-next ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .what-next li {
+            color: #5B7B99;
+            font-size: 14px;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .what-next li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #0078D4;
+            font-weight: bold;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .button {
+            padding: 12px 28px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .button-primary {
+            background: #0078D4;
+            color: white;
+            flex: 1;
+            max-width: 250px;
+        }
+
+        .button-primary:hover {
+            background: #106EBE;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 120, 212, 0.3);
+        }
+
+        .button-secondary {
+            background: white;
+            color: #0078D4;
+            border: 2px solid #0078D4;
+            flex: 1;
+            max-width: 250px;
+        }
+
+        .button-secondary:hover {
+            background: #F0F8FF;
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            background: #F5F5F5;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #E0E0E0;
+        }
+
+        .footer p {
+            color: #5B7B99;
+            font-size: 12px;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .footer a {
+            color: #0078D4;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .invoice-link {
+            display: inline-block;
+            color: #0078D4;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .invoice-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .content {
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="icon-badge">🔄</div>
+            <img src="{{LOGO_URL}}" alt="NBA Tracker" class="logo" onerror="this.style.display='none'">
+            <h1>Subscription Renewed!</h1>
+            <p>Your premium access continues</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Message Box -->
+            <div class="message-box">
+                <h2>Welcome Back, {{USER_NAME}}!</h2>
+                <p>Your subscription has been successfully renewed. You now have continuous access to all premium features, including live game updates, player statistics, advanced predictions, and more.</p>
+            </div>
+
+            <!-- Subscription Details -->
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Subscription Status</div>
+                    <div class="info-value">
+                        {{SUBSCRIPTION_STATUS}}
+                        <span class="badge">Active</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Subscription ID</div>
+                    <div class="info-value">{{SUBSCRIPTION_ID}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Period Start</div>
+                    <div class="info-value">{{PERIOD_START}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Period End</div>
+                    <div class="info-value">{{PERIOD_END}}</div>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider"></div>
+
+            <!-- What's Next -->
+            <div class="what-next">
+                <h3>🎯 What to Expect</h3>
+                <p>Your premium membership is now active. Here's what you can enjoy:</p>
+                <ul>
+                    <li>Real-time game scores and statistics</li>
+                    <li>Advanced player performance analysis</li>
+                    <li>Predictive insights and game forecasts</li>
+                    <li>Exclusive team and league data</li>
+                    <li>Priority support and updates</li>
+                </ul>
+            </div>
+
+            <!-- Invoice Link -->
+            {{#SUBSCRIPTION_INVOICE_PDF_URL}}
+            <div style="text-align: center; margin-bottom: 20px;">
+                <p style="color: #5B7B99; font-size: 14px; margin-bottom: 8px;">Need your receipt?</p>
+                <a href="{{SUBSCRIPTION_INVOICE_PDF_URL}}" class="invoice-link" target="_blank">📥 Download Invoice PDF</a>
+            </div>
+            {{/SUBSCRIPTION_INVOICE_PDF_URL}}
+
+            <!-- Buttons -->
+            <div class="button-group">
+                <button class="button button-primary" onclick="window.open('https://nba.m-api.net/', '_blank');">Open NBA Tracker</button>
+                <button class="button button-secondary" onclick="window.close();">Close</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                If you have any questions or need help with your subscription, 
+                <a href="mailto:support@nba.m-api.net">contact our support team</a>.
+            </p>
+            <p style="margin-top: 10px;">© 2026 NBA Tracker. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

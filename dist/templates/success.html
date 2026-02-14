@@ -248,12 +248,22 @@
     <script>
       function downloadInvoice() {
         const invoiceId = '{{SUBSCRIPTION_ID}}';
+        const invoicePdfUrl = '{{SUBSCRIPTION_INVOICE_PDF_URL}}';
+        
         if (!invoiceId || invoiceId.includes('SUBSCRIPTION_ID')) {
           alert('Invoice data not available. Please contact support.');
           window.close();
           return;
         }
-        // Create a simple text file with subscription details
+
+        // If we have a Stripe invoice PDF URL, open it directly
+        if (invoicePdfUrl && invoicePdfUrl.length > 0 && !invoicePdfUrl.includes('{{')) {
+          window.open(invoicePdfUrl, '_blank');
+          setTimeout(() => window.close(), 500);
+          return;
+        }
+
+        // Otherwise, create a simple text file with subscription details
         const invoiceContent = 'Subscription Invoice\n' +
           'Subscription ID: {{SUBSCRIPTION_ID}}\n' +
           'Status: {{SUBSCRIPTION_STATUS}}\n' +
