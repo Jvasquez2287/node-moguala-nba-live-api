@@ -94,6 +94,7 @@ class DatabaseCache {
     } catch (error) {
       console.error(`[DatabaseCache] Database error deleting cache entry for key ${key}:`, error);
     }
+
     // Always clean up fallback cache
     this.fallbackCache.delete(key);
   }
@@ -105,8 +106,14 @@ class DatabaseCache {
         { currentTime: Date.now() }
       );
       return result.rowsAffected?.[0] || 0;
-    } catch (error) {
-      console.error('[DatabaseCache] Error clearing expired entries:', error);
+    } catch (error: any) {
+      // Log the error but don't crash - this is a non-critical operation
+      const errorCode = error?.code;
+      if (errorCode === 'ECONNCLOSED' || error?.message?.includes('Connection')) {
+        console.warn('[DatabaseCache] Connection unavailable during cleanup, will retry later');
+      } else {
+        console.error('[DatabaseCache] Error clearing expired entries:', error);
+      }
       return 0;
     }
   }
@@ -139,7 +146,6 @@ export class DataCache {
   private scoreboardTask: NodeJS.Timeout | null = null;
   private playbyplayTask: NodeJS.Timeout | null = null;
   private cleanupTask: NodeJS.Timeout | null = null;
-
 
   // Register callback for score changes
   onScoreChange(callback: () => Promise<void>): void {
@@ -254,10 +260,7 @@ export class DataCache {
   async getLeagueRoster(): Promise<PlayerSummary[] | null> {
     return await this.dbCache.get<PlayerSummary[]>('league_roster');
   }
-
  
-
-
   private async cleanupFinishedGames(): Promise<void> {
     try {
       const scoreboardData = await this.getScoreboard();
@@ -348,9 +351,7 @@ export class DataCache {
 
     // Set up polling interval
     this.scoreboardTask = setInterval(poll, this.SCOREBOARD_POLL_INTERVAL);
-  }
-
-
+  } 
 
   private async pollPlaybyplay(): Promise<void> {
     console.log('[PlayByPlay] Polling started');

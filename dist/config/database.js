@@ -41,11 +41,34 @@ const sqlConfig = {
     }
 };
 let poolConnection = null;
+let connectionAttemptInProgress = false;
 async function connectToDatabase() {
     try {
+        // Avoid multiple simultaneous connection attempts
+        if (connectionAttemptInProgress) {
+            let retries = 0;
+            while (connectionAttemptInProgress && retries < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+            if (poolConnection && poolConnection.connected) {
+                return poolConnection;
+            }
+        }
         if (poolConnection && poolConnection.connected) {
             console.log('[Database] Already connected to SQL Server');
             return poolConnection;
+        }
+        connectionAttemptInProgress = true;
+        // Close existing pool if it's broken
+        if (poolConnection) {
+            try {
+                await poolConnection.close();
+            }
+            catch (e) {
+                // Ignore close errors
+            }
+            poolConnection = null;
         }
         console.log(`[Database] Connecting to SQL Server at ${sqlConfig.server}:${sqlConfig.port} with user ${sqlConfig.user}`);
         poolConnection = new mssql_1.default.ConnectionPool(sqlConfig);
@@ -56,37 +79,61 @@ async function connectToDatabase() {
         console.log('[Database] Initiating connection pool...');
         await poolConnection.connect();
         console.log('[Database] ✅ Successfully connected to SQL Server at', sqlConfig.server);
+        connectionAttemptInProgress = false;
         return poolConnection;
     }
     catch (error) {
         console.error('[Database] ❌ Failed to connect to SQL Server:', error instanceof Error ? error.message : error);
         poolConnection = null;
-        // Don't throw - connection is non-critical
-        return null;
+        connectionAttemptInProgress = false;
+        throw error;
     }
 }
 function getConnection() {
     return poolConnection;
 }
 async function executeQuery(query, params) {
-    try {
-        if (!poolConnection || !poolConnection.connected) {
-            await connectToDatabase();
-        }
-        const request = poolConnection.request();
-        // Add parameters if provided
-        if (params) {
-            for (const [key, value] of Object.entries(params)) {
-                request.input(key, value);
+    const maxRetries = 3;
+    let lastError;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            // Ensure connection is valid
+            if (!poolConnection || !poolConnection.connected) {
+                const connection = await connectToDatabase();
+                if (!connection) {
+                    throw new Error('Failed to establish database connection');
+                }
             }
+            const request = poolConnection.request();
+            // Add parameters if provided
+            if (params) {
+                for (const [key, value] of Object.entries(params)) {
+                    request.input(key, value);
+                }
+            }
+            const result = await request.query(query);
+            return result;
         }
-        const result = await request.query(query);
-        return result;
+        catch (error) {
+            lastError = error;
+            const errorCode = error?.code;
+            const isConnectionError = errorCode === 'ECONNCLOSED' ||
+                errorCode === 'ESOCKET' ||
+                errorCode === 'ETIMEDOUT' ||
+                error?.message?.includes('Connection is closed') ||
+                error?.message?.includes('Connection timeout');
+            if (isConnectionError && attempt < maxRetries - 1) {
+                console.warn(`[Database] Connection error on attempt ${attempt + 1}/${maxRetries}, retrying...`, errorCode);
+                poolConnection = null; // Force reconnection
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Exponential backoff
+                continue;
+            }
+            console.error('[Database] Query execution error:', error);
+            poolConnection = null; // Invalidate connection on error
+            throw error;
+        }
     }
-    catch (error) {
-        console.error('[Database] Query execution error:', error);
-        throw error;
-    }
+    throw lastError || new Error('Database query failed');
 }
 async function closeDatabase() {
     try {

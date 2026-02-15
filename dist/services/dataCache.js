@@ -85,7 +85,14 @@ class DatabaseCache {
             return result.rowsAffected?.[0] || 0;
         }
         catch (error) {
-            console.error('[DatabaseCache] Error clearing expired entries:', error);
+            // Log the error but don't crash - this is a non-critical operation
+            const errorCode = error?.code;
+            if (errorCode === 'ECONNCLOSED' || error?.message?.includes('Connection')) {
+                console.warn('[DatabaseCache] Connection unavailable during cleanup, will retry later');
+            }
+            else {
+                console.error('[DatabaseCache] Error clearing expired entries:', error);
+            }
             return 0;
         }
     }

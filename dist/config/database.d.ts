@@ -1,5 +1,5 @@
 import sql from 'mssql';
-export declare function connectToDatabase(): Promise<sql.ConnectionPool>;
+export declare function connectToDatabase(): Promise<sql.ConnectionPool | null>;
 export declare function getConnection(): sql.ConnectionPool | null;
 export declare function executeQuery(query: string, params?: Record<string, any>): Promise<any>;
 export declare function closeDatabase(): Promise<void>;

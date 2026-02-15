@@ -56,6 +56,12 @@ exports.migrationService = {
                 console.log('[Migrations] Migrations table already exists (skipping)');
                 return;
             }
+            // If it's a connection error, don't throw - just log and return
+            const errorCode = error?.code;
+            if (errorCode === 'ECONNCLOSED' || error?.message?.includes('Connection')) {
+                console.warn('[Migrations] Connection unavailable, will retry migrations later');
+                return;
+            }
             console.error('[Migrations] Error creating migrations table:', error);
             throw error;
         }
@@ -122,6 +128,12 @@ exports.migrationService = {
                     console.log(`[Migrations] ✅ Completed: ${migration.filename}`);
                 }
                 catch (error) {
+                    // Check if it's a connection error
+                    const errorCode = error?.code;
+                    if (errorCode === 'ECONNCLOSED' || error?.message?.includes('Connection')) {
+                        console.warn(`[Migrations] Connection lost during ${migration.filename}, will retry later`);
+                        throw error; // Re-throw to stop migration process and retry later
+                    }
                     console.error(`[Migrations] ❌ Failed to execute ${migration.filename}:`, error);
                     throw error;
                 }
@@ -129,6 +141,12 @@ exports.migrationService = {
             console.log('[Migrations] ✅ All pending migrations completed successfully');
         }
         catch (error) {
+            // Check if it's a connection error
+            const errorCode = error?.code;
+            if (errorCode === 'ECONNCLOSED' || error?.message?.includes('Connection')) {
+                console.warn('[Migrations] Connection unavailable, migrations will resume when connection is restored');
+                return; // Don't crash the app
+            }
             console.error('[Migrations] Error running migrations:', error);
             throw error;
         }
