@@ -48,20 +48,21 @@ router.post('/stripe', async (req: Request, res: Response) => {
     );
 
     console.log(`[Webhook] Received Stripe event: ${event.type}`);
-
+ 
     const data = event.data.object as any;
 
+   
     switch (event.type) {
       case 'customer.subscription.created': {
         const productData = await stripeService.getProductsByID(data.items.data[0].plan.product);
         const subscriptionData = {
           stripe_id: data.customer,
           subscription_id: data.id,
-          subscription_start_date: new Date(data.current_period_start * 1000),
-          subscription_end_date: new Date(data.current_period_end * 1000),
+          subscription_start_date: data.current_period_start,
+          subscription_end_date: data.current_period_end,
           subscription_status: data.status,
           subscription_title: (productData as any).name,
-          subscription_next_billing_date: new Date(data.current_period_end * 1000),
+          subscription_next_billing_date: data.current_period_end,
           subscription_latest_invoice_Id: data.latest_invoice || '',
           subscription_invoice_pdf_url: await stripeService.getInvoice(data.latest_invoice as string) || '',
           subscription_canceled_at: null,
@@ -106,14 +107,14 @@ router.post('/stripe', async (req: Request, res: Response) => {
         const subscriptionData = {
           stripe_id: data.customer,
           subscription_id: data.id,
-          subscription_start_date: new Date(data.current_period_start * 1000),
-          subscription_end_date: new Date(data.current_period_end * 1000),
+          subscription_start_date: data.current_period_start,
+          subscription_end_date: data.current_period_end,
           subscription_status: data.status,
           subscription_title: (productData as any).name,
-          subscription_next_billing_date: new Date(data.current_period_end * 1000),
+          subscription_next_billing_date: data.current_period_end,
           subscription_latest_invoice_Id: data.latest_invoice || '',
           subscription_invoice_pdf_url: await stripeService.getInvoice(data.latest_invoice as string) || '',
-          subscription_canceled_at: data.canceled_at ? new Date(data.canceled_at * 1000) : null,
+          subscription_canceled_at: data.canceled_at ? data.canceled_at : null,
           product_id: data.items.data[0].plan.product
         };
 

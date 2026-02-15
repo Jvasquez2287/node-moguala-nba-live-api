@@ -15,9 +15,9 @@ interface TokenCheckResult {
         subscription_id: string;
         subscription_status: string;
         subscription_title: string;
-        subscription_start_date: Date;
-        subscription_end_date: Date;
-        subscription_next_billing_date: Date;
+        subscription_start_date: string | null;
+        subscription_end_date: string | null;
+        subscription_next_billing_date: string | null;
     };
 }
 export declare const tokenCheckService: {

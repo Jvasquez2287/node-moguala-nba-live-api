@@ -159,6 +159,27 @@ export const userService = {
       return null;
     }
 
+    // Helper function to check if date is epoch (1970-01-01) and return null, or format properly
+    const formatSubscriptionDate = (date: any): string | null => {
+      if (!date) {
+        return null;
+      }
+      try {
+        const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) {
+          return null;
+        }
+        // Check if date is Unix epoch (1970-01-01)
+        if (dateObj.getTime() === 0) {
+          return null;
+        }
+        return dateObj.toISOString();
+      } catch (error) {
+        console.warn(`[UserService] Error formatting subscription date ${date}:`, error);
+        return null;
+      }
+    };
+
     const firstRecord = records[0];
     const user = {
       id: firstRecord.id,
@@ -176,14 +197,14 @@ export const userService = {
           id: r.subscription_id,
           stripe_id: r.subscription_stripe_id,
           subscription_id: r.subscription_id,
-          subscription_start_date: r.subscription_start_date,
-          subscription_end_date: r.subscription_end_date,
-          subscription_status: r.subscription_status,
+          subscription_start_date: formatSubscriptionDate(r.subscription_start_date),
+          subscription_end_date: formatSubscriptionDate(r.subscription_end_date),
+          subscription_status: r.subscription_status || null,
           subscription_title: r.subscription_title,
-          subscription_next_billing_date: r.subscription_next_billing_date,
+          subscription_next_billing_date: formatSubscriptionDate(r.subscription_next_billing_date),
           subscription_latest_invoice_Id: r.subscription_latest_invoice_Id,
           subscription_invoice_pdf_url: r.subscription_invoice_pdf_url,
-          subscription_canceled_at: r.subscription_canceled_at,
+          subscription_canceled_at: formatSubscriptionDate(r.subscription_canceled_at),
           product_id: r.product_id,
           created_at: r.subscription_created_at,
           updated_at: r.subscription_updated_at
@@ -284,12 +305,33 @@ export const userService = {
         return [];
       }
 
+      // Helper function to check if date is epoch (1970-01-01) and return null, or format properly
+      const formatSubscriptionDate = (date: any): string | null => {
+        if (!date) {
+          return null;
+        }
+        try {
+          const dateObj = new Date(date);
+          if (isNaN(dateObj.getTime())) {
+            return null;
+          }
+          // Check if date is Unix epoch (1970-01-01)
+          if (dateObj.getTime() === 0) {
+            return null;
+          }
+          return dateObj.toISOString();
+        } catch (error) {
+          console.warn(`[UserService] Error formatting subscription date ${date}:`, error);
+          return null;
+        }
+      };
+
       // Group results by user id
       const usersMap = new Map();
-      
+
       result.recordset.forEach((row: any) => {
         const userId = row.id;
-        
+
         if (!usersMap.has(userId)) {
           usersMap.set(userId, {
             id: row.id,
@@ -310,14 +352,14 @@ export const userService = {
             id: row.subscription_id,
             stripe_id: row.subscription_stripe_id,
             subscription_id: row.subscription_id,
-            subscription_start_date: row.subscription_start_date,
-            subscription_end_date: row.subscription_end_date,
-            subscription_status: row.subscription_status,
+            subscription_start_date: formatSubscriptionDate(row.subscription_start_date),
+            subscription_end_date: formatSubscriptionDate(row.subscription_end_date),
+            subscription_status: row.subscription_status || null,
             subscription_title: row.subscription_title,
-            subscription_next_billing_date: row.subscription_next_billing_date,
+            subscription_next_billing_date: formatSubscriptionDate(row.subscription_next_billing_date),
             subscription_latest_invoice_Id: row.subscription_latest_invoice_Id,
             subscription_invoice_pdf_url: row.subscription_invoice_pdf_url,
-            subscription_canceled_at: row.subscription_canceled_at,
+            subscription_canceled_at: formatSubscriptionDate(row.subscription_canceled_at),
             product_id: row.product_id,
             created_at: row.subscription_created_at,
             updated_at: row.subscription_updated_at

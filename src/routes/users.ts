@@ -23,6 +23,7 @@ router.get('/', async (req: Request, res: Response) => {
       return res.json({ success: false, error: 'User not found' });
     }
     
+    console.log('[Users] Returning user data with subscription status for user:', user.clerk_id, user);
     
     return res.json({
       success: true,

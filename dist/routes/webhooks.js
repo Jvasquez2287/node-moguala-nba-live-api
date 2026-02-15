@@ -50,11 +50,11 @@ router.post('/stripe', async (req, res) => {
                 const subscriptionData = {
                     stripe_id: data.customer,
                     subscription_id: data.id,
-                    subscription_start_date: new Date(data.current_period_start * 1000),
-                    subscription_end_date: new Date(data.current_period_end * 1000),
+                    subscription_start_date: data.current_period_start,
+                    subscription_end_date: data.current_period_end,
                     subscription_status: data.status,
                     subscription_title: productData.name,
-                    subscription_next_billing_date: new Date(data.current_period_end * 1000),
+                    subscription_next_billing_date: data.current_period_end,
                     subscription_latest_invoice_Id: data.latest_invoice || '',
                     subscription_invoice_pdf_url: await stripe_1.stripeService.getInvoice(data.latest_invoice) || '',
                     subscription_canceled_at: null,
@@ -96,14 +96,14 @@ router.post('/stripe', async (req, res) => {
                 const subscriptionData = {
                     stripe_id: data.customer,
                     subscription_id: data.id,
-                    subscription_start_date: new Date(data.current_period_start * 1000),
-                    subscription_end_date: new Date(data.current_period_end * 1000),
+                    subscription_start_date: data.current_period_start,
+                    subscription_end_date: data.current_period_end,
                     subscription_status: data.status,
                     subscription_title: productData.name,
-                    subscription_next_billing_date: new Date(data.current_period_end * 1000),
+                    subscription_next_billing_date: data.current_period_end,
                     subscription_latest_invoice_Id: data.latest_invoice || '',
                     subscription_invoice_pdf_url: await stripe_1.stripeService.getInvoice(data.latest_invoice) || '',
-                    subscription_canceled_at: data.canceled_at ? new Date(data.canceled_at * 1000) : null,
+                    subscription_canceled_at: data.canceled_at ? data.canceled_at : null,
                     product_id: data.items.data[0].plan.product
                 };
                 // Get previous status to detect status changes

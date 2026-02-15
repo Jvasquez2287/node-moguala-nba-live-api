@@ -68,9 +68,14 @@ router.get('/:code', (req, res) => {
         let { code } = req.params;
         const logoPath = path_1.default.join(__dirname, '..', '..', 'assets', 'logos', `${code.toUpperCase()}`);
         if (!fs_1.default.existsSync(logoPath)) {
-            console.warn(`Logo file not found: ${logoPath}`);
-            return res.json({ success: false, error: `Invalid or missing team code: ${code}`,
-                'path': logoPath });
+            const nbaLogoPath = path_1.default.join(__dirname, '..', '..', 'assets', 'logos', `NBA.png`);
+            console.warn(`Logo file not found: ${logoPath}, Sending default NBA logo instead.`);
+            return res.sendFile(nbaLogoPath, err => {
+                if (err) {
+                    console.error(`Error sending file ${nbaLogoPath}:`, err);
+                    return res.json({ success: false, error: 'Logo not found' });
+                }
+            });
         }
         return res.sendFile(logoPath, err => {
             if (err) {

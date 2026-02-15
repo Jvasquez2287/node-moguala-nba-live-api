@@ -6,6 +6,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.tokenCheckService = void 0;
 const database_1 = require("../config/database");
 const stripe_1 = __importDefault(require("./stripe"));
+// Helper function to format subscription dates
+const formatSubscriptionDate = (date) => {
+    if (!date) {
+        return null;
+    }
+    try {
+        const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) {
+            return null;
+        }
+        // Check if date is Unix epoch (1970-01-01)
+        if (dateObj.getTime() === 0) {
+            return null;
+        }
+        return dateObj.toISOString();
+    }
+    catch (error) {
+        console.warn(`[TokenCheck] Error formatting subscription date ${date}:`, error);
+        return null;
+    }
+};
 exports.tokenCheckService = {
     /**
      * Validate token against session table and check subscription status
@@ -118,9 +139,9 @@ exports.tokenCheckService = {
                         subscription_id: subscription.subscription_id,
                         subscription_status: subscription.subscription_status,
                         subscription_title: subscription.subscription_title,
-                        subscription_start_date: subscription.subscription_start_date,
-                        subscription_end_date: subscription.subscription_end_date,
-                        subscription_next_billing_date: subscription.subscription_next_billing_date
+                        subscription_start_date: formatSubscriptionDate(subscription.subscription_start_date),
+                        subscription_end_date: formatSubscriptionDate(subscription.subscription_end_date),
+                        subscription_next_billing_date: formatSubscriptionDate(subscription.subscription_next_billing_date)
                     }
                 };
             }
@@ -144,9 +165,9 @@ exports.tokenCheckService = {
                         subscription_id: subscription.subscription_id,
                         subscription_status: subscription.subscription_status,
                         subscription_title: subscription.subscription_title,
-                        subscription_start_date: subscription.subscription_start_date,
-                        subscription_end_date: subscription.subscription_end_date,
-                        subscription_next_billing_date: subscription.subscription_next_billing_date
+                        subscription_start_date: formatSubscriptionDate(subscription.subscription_start_date),
+                        subscription_end_date: formatSubscriptionDate(subscription.subscription_end_date),
+                        subscription_next_billing_date: formatSubscriptionDate(subscription.subscription_next_billing_date)
                     }
                 };
             }
@@ -171,9 +192,9 @@ exports.tokenCheckService = {
                             subscription_id: subscription.subscription_id,
                             subscription_status: subscription.subscription_status,
                             subscription_title: subscription.subscription_title,
-                            subscription_start_date: subscription.subscription_start_date,
-                            subscription_end_date: subscription.subscription_end_date,
-                            subscription_next_billing_date: subscription.subscription_next_billing_date
+                            subscription_start_date: formatSubscriptionDate(subscription.subscription_start_date),
+                            subscription_end_date: formatSubscriptionDate(subscription.subscription_end_date),
+                            subscription_next_billing_date: formatSubscriptionDate(subscription.subscription_next_billing_date)
                         }
                     };
                 }
@@ -212,9 +233,9 @@ exports.tokenCheckService = {
                         subscription_id: subscription.subscription_id,
                         subscription_status: subscription.subscription_status,
                         subscription_title: subscription.subscription_title,
-                        subscription_start_date: subscription.subscription_start_date,
-                        subscription_end_date: subscription.subscription_end_date,
-                        subscription_next_billing_date: subscription.subscription_next_billing_date
+                        subscription_start_date: formatSubscriptionDate(subscription.subscription_start_date),
+                        subscription_end_date: formatSubscriptionDate(subscription.subscription_end_date),
+                        subscription_next_billing_date: formatSubscriptionDate(subscription.subscription_next_billing_date)
                     }
                 };
             }
@@ -237,9 +258,9 @@ exports.tokenCheckService = {
                         subscription_id: subscription.subscription_id,
                         subscription_status: subscription.subscription_status,
                         subscription_title: subscription.subscription_title,
-                        subscription_start_date: subscription.subscription_start_date,
-                        subscription_end_date: subscription.subscription_end_date,
-                        subscription_next_billing_date: subscription.subscription_next_billing_date
+                        subscription_start_date: formatSubscriptionDate(subscription.subscription_start_date),
+                        subscription_end_date: formatSubscriptionDate(subscription.subscription_end_date),
+                        subscription_next_billing_date: formatSubscriptionDate(subscription.subscription_next_billing_date)
                     }
                 };
             }
