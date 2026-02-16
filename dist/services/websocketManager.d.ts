@@ -1,17 +1,31 @@
 import WebSocket from 'ws';
 export declare class ScoreboardWebSocketManager {
     private activeConnections;
+    private activeConnectionsPBP;
     private checkInterval;
     private cleanupInterval;
     private currentGames;
     private lastUpdateTimestamp;
     private lastFullBroadcast;
     private initialized;
+    private notificationTracker;
+    private seenGameIds;
+    private readonly NOTIFICATION_COOLDOWN;
     private readonly CHECK_INTERVAL;
     private readonly PERIODIC_BROADCAST_INTERVAL;
     private readonly CLEANUP_INTERVAL;
     private readonly MIN_UPDATE_INTERVAL;
     private readonly CLEANUP_THRESHOLD;
+    private broadcastIntervalsPBP;
+    private cleanupIntervalPBP;
+    private currentPBP;
+    private lastUpdateTimestampPBP;
+    private lastFullBroadcastPBP;
+    private readonly BROADCAST_INTERVAL_PBP;
+    private readonly MAX_BROADCAST_INTERVAL_PBP;
+    private readonly CLEANUP_INTERVAL_PBP;
+    private readonly MIN_UPDATE_INTERVAL_PBP;
+    private readonly CLEANUP_THRESHOLD_PBP;
     constructor();
     connect(websocket: WebSocket): void;
     disconnect(websocket: WebSocket): void;
@@ -26,35 +40,19 @@ export declare class ScoreboardWebSocketManager {
     stopCleanupTask(): void;
     getConnectionCount(): number;
     private initializeBroadcasting;
+    broadcastToAllClientsScoreBoard(data: any): Promise<number>;
     startBroadcasting(): void;
     stopBroadcasting(): void;
-}
-export declare class PlaybyplayWebSocketManager {
-    private activeConnections;
-    private broadcastIntervals;
-    private cleanupInterval;
-    private currentPlaybyplay;
-    private lastUpdateTimestamp;
-    private lastFullBroadcast;
-    private readonly BROADCAST_INTERVAL;
-    private readonly MAX_BROADCAST_INTERVAL;
-    private readonly CLEANUP_INTERVAL;
-    private readonly MIN_UPDATE_INTERVAL;
-    private readonly CLEANUP_THRESHOLD;
-    connect(gameId: string, websocket: WebSocket): void;
-    private sendInitialData;
-    disconnect(gameId: string, websocket: WebSocket): void;
-    handleConnection(websocket: WebSocket, gameId: string): void;
-    private hasPlaybyplayChanged;
-    private broadcastPlaybyplayUpdates;
+    private sendInitialPBPData;
+    broadcastPBPToAllClients(data: any): Promise<number>;
+    private broadcastPBPUpdates;
+    private hasPBPChanged;
     private startGameBroadcasting;
-    startBroadcasting(): void;
-    startCleanupTask(): void;
-    stopCleanupTask(): void;
-    getConnectionCount(gameId?: string): number;
-    getGameCount(): number;
-    broadcastToAllClients(data: any): Promise<number>;
+    startPBPBroadcasting(): void;
+    startPBPCleanupTask(): void;
+    stopPBPCleanupTask(): void;
+    getConnectionCountPBP(gameId?: string): number;
+    getGameCountPBP(): number;
 }
-export declare const scoreboardWebSocketManager: ScoreboardWebSocketManager;
-export declare const playbyplayWebSocketManager: PlaybyplayWebSocketManager;
+export declare const webSocketManager: ScoreboardWebSocketManager;
 //# sourceMappingURL=websocketManager.d.ts.map

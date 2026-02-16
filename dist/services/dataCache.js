@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.dataCache = exports.DataCache = void 0;
 const scoreboard_1 = require("./scoreboard");
-const websocketManager_1 = require("./websocketManager");
 const database_1 = require("../config/database");
+const websocketManager_1 = require("./websocketManager");
 class DatabaseCache {
     constructor() {
         this.CACHE_PREFIX = 'datacache_';
@@ -281,6 +281,7 @@ class DataCache {
                 }
                 // Update scoreboard cache
                 await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
+                await websocketManager_1.webSocketManager.broadcastToAllClientsScoreBoard(scoreboardData);
                 console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
             }
             catch (error) {
@@ -316,7 +317,7 @@ class DataCache {
                             await this.dbCache.set(`playbyplay_${gameId}`, playbyplayData, this.CACHE_TTL_24H);
                             console.log(`[PlayByPlay] Play-by-play cache updated for game ${gameId}`);
                             // Broadcast custom data to all connected clients
-                            await websocketManager_1.playbyplayWebSocketManager.broadcastToAllClients({ playbyplayData, gameId });
+                            await websocketManager_1.webSocketManager.broadcastPBPToAllClients({ playbyplayData, gameId });
                         }
                     }
                     catch (error) {

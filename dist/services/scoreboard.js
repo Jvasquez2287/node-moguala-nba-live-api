@@ -8,6 +8,7 @@ exports.getPlayByPlay = getPlayByPlay;
 const axios_1 = __importDefault(require("axios"));
 const config_1 = require("../utils/config");
 const fiveMinuteMarkCalculator_1 = require("./fiveMinuteMarkCalculator");
+const mockData_1 = __importDefault(require("./mockData"));
 // Cache for player season averages to avoid repeated API calls
 // Structure: {player_id: {"stats": dict, "timestamp": number}}
 const playerStatsCache = new Map();
@@ -123,9 +124,13 @@ async function getScoreboard() {
             throw new Error('Received empty scoreboard data from NBA API');
         }
         // Get the date and list of games
-        const gameDate = rawScoreboardData.gameDate || 'Unknown Date';
-        const rawGames = rawScoreboardData.games || [];
+        let gameDate = rawScoreboardData.gameDate || 'Unknown Date';
+        let rawGames = rawScoreboardData.games || [];
         const games = [];
+        if (process.env.USE_MOCK_DATA === 'true') {
+            rawGames = mockData_1.default.createMockScoreboard().games;
+            gameDate = mockData_1.default.createMockScoreboard().gameDate;
+        }
         const transformedData = {
             scoreboard: {
                 gameDate: gameDate || new Date().toISOString().split('T')[0],
@@ -184,40 +189,6 @@ async function getScoreboard() {
                 }))
             }
         };
-        // Process each game
-        /* for (const game of rawGames) {
-           try {
-             // Extract team data for home and away teams
-             const homeTeam = extractTeamData(game.homeTeam);
-             const awayTeam = extractTeamData(game.awayTeam);
-     
-             // Get the top players for this game
-             const gameLeaders = await extractGameLeaders(
-               game.gameLeaders || {},
-               homeTeam.teamId,
-               awayTeam.teamId,
-               game.gameStatusText
-             );
-     
-             // Create a LiveGame object with all the game info
-             const liveGame: LiveGame = {
-               gameId: game.gameId,
-               gameStatus: game.gameStatus,
-               gameStatusText: game.gameStatusText?.trim() || '',
-               period: game.period,
-               gameClock: game.gameClock || '',
-               gameTimeUTC: game.gameTimeUTC,
-               homeTeam,
-               awayTeam,
-               gameLeaders,
-             };
-     
-             games.push(liveGame);
-           } catch (error) {
-             console.warn('Missing required data in game, skipping:', error instanceof Error ? error.message : String(error));
-           }
-         }
-     */
         return transformedData;
     }
     catch (error) {

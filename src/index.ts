@@ -269,8 +269,7 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
 
 // Import WebSocket managers and services
 import {
-  scoreboardWebSocketManager,
-  playbyplayWebSocketManager
+  webSocketManager 
 } from "./services/websocketManager";
 import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
@@ -320,16 +319,16 @@ wss.on("connection", (ws, req: any) => {
   try {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
-      scoreboardWebSocketManager.handleConnection(ws);
+      webSocketManager.handleConnection(ws);
     } else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
       const gameId = url.split("/").pop();
-      if (gameId) {
+   /*   if (gameId) {
         console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
         playbyplayWebSocketManager.handleConnection(ws, gameId);
       } else {
         console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
         ws.close();
-      }
+      }*/
     } else {
       console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
       // Don't close for unknown URLs, just log them
@@ -356,16 +355,16 @@ try {
 }
 
 try {
-  scoreboardWebSocketManager.startBroadcasting();
-  playbyplayWebSocketManager.startBroadcasting();
+  webSocketManager.startBroadcasting();
+  webSocketManager.startPBPBroadcasting();
   console.log('[WebSocket] Broadcasting started');
 } catch (error) {
   console.error('[WebSocket] Error starting broadcasting:', error);
 }
 
 try {
-  scoreboardWebSocketManager.startCleanupTask();
-  playbyplayWebSocketManager.startCleanupTask();
+  webSocketManager.startCleanupTask();
+  webSocketManager.startPBPCleanupTask();
   console.log('[WebSocket] Cleanup tasks started');
 } catch (error) {
   console.error('[WebSocket] Error starting cleanup tasks:', error);
@@ -462,8 +461,8 @@ process.on("SIGTERM", async () => {
   console.log('[Shutdown] SIGTERM received - closing gracefully');
   await dataCache.stopPolling();
   await stopCleanupTask();
-  await scoreboardWebSocketManager.stopCleanupTask();
-  await playbyplayWebSocketManager.stopCleanupTask();
+  await webSocketManager.stopCleanupTask();
+  await webSocketManager.stopPBPCleanupTask();
   clerkService.stopAutoSync();
   await closeDatabase();
   server.close();
@@ -474,8 +473,8 @@ process.on("SIGINT", async () => {
   console.log('[Shutdown] SIGINT received - closing gracefully');
   await dataCache.stopPolling();
   await stopCleanupTask();
-  await scoreboardWebSocketManager.stopCleanupTask();
-  await playbyplayWebSocketManager.stopCleanupTask();
+  await webSocketManager.stopCleanupTask();
+  await webSocketManager.stopPBPCleanupTask();
   clerkService.stopAutoSync();
   await closeDatabase();
   server.close();

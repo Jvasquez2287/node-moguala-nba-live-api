@@ -314,18 +314,17 @@ wss.on("connection", (ws, req) => {
     try {
         if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
             console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
-            websocketManager_1.scoreboardWebSocketManager.handleConnection(ws);
+            websocketManager_1.webSocketManager.handleConnection(ws);
         }
         else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
             const gameId = url.split("/").pop();
-            if (gameId) {
-                console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
-                websocketManager_1.playbyplayWebSocketManager.handleConnection(ws, gameId);
-            }
-            else {
-                console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
-                ws.close();
-            }
+            /*   if (gameId) {
+                 console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
+                 playbyplayWebSocketManager.handleConnection(ws, gameId);
+               } else {
+                 console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
+                 ws.close();
+               }*/
         }
         else {
             console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
@@ -352,16 +351,16 @@ catch (error) {
     console.error('[Cleanup] Error starting cleanup task:', error);
 }
 try {
-    websocketManager_1.scoreboardWebSocketManager.startBroadcasting();
-    websocketManager_1.playbyplayWebSocketManager.startBroadcasting();
+    websocketManager_1.webSocketManager.startBroadcasting();
+    websocketManager_1.webSocketManager.startPBPBroadcasting();
     console.log('[WebSocket] Broadcasting started');
 }
 catch (error) {
     console.error('[WebSocket] Error starting broadcasting:', error);
 }
 try {
-    websocketManager_1.scoreboardWebSocketManager.startCleanupTask();
-    websocketManager_1.playbyplayWebSocketManager.startCleanupTask();
+    websocketManager_1.webSocketManager.startCleanupTask();
+    websocketManager_1.webSocketManager.startPBPCleanupTask();
     console.log('[WebSocket] Cleanup tasks started');
 }
 catch (error) {
@@ -452,8 +451,8 @@ process.on("SIGTERM", async () => {
     console.log('[Shutdown] SIGTERM received - closing gracefully');
     await dataCache_1.dataCache.stopPolling();
     await (0, keyMoments_1.stopCleanupTask)();
-    await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
-    await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
+    await websocketManager_1.webSocketManager.stopCleanupTask();
+    await websocketManager_1.webSocketManager.stopPBPCleanupTask();
     clerk_1.default.stopAutoSync();
     await (0, database_1.closeDatabase)();
     server.close();
@@ -463,8 +462,8 @@ process.on("SIGINT", async () => {
     console.log('[Shutdown] SIGINT received - closing gracefully');
     await dataCache_1.dataCache.stopPolling();
     await (0, keyMoments_1.stopCleanupTask)();
-    await websocketManager_1.scoreboardWebSocketManager.stopCleanupTask();
-    await websocketManager_1.playbyplayWebSocketManager.stopCleanupTask();
+    await websocketManager_1.webSocketManager.stopCleanupTask();
+    await websocketManager_1.webSocketManager.stopPBPCleanupTask();
     clerk_1.default.stopAutoSync();
     await (0, database_1.closeDatabase)();
     server.close();

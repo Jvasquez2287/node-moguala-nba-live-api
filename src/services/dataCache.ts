@@ -1,12 +1,14 @@
 import { getScoreboard, getPlayByPlay } from './scoreboard';
 import { ScoreboardResponse, PlayByPlayResponse } from '../types';
-import { playbyplayWebSocketManager } from './websocketManager';
+//import { playbyplayWebSocketManager } from './websocketManager';
 import { GamesResponse } from '../schemas/schedule';
 import { LeagueLeadersResponse } from '../schemas/league';
 import { PlayerSummary } from '../schemas/player';
 import { SeasonLeadersResponse } from '../schemas/seasonleaders';
 import { TeamDetailsResponse, TeamRoster } from '../schemas/team';
 import { executeQuery } from '../config/database';
+import mockData from './mockData';
+import { webSocketManager } from './websocketManager';
 
 interface CacheEntry<T> {
   data: T;
@@ -164,6 +166,7 @@ export class DataCache {
   }
 
   async getScoreboard(): Promise<ScoreboardResponse | null> {
+ 
     return await this.dbCache.get<ScoreboardResponse>('scoreboard');
   }
 
@@ -340,6 +343,7 @@ export class DataCache {
 
         // Update scoreboard cache
         await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
+        await webSocketManager.broadcastToAllClientsScoreBoard(scoreboardData);
         console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
       } catch (error) {
         console.warn('[ScoreBoard] Error fetching scoreboard:', error);
@@ -384,7 +388,7 @@ export class DataCache {
               await this.dbCache.set(`playbyplay_${gameId}`, playbyplayData, this.CACHE_TTL_24H);
               console.log(`[PlayByPlay] Play-by-play cache updated for game ${gameId}`);
               // Broadcast custom data to all connected clients
-              await playbyplayWebSocketManager.broadcastToAllClients({ playbyplayData, gameId });
+              await webSocketManager.broadcastPBPToAllClients({ playbyplayData, gameId });
             }
           } catch (error) {
             console.debug(`[PlayByPlay] Error fetching play-by-play for game ${gameId}:`, error);

@@ -11,6 +11,7 @@ import {
   GameLeaderStats
 } from '../types';
 import { FiveMinuteMarkCalculator } from './fiveMinuteMarkCalculator';
+import mockData from './mockData';
 
 interface RawScoreboardData {
   gameDate?: string;
@@ -159,11 +160,15 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
     }
 
     // Get the date and list of games
-    const gameDate = rawScoreboardData.gameDate || 'Unknown Date';
-    const rawGames = rawScoreboardData.games || [];
+    let gameDate = rawScoreboardData.gameDate || 'Unknown Date';
+    let rawGames = rawScoreboardData.games || [];
 
     const games: LiveGame[] = [];
-
+    if (process.env.USE_MOCK_DATA === 'true') {
+      rawGames = mockData.createMockScoreboard().games;
+      gameDate = mockData.createMockScoreboard().gameDate;
+    } 
+ 
       const transformedData: ScoreboardResponse = {
           scoreboard: {
             gameDate:  gameDate || new Date().toISOString().split('T')[0],
@@ -222,41 +227,7 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
             }))
           }
         };
-  
-    // Process each game
-   /* for (const game of rawGames) {
-      try {
-        // Extract team data for home and away teams
-        const homeTeam = extractTeamData(game.homeTeam);
-        const awayTeam = extractTeamData(game.awayTeam);
-
-        // Get the top players for this game
-        const gameLeaders = await extractGameLeaders(
-          game.gameLeaders || {},
-          homeTeam.teamId,
-          awayTeam.teamId,
-          game.gameStatusText
-        );
-
-        // Create a LiveGame object with all the game info
-        const liveGame: LiveGame = {
-          gameId: game.gameId,
-          gameStatus: game.gameStatus,
-          gameStatusText: game.gameStatusText?.trim() || '',
-          period: game.period,
-          gameClock: game.gameClock || '',
-          gameTimeUTC: game.gameTimeUTC,
-          homeTeam,
-          awayTeam, 
-          gameLeaders,
-        };
-
-        games.push(liveGame);
-      } catch (error) {
-        console.warn('Missing required data in game, skipping:', error instanceof Error ? error.message : String(error));
-      }
-    }
-*/
+   
     return transformedData;
   } catch (error) {
     console.error('Error fetching live scoreboard:', error);
