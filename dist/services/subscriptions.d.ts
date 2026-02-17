@@ -30,6 +30,7 @@ export declare const subscriptionsService: {
                 currentPeriodEnd: string;
                 cancelAt: string | null;
                 canceledAt: string | null;
+                subscription_invoice_pdf_url: string;
             };
         };
     }>;

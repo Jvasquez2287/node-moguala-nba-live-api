@@ -1,1 +1,1 @@
-{"version":3,"file":"subscriptions.d.ts","sourceRoot":"","sources":["../../src/services/subscriptions.ts"],"names":[],"mappings":"AAwBA,eAAO,MAAM,oBAAoB;IAC/B;;;OAGG;qCACoC,MAAM;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;CAyO9C,CAAC;AAEF,eAAe,oBAAoB,CAAC"}
+{"version":3,"file":"subscriptions.d.ts","sourceRoot":"","sources":["../../src/services/subscriptions.ts"],"names":[],"mappings":"AAwBA,eAAO,MAAM,oBAAoB;IAC/B;;;OAGG;qCACoC,MAAM;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;CAwO9C,CAAC;AAEF,eAAe,oBAAoB,CAAC"}

@@ -210,6 +210,7 @@ const handleSubscriptionSuccess = async (req, res) => {
         const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
         const periodEnd = result.data.subscription.currentPeriodEnd ? new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString() : 'N/A';
         const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
+        const invoicePdfUrl = result.data.subscription?.subscription_invoice_pdf_url || '';
         console.log(`[SubscriptionsRouter] Parsed dates - Start: ${periodStart}, End: ${periodEnd}`);
         successTemplate = successTemplate
             .replace('{{USER_NAME}}', userName)
@@ -219,7 +220,8 @@ const handleSubscriptionSuccess = async (req, res) => {
             .replace('{{STATUS_CLASS}}', statusClass)
             .replace('{{SUBSCRIPTION_ID}}', subscriptionId)
             .replace('{{PERIOD_START}}', periodStart)
-            .replace('{{PERIOD_END}}', periodEnd);
+            .replace('{{PERIOD_END}}', periodEnd)
+            .replace('{{SUBSCRIPTION_INVOICE_PDF_URL}}', invoicePdfUrl ? invoicePdfUrl : '#');
         res.setHeader("Content-type", "text/html");
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.statusCode = 200;

@@ -138,9 +138,7 @@ export const subscriptionsService = {
         product_id: productId || '',
         updated_at: new Date().toISOString()
       };
-
-      console.log(`[SubscriptionsService] Prepared subscription data:`, subscriptionData);
-
+ 
       const newSubscriptionId = subscriptionData.subscription_id;
 
       // Step 7: Check if user already has a subscription
@@ -251,7 +249,8 @@ export const subscriptionsService = {
             currentPeriodStart: startISO,
             currentPeriodEnd: endISO,
             cancelAt: convertTimestampToISO(subscription.cancel_at),
-            canceledAt: convertTimestampToISO(subscription.canceled_at)
+            canceledAt: convertTimestampToISO(subscription.canceled_at),
+            subscription_invoice_pdf_url: subscriptionData.subscription_invoice_pdf_url
           }
         }
       };
