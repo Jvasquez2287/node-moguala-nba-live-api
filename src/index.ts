@@ -41,7 +41,7 @@ app.use(express.static(publicDir));
 // Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "*", credentials: true })); // Allow CORS for all origins - adjust in production for security
-app.use(express.json());
+// NOTE: express.json() is applied AFTER webhook routes to preserve raw body for Stripe signature verification
 
 // Import services needed by early routes
 import { dataCache } from "./services/dataCache";
@@ -146,7 +146,7 @@ import usersRouter from "./routes/users";
 import notificationsRouter from "./routes/notifications";
 import testRoutes from "./routes/testRoutes";
 
-// Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
+// Mount webhook routes (with raw body handling in the router itself)
 app.use('/api/v1/webhooks', webhooksRouter);
 
 // Apply JSON middleware after webhooks

@@ -9,15 +9,67 @@ const clerk_1 = require("../services/clerk");
 const emailService_1 = require("../services/emailService");
 const database_1 = require("../config/database");
 const router = express_1.default.Router();
-// Apply raw body parser to this router for Stripe webhook signature verification
-router.use(express_1.default.raw({ type: 'application/json' }));
+// NOTE: Raw body parser is applied specifically to the /stripe POST endpoint
+// This ensures the raw request body is available for Stripe signature verification
 // Get Stripe webhook secret lazily
 function getStripeWebhookSecret() {
-    const secret = process.env.NODE_ENV !== "development" ? process.env.STRIPE_WEBHOOK_SECRET : 'whsec_hSsvZEGxeBSNZanAKvzbXsvTiyT13aLP';
+    let secret;
+    console.log('Determining Stripe webhook secret...', `NODE_ENV: ${process.env.NODE_ENV}`);
+    if (process.env.NODE_ENV && process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
+        secret = 'whsec_yKLLjagRnMG4sSG5oDjtsT7g4kkx6q3h';
+    }
+    else {
+        secret = process.env.STRIPE_WEBHOOK_SECRET;
+    }
     if (!secret) {
         throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
     }
     return secret;
+}
+/**
+ * Convert Stripe Unix timestamp (in seconds) to JavaScript Date object
+ * SQL Server datetime fields can accept Date objects which are properly serialized
+ * Stripe provides timestamps in seconds since epoch, JS Date expects milliseconds
+ * @param unixTimestamp - Stripe timestamp in seconds
+ * @returns JavaScript Date object for SQL Server
+ * @throws Error if timestamp is invalid or missing for required fields
+ */
+function convertStripeTimestamp(unixTimestamp) {
+    if (!unixTimestamp || typeof unixTimestamp !== 'number') {
+        throw new Error(`Invalid Stripe timestamp: ${unixTimestamp}. Stripe timestamps must be valid Unix seconds.`);
+    }
+    try {
+        // Stripe timestamps are in seconds, convert to milliseconds for JavaScript
+        const date = new Date(unixTimestamp * 1000);
+        // Validate the date
+        if (isNaN(date.getTime())) {
+            throw new Error(`Invalid date after conversion: ${unixTimestamp}`);
+        }
+        console.log(`[Webhook] Converted timestamp ${unixTimestamp} to date: ${date.toISOString()}`);
+        // Return Date object for SQL Server (will be properly serialized)
+        return date;
+    }
+    catch (error) {
+        console.error(`[Webhook] Error converting Stripe timestamp ${unixTimestamp}:`, error);
+        throw error;
+    }
+}
+/**
+ * Convert Stripe Unix timestamp for optional fields that can be null
+ * @param unixTimestamp - Stripe timestamp in seconds or null/undefined
+ * @returns JavaScript Date object or null
+ */
+function convertStripeTimestampNullable(unixTimestamp) {
+    if (!unixTimestamp || typeof unixTimestamp !== 'number') {
+        return null;
+    }
+    try {
+        return convertStripeTimestamp(unixTimestamp);
+    }
+    catch (error) {
+        console.warn(`[Webhook] Failed to convert optional timestamp:`, error);
+        return null;
+    }
 }
 router.get('/stripe-delete-all-subscription', async (req, res) => {
     try {
@@ -37,12 +89,27 @@ router.get('/stripe-delete-all-subscription', async (req, res) => {
 /**
  * Stripe Webhook endpoint
  * Handles: customer.subscription.created, customer.subscription.updated, customer.subscription.deleted
+ * Must use raw body parser to preserve the exact request body for signature verification
  */
-router.post('/stripe', async (req, res) => {
+router.post('/stripe', express_1.default.raw({ type: 'application/json' }), async (req, res) => {
     try {
         const sig = req.headers['stripe-signature'];
-        const event = (0, stripe_1.getStripeClient)().webhooks.constructEvent(req.body, sig, getStripeWebhookSecret());
-        console.log(`[Webhook] Received Stripe event: ${event.type}`);
+        if (!sig) {
+            console.error('[Webhook] No Stripe signature header found');
+            return res.status(400).json({ error: 'No Stripe signature header' });
+        }
+        // Ensure req.body is a Buffer or string for signature verification
+        let body = req.body;
+        if (!(body instanceof Buffer) && typeof body !== 'string') {
+            // If body is an object, convert it back to string
+            console.warn('[Webhook] req.body is not a Buffer or string, converting from object...');
+            body = JSON.stringify(body);
+        }
+        console.log(`[Webhook] Processing Stripe webhook...`);
+        console.log(`[Webhook] Signature (first 30 chars): ${sig.substring(0, 30)}`);
+        console.log(`[Webhook] Body type: ${body instanceof Buffer ? 'Buffer' : typeof body}, size: ${body instanceof Buffer ? body.length : body.length} bytes`);
+        const event = (0, stripe_1.getStripeClient)().webhooks.constructEvent(body, sig, getStripeWebhookSecret());
+        console.log(`[Webhook] ✓ Signature verified successfully. Event type: ${event.type}`);
         const data = event.data.object;
         switch (event.type) {
             case 'customer.subscription.created': {
@@ -50,11 +117,11 @@ router.post('/stripe', async (req, res) => {
                 const subscriptionData = {
                     stripe_id: data.customer,
                     subscription_id: data.id,
-                    subscription_start_date: data.current_period_start,
-                    subscription_end_date: data.current_period_end,
+                    subscription_start_date: convertStripeTimestamp(data.current_period_start),
+                    subscription_end_date: convertStripeTimestamp(data.current_period_end),
                     subscription_status: data.status,
                     subscription_title: productData.name,
-                    subscription_next_billing_date: data.current_period_end,
+                    subscription_next_billing_date: convertStripeTimestamp(data.current_period_end),
                     subscription_latest_invoice_Id: data.latest_invoice || '',
                     subscription_invoice_pdf_url: await stripe_1.stripeService.getInvoice(data.latest_invoice) || '',
                     subscription_canceled_at: null,
@@ -96,14 +163,14 @@ router.post('/stripe', async (req, res) => {
                 const subscriptionData = {
                     stripe_id: data.customer,
                     subscription_id: data.id,
-                    subscription_start_date: data.current_period_start,
-                    subscription_end_date: data.current_period_end,
+                    subscription_start_date: convertStripeTimestamp(data.current_period_start),
+                    subscription_end_date: convertStripeTimestamp(data.current_period_end),
                     subscription_status: data.status,
                     subscription_title: productData.name,
-                    subscription_next_billing_date: data.current_period_end,
+                    subscription_next_billing_date: convertStripeTimestamp(data.current_period_end),
                     subscription_latest_invoice_Id: data.latest_invoice || '',
                     subscription_invoice_pdf_url: await stripe_1.stripeService.getInvoice(data.latest_invoice) || '',
-                    subscription_canceled_at: data.canceled_at ? data.canceled_at : null,
+                    subscription_canceled_at: convertStripeTimestampNullable(data.canceled_at),
                     product_id: data.items.data[0].plan.product
                 };
                 // Get previous status to detect status changes
@@ -193,8 +260,20 @@ router.post('/stripe', async (req, res) => {
         }
     }
     catch (error) {
+        // Detailed error logging for debugging
+        const errorType = error?.type;
+        const errorMessage = error?.message || String(error);
+        if (errorType === 'StripeSignatureVerificationError') {
+            console.error(`[Webhook] ✗ Stripe signature verification FAILED`);
+            console.error(`[Webhook] Error: ${errorMessage}`);
+            console.error(`[Webhook] Possible causes:`);
+            console.error(`  1. Wrong webhook secret (check STRIPE_WEBHOOK_SECRET in .env)`);
+            console.error(`  2. Request body was modified in transit`);
+            console.error(`  3. Raw body parser not applied correctly`);
+            return res.status(401).json({ error: 'Webhook signature verification failed' });
+        }
         console.error('[Webhook] Stripe webhook error:', error);
-        return res.json({ error: 'Webhook processing failed' });
+        return res.json({ error: 'Webhook processing failed', message: errorMessage });
     }
 });
 router.get('/stripe', async (req, res) => {
@@ -216,8 +295,9 @@ router.get('/stripe', async (req, res) => {
 /**
  * Clerk Webhook endpoint
  * Handles: user.created, user.updated, user.deleted
+ * Must use raw body parser to preserve the exact request body for signature verification
  */
-router.post('/clerk', async (req, res) => {
+router.post('/clerk', express_1.default.raw({ type: 'application/json' }), async (req, res) => {
     try {
         console.log('[Webhook] Received Clerk event');
         const event = await clerk_1.clerkService.verifyWebhook(req);

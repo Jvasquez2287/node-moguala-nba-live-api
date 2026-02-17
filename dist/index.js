@@ -70,7 +70,7 @@ app.use(express_1.default.static(publicDir));
 // Middleware - JSON will be applied after webhooks to preserve raw body for Stripe
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, cors_1.default)({ origin: "*", credentials: true })); // Allow CORS for all origins - adjust in production for security
-app.use(express_1.default.json());
+// NOTE: express.json() is applied AFTER webhook routes to preserve raw body for Stripe signature verification
 // Import services needed by early routes
 const dataCache_1 = require("./services/dataCache");
 // Health check
@@ -167,7 +167,7 @@ const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
 const testRoutes_1 = __importDefault(require("./routes/testRoutes"));
-// Mount webhook routes BEFORE JSON middleware so raw body is preserved for Stripe signature verification
+// Mount webhook routes (with raw body handling in the router itself)
 app.use('/api/v1/webhooks', webhooks_1.default);
 // Apply JSON middleware after webhooks
 app.use(express_1.default.json());

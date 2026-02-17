@@ -3,7 +3,47 @@ import { Request } from 'express';
 import { executeQuery } from '../config/database';
 import stripeService from './stripe';
 
-const clerkWebhookSecret = process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET! : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T';
+ 
+const clerkWebhookSecret = (): string =>  {
+  console.log('Determining Clerk webhook secret...', `NODE_ENV: ${process.env.NODE_ENV}`);
+  
+  // Priority: env var > development default
+  let secret: string | undefined;
+  
+  if (process.env.NODE_ENV && process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
+    secret = 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T';
+    console.log('Using development Clerk webhook secret', secret.slice(0, 10) + '...'); // Log only part of the secret for security
+  } else {
+    secret = process.env.CLERK_WEBHOOK_SECRET;
+    console.log('Using production Clerk webhook secret from environment variable:', secret?.slice(0, 10) + '...'); // Log only part of the secret for security
+  }
+  
+  if (!secret) {
+    throw new Error('CLERK_WEBHOOK_SECRET environment variable is not set and NODE_ENV is not development');
+  }
+  
+  return secret;
+}
+
+/**
+ * Get Clerk API Secret Key for making API calls to Clerk
+ * This is different from the webhook secret - it's used for authenticating API requests
+ */
+const getClerkAPISecret = (): string => {
+  const apiSecret = process.env.CLERK_SECRET_KEY;
+  
+  if (!apiSecret) {
+    const errorMsg = 'CLERK_SECRET_KEY environment variable is not set. Required for making API calls to Clerk.';
+    console.error(`[Clerk] ${errorMsg}`);
+    throw new Error(errorMsg);
+  }
+  
+  // Log which secret is being used (masked for security)
+  const secretMasked = apiSecret.substring(0, 10) + '***' + apiSecret.substring(apiSecret.length - 5);
+  console.log(`[Clerk] Using API secret: ${secretMasked}`);
+  
+  return apiSecret;
+}
 
 interface ClerkUser {
   id: string;
@@ -29,27 +69,49 @@ export const clerkService = {
    */
   async verifyWebhook(req: Request): Promise<WebhookEvent | null> {
     try {
-      const wh = new Webhook(clerkWebhookSecret);
+      const wh = new Webhook(clerkWebhookSecret());
       
-      // Get raw body - it may be a Buffer or string depending on how it was parsed
-      let payload = req.body;
+      // Get raw body - Clerk's Svix library requires the raw body for signature verification
       let rawBody: string;
       
-      if (Buffer.isBuffer(payload)) {
-        rawBody = payload.toString('utf-8');
-      } else if (typeof payload === 'string') {
-        rawBody = payload;
+      if (Buffer.isBuffer(req.body)) {
+        // If it's a Buffer (from express.raw middleware), convert to string
+        rawBody = req.body.toString('utf-8');
+        console.log(`[Clerk] Raw body received as Buffer (${req.body.length} bytes)`);
+      } else if (typeof req.body === 'string') {
+        // If it's already a string, use it directly
+        rawBody = req.body;
+        console.log(`[Clerk] Raw body received as string (${req.body.length} characters)`);
       } else {
-        // If it's already an object, stringify it
-        rawBody = JSON.stringify(payload);
+        // If it's an object (shouldn't happen with raw body parser), we can't recover the original body
+        // for signature verification. Log this as an error.
+        console.error('[Clerk] ERROR: req.body is an object, not raw! Signature verification will fail.');
+        console.log('[Clerk] Body type:', typeof req.body);
+        console.log('[Clerk] Make sure Clerk webhook endpoint has express.raw({type: "application/json"}) middleware');
+        throw new Error('Clerk webhook: req.body must be Buffer or string for signature verification. Make sure raw body parser middleware is applied.');
       }
       
+      // Log headers for debugging
+      const svixId = req.headers['svix-id'];
+      const svixSignature = req.headers['svix-signature'];
+      const svixTimestamp = req.headers['svix-timestamp'];
+      
+      console.log('[Clerk] Webhook headers:');
+      console.log('  - svix-id:', svixId ? `${String(svixId).substring(0, 10)}...` : 'missing');
+      console.log('  - svix-signature (first 30 chars):', svixSignature ? String(svixSignature).substring(0, 30) + '...' : 'missing');
+      console.log('  - svix-timestamp:', svixTimestamp);
+      
+      // Verify the webhook signature
       const msg = wh.verify(rawBody, req.headers as any);
 
       console.log('[Clerk] Webhook verified successfully');
       return msg as unknown as WebhookEvent;
     } catch (error) {
       console.error('[Clerk] Webhook verification failed:', error);
+      if (error instanceof Error) {
+        console.error('[Clerk] Error message:', error.message);
+        console.error('[Clerk] Error stack:', error.stack?.split('\n').slice(0, 5).join('\n'));
+      }
       throw error;
     }
   },
@@ -520,7 +582,7 @@ export const clerkService = {
     try {
       const user = await fetch(`https://api.clerk.dev/v1/users?email_address=${encodeURIComponent(email)}`, {
         headers: {
-          'Authorization': `Bearer ${process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T'}`,
+          'Authorization': `Bearer ${getClerkAPISecret()}`,
           'Content-Type': 'application/json'
         }
       }).then(res => res.json());
@@ -539,7 +601,7 @@ export const clerkService = {
     try {
       const response = await fetch(`https://api.clerk.dev/v1/users/${clerkId}`, {
         headers: {
-          'Authorization': `Bearer ${process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T'}`,
+          'Authorization': `Bearer ${getClerkAPISecret()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -580,7 +642,7 @@ export const clerkService = {
           
           const response = await fetch(url, {
             headers: {
-              'Authorization': `Bearer ${process.env.NODE_ENV !== "development" ? process.env.CLERK_WEBHOOK_SECRET : 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T'}`,
+              'Authorization': `Bearer ${getClerkAPISecret()}`,
               'Content-Type': 'application/json'
             }
           });

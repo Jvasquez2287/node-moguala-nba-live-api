@@ -7,16 +7,72 @@ import { executeQuery } from '../config/database';
 
 const router = express.Router();
 
-// Apply raw body parser to this router for Stripe webhook signature verification
-router.use(express.raw({ type: 'application/json' }));
+// NOTE: Raw body parser is applied specifically to the /stripe POST endpoint
+// This ensures the raw request body is available for Stripe signature verification
 
 // Get Stripe webhook secret lazily
 function getStripeWebhookSecret(): string {
-  const secret = process.env.NODE_ENV !== "development" ? process.env.STRIPE_WEBHOOK_SECRET : 'whsec_hSsvZEGxeBSNZanAKvzbXsvTiyT13aLP';
+  let secret: string | undefined;
+  console.log('Determining Stripe webhook secret...', `NODE_ENV: ${process.env.NODE_ENV}`);
+  if (process.env.NODE_ENV && process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
+    secret =   'whsec_yKLLjagRnMG4sSG5oDjtsT7g4kkx6q3h';
+  } else {
+    secret = process.env.STRIPE_WEBHOOK_SECRET;
+  }
   if (!secret) {
     throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
   }
   return secret;
+}
+
+/**
+ * Convert Stripe Unix timestamp (in seconds) to JavaScript Date object
+ * SQL Server datetime fields can accept Date objects which are properly serialized
+ * Stripe provides timestamps in seconds since epoch, JS Date expects milliseconds
+ * @param unixTimestamp - Stripe timestamp in seconds
+ * @returns JavaScript Date object for SQL Server
+ * @throws Error if timestamp is invalid or missing for required fields
+ */
+function convertStripeTimestamp(unixTimestamp: number | null | undefined): Date {
+  if (!unixTimestamp || typeof unixTimestamp !== 'number') {
+    throw new Error(`Invalid Stripe timestamp: ${unixTimestamp}. Stripe timestamps must be valid Unix seconds.`);
+  }
+  
+  try {
+    // Stripe timestamps are in seconds, convert to milliseconds for JavaScript
+    const date = new Date(unixTimestamp * 1000);
+    
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date after conversion: ${unixTimestamp}`);
+    }
+    
+    console.log(`[Webhook] Converted timestamp ${unixTimestamp} to date: ${date.toISOString()}`);
+    
+    // Return Date object for SQL Server (will be properly serialized)
+    return date;
+  } catch (error) {
+    console.error(`[Webhook] Error converting Stripe timestamp ${unixTimestamp}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Convert Stripe Unix timestamp for optional fields that can be null
+ * @param unixTimestamp - Stripe timestamp in seconds or null/undefined
+ * @returns JavaScript Date object or null
+ */
+function convertStripeTimestampNullable(unixTimestamp: number | null | undefined): Date | null {
+  if (!unixTimestamp || typeof unixTimestamp !== 'number') {
+    return null;
+  }
+  
+  try {
+    return convertStripeTimestamp(unixTimestamp);
+  } catch (error) {
+    console.warn(`[Webhook] Failed to convert optional timestamp:`, error);
+    return null;
+  }
 }
 
 router.get('/stripe-delete-all-subscription', async (req: Request, res: Response) => {
@@ -37,32 +93,51 @@ router.get('/stripe-delete-all-subscription', async (req: Request, res: Response
 /**
  * Stripe Webhook endpoint
  * Handles: customer.subscription.created, customer.subscription.updated, customer.subscription.deleted
+ * Must use raw body parser to preserve the exact request body for signature verification
  */
-router.post('/stripe', async (req: Request, res: Response) => {
+router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
   try {
     const sig = req.headers['stripe-signature'] as string;
+
+    if (!sig) {
+      console.error('[Webhook] No Stripe signature header found');
+      return res.status(400).json({ error: 'No Stripe signature header' });
+    }
+
+    // Ensure req.body is a Buffer or string for signature verification
+    let body = req.body;
+    if (!(body instanceof Buffer) && typeof body !== 'string') {
+      // If body is an object, convert it back to string
+      console.warn('[Webhook] req.body is not a Buffer or string, converting from object...');
+      body = JSON.stringify(body);
+    }
+
+    console.log(`[Webhook] Processing Stripe webhook...`);
+    console.log(`[Webhook] Signature (first 30 chars): ${sig.substring(0, 30)}`);
+    console.log(`[Webhook] Body type: ${body instanceof Buffer ? 'Buffer' : typeof body}, size: ${body instanceof Buffer ? body.length : (body as string).length} bytes`);
+
     const event = getStripeClient().webhooks.constructEvent(
-      req.body,
+      body,
       sig,
       getStripeWebhookSecret()
     );
 
-    console.log(`[Webhook] Received Stripe event: ${event.type}`);
- 
+    console.log(`[Webhook] ✓ Signature verified successfully. Event type: ${event.type}`);
+
     const data = event.data.object as any;
 
-   
+
     switch (event.type) {
       case 'customer.subscription.created': {
         const productData = await stripeService.getProductsByID(data.items.data[0].plan.product);
         const subscriptionData = {
           stripe_id: data.customer,
           subscription_id: data.id,
-          subscription_start_date: data.current_period_start,
-          subscription_end_date: data.current_period_end,
+          subscription_start_date: convertStripeTimestamp(data.current_period_start),
+          subscription_end_date: convertStripeTimestamp(data.current_period_end),
           subscription_status: data.status,
           subscription_title: (productData as any).name,
-          subscription_next_billing_date: data.current_period_end,
+          subscription_next_billing_date: convertStripeTimestamp(data.current_period_end),
           subscription_latest_invoice_Id: data.latest_invoice || '',
           subscription_invoice_pdf_url: await stripeService.getInvoice(data.latest_invoice as string) || '',
           subscription_canceled_at: null,
@@ -83,7 +158,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
           if (customerEmail) {
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
-            
+
             await emailService.sendSuccessEmail({
               userEmail: customerEmail,
               userClerkId: data.customer,
@@ -107,14 +182,14 @@ router.post('/stripe', async (req: Request, res: Response) => {
         const subscriptionData = {
           stripe_id: data.customer,
           subscription_id: data.id,
-          subscription_start_date: data.current_period_start,
-          subscription_end_date: data.current_period_end,
+          subscription_start_date: convertStripeTimestamp(data.current_period_start),
+          subscription_end_date: convertStripeTimestamp(data.current_period_end),
           subscription_status: data.status,
           subscription_title: (productData as any).name,
-          subscription_next_billing_date: data.current_period_end,
+          subscription_next_billing_date: convertStripeTimestamp(data.current_period_end),
           subscription_latest_invoice_Id: data.latest_invoice || '',
           subscription_invoice_pdf_url: await stripeService.getInvoice(data.latest_invoice as string) || '',
-          subscription_canceled_at: data.canceled_at ? data.canceled_at : null,
+          subscription_canceled_at: convertStripeTimestampNullable(data.canceled_at),
           product_id: data.items.data[0].plan.product
         };
 
@@ -142,15 +217,15 @@ router.post('/stripe', async (req: Request, res: Response) => {
                 periodEnd,
                 subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
               });
-            } 
+            }
             // Check if this is a continuation renewal (still active, same period continues)
             else if (data.status === 'active' && previousStatus === 'active') {
               // Check if period end date changed (indicates renewal)
-              const previousPeriodEnd = previousSub?.subscription_end_date 
-                ? new Date(previousSub.subscription_end_date).getTime() 
+              const previousPeriodEnd = previousSub?.subscription_end_date
+                ? new Date(previousSub.subscription_end_date).getTime()
                 : 0;
               const currentPeriodEnd = new Date(data.current_period_end * 1000).getTime();
-              
+
               if (currentPeriodEnd > previousPeriodEnd + (30 * 24 * 60 * 60 * 1000)) {
                 // Period was extended by more than 30 days - likely a renewal
                 await emailService.sendRenewalEmail({
@@ -162,7 +237,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
                   subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
                 });
               }
-            } 
+            }
             // If subscription was canceled
             else if (data.status === 'canceled') {
               await emailService.sendCanceledEmail({
@@ -194,7 +269,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
       case 'invoice.payment_failed': {
         console.log(`[Webhook] Invoice payment failed: ${data.id}`);
-        
+
         // Send payment failed email
         try {
           const customerEmail = data.customer_email;
@@ -207,7 +282,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
         } catch (emailError) {
           console.error('[Webhook] Error sending payment failed email:', emailError);
         }
-        
+
         return res.json({ received: true });
       }
 
@@ -215,9 +290,23 @@ router.post('/stripe', async (req: Request, res: Response) => {
         console.log(`[Webhook] Unhandled Stripe event: ${event.type}`);
         return res.json({ received: true });
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Detailed error logging for debugging
+    const errorType = error?.type;
+    const errorMessage = error?.message || String(error);
+
+    if (errorType === 'StripeSignatureVerificationError') {
+      console.error(`[Webhook] ✗ Stripe signature verification FAILED`);
+      console.error(`[Webhook] Error: ${errorMessage}`);
+      console.error(`[Webhook] Possible causes:`);
+      console.error(`  1. Wrong webhook secret (check STRIPE_WEBHOOK_SECRET in .env)`);
+      console.error(`  2. Request body was modified in transit`);
+      console.error(`  3. Raw body parser not applied correctly`);
+      return res.status(401).json({ error: 'Webhook signature verification failed' });
+    }
+
     console.error('[Webhook] Stripe webhook error:', error);
-   return res.json({ error: 'Webhook processing failed' });
+    return res.json({ error: 'Webhook processing failed', message: errorMessage });
   }
 });
 
@@ -231,7 +320,7 @@ router.get('/stripe', async (req: Request, res: Response) => {
   }
   catch (error) {
     console.error('Error in Stripe test endpoint:', error);
-   return res.json({
+    return res.json({
       success: false,
       error: 'Failed to process request',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -242,8 +331,9 @@ router.get('/stripe', async (req: Request, res: Response) => {
 /**
  * Clerk Webhook endpoint
  * Handles: user.created, user.updated, user.deleted
+ * Must use raw body parser to preserve the exact request body for signature verification
  */
-router.post('/clerk', async (req: Request, res: Response) => {
+router.post('/clerk', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
   try {
     console.log('[Webhook] Received Clerk event');
 
@@ -285,7 +375,7 @@ router.post('/clerk', async (req: Request, res: Response) => {
         await clerkService.handleSessionRenewed(data as any);
         return res.json({ received: true });
       }
- 
+
 
       default:
         console.log(`[Webhook] Unhandled Clerk event: ${type}`);
@@ -293,7 +383,7 @@ router.post('/clerk', async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error('[Webhook] Clerk webhook error:', error);
-   return res.json({ error: 'Webhook processing failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' });
+    return res.json({ error: 'Webhook processing failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -327,7 +417,7 @@ router.get('/clerk/users/:email', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching user:', error);
-   return res.json({
+    return res.json({
       success: false,
       error: 'Failed to fetch user',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -343,7 +433,7 @@ router.get('/clerk', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error in Clerk test endpoint:', error);
-   return res.json({
+    return res.json({
       success: false,
       error: 'Failed to process request',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -362,7 +452,7 @@ router.get('/clerk/cusers/:email', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Error fetching users:', error);
-   return res.json({
+    return res.json({
       success: false,
       error: 'Failed to fetch users',
       message: error instanceof Error ? error.message : 'Unknown error'
