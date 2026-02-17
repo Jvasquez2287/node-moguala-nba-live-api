@@ -136,7 +136,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 }
                 // Send success email
                 try {
-                    const customerEmail = data.billing_details?.email || data.customer_email;
+                    const customerEmail = await stripe_1.stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
                     if (customerEmail) {
                         const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
                         const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
@@ -222,7 +222,6 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 return res.json({ received: true });
             }
             case 'customer.subscription.deleted': {
-                console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`, data);
                 // Send cancellation email
                 try {
                     const customerEmail = await stripe_1.stripeService.getCustomerEmailBySubscriptionId(data.id);
@@ -250,7 +249,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                     console.error('[Webhook] Error sending cancellation email:', emailError);
                 }
                 await (0, database_1.executeQuery)('UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId', { status: 'canceled', now: new Date(), stripeId: data.customer });
-                console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`);
+                console.log(`[Webhook] Subscription deleted for customer: ${data.id}`);
                 return res.json({ received: true });
             }
             case 'invoice.paid': {

@@ -153,7 +153,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
 
         // Send success email
         try {
-          const customerEmail = data.billing_details?.email || data.customer_email;
+          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
           if (customerEmail) {
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
@@ -245,8 +245,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
         return res.json({ received: true });
       }
 
-      case 'customer.subscription.deleted': {
-        console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`, data);
+      case 'customer.subscription.deleted': { 
         // Send cancellation email
         try {
           const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(data.id) ;
@@ -276,7 +275,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
           'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId',
           { status: 'canceled', now: new Date(), stripeId: data.customer }
         );
-        console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`);
+        console.log(`[Webhook] Subscription deleted for customer: ${data.id }`);
         return res.json({ received: true });
       }
 
