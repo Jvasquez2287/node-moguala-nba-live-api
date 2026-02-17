@@ -1,7 +1,7 @@
 interface EmailData {
     [key: string]: any;
 }
-type SubscriptionStatus = 'success' | 'cancel' | 'error' | 'invalid' | 'renewal';
+type SubscriptionStatus = 'subscribed' | 'renewal' | 'reactivate' | 'resume' | 'canceled' | 'error' | 'invalid' | 'success' | 'cancel';
 declare class EmailService {
     private transporter;
     private isConfigured;
@@ -25,6 +25,16 @@ declare class EmailService {
         subscriptionInvoicePdfUrl?: string;
     }): Promise<boolean>;
     /**
+     * Send subscription subscribed email
+     */
+    sendSubscribedEmail(data: {
+        userEmail: string;
+        userName?: string;
+        subscriptionTitle: string;
+        periodStart: string;
+        periodEnd: string;
+    }): Promise<boolean>;
+    /**
      * Send subscription renewal email
      */
     sendRenewalEmail(data: {
@@ -37,11 +47,34 @@ declare class EmailService {
         subscriptionInvoicePdfUrl?: string;
     }): Promise<boolean>;
     /**
+     * Send subscription reactivated email
+     */
+    sendReactivateEmail(data: {
+        userEmail: string;
+        userName?: string;
+        subscriptionTitle: string;
+        periodStart: string;
+        periodEnd: string;
+    }): Promise<boolean>;
+    /**
+     * Send subscription resumed email
+     */
+    sendResumeEmail(data: {
+        userEmail: string;
+        userName?: string;
+        subscriptionTitle: string;
+        periodStart: string;
+        periodEnd: string;
+    }): Promise<boolean>;
+    /**
      * Send subscription canceled email
      */
     sendCanceledEmail(data: {
         userEmail: string;
         userName?: string;
+        subscriptionTitle: string;
+        periodEnd: string;
+        cancelDate?: string;
     }): Promise<boolean>;
     /**
      * Send subscription error email

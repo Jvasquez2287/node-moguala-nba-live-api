@@ -6,7 +6,7 @@ interface EmailData {
   [key: string]: any;  // Allow any key for template variable replacement
 }
 
-type SubscriptionStatus = 'success' | 'cancel' | 'error' | 'invalid' | 'renewal';
+type SubscriptionStatus = 'subscribed' | 'renewal' | 'reactivate' | 'resume' | 'canceled' | 'error' | 'invalid' | 'success' | 'cancel';
 
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
@@ -58,21 +58,36 @@ class EmailService {
     try {
       // Determine template filename based on status
       const templateMap: { [key in SubscriptionStatus]: string } = {
+        subscribed: 'emails/subscribed.html',
+        renewal: 'emails/renewal.html',
+        reactivate: 'emails/reactivate.html',
+        resume: 'emails/resume.html',
+        canceled: 'emails/canceled.html',
         success: 'success.html',
         cancel: 'cancel.html',
         error: 'error.html',
         invalid: 'invalid.html',
-        renewal: 'renewal.html',
       };
 
       const templatePath = path.join(__dirname, '..', 'templates', templateMap[templateName]);
       let htmlContent = await fs.readFile(templatePath, 'utf-8');
 
+      // Log original template content for debugging
+      console.log(`[EmailService] Processing template ${templateName} with data:`, Object.keys(data));
+
       // Replace all template variables {{KEY}} with actual data values
       Object.entries(data).forEach(([key, value]) => {
         const regex = new RegExp(`{{${key}}}`, 'g');
-        htmlContent = htmlContent.replace(regex, String(value || ''));
+        const replacementValue = String(value || '');
+        htmlContent = htmlContent.replace(regex, replacementValue);
+        console.log(`[EmailService] Replaced {{${key}}} = ${replacementValue}`);
       });
+
+      // Check for any unreplaced template variables (sanity check)
+      const unreplacedVars = htmlContent.match(/{{.*?}}/g) || [];
+      if (unreplacedVars.length > 0) {
+        console.warn(`[EmailService] ⚠️  Found unreplaced template variables in ${templateName}:`, unreplacedVars);
+      }
 
       return htmlContent;
     } catch (error) {
@@ -115,15 +130,53 @@ class EmailService {
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: data.userEmail,
-        subject: '✅ Subscription Confirmed - Premium Access Activated',
+        subject: 'Subscription Confirmed - Premium Access Activated',
         html: htmlContent,
       };
 
       const result = await this.transporter!.sendMail(mailOptions);
-      console.log(`[EmailService] ✅ Success email sent to ${data.userEmail}:`, result.messageId);
+      console.log(`[EmailService] ✅  Success email sent to ${data.userEmail}:`, result.messageId);
       return true;
     } catch (error) {
-      console.error('[EmailService] Error sending success email:', error);
+      console.error('[EmailService] ❌  Error sending success email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send subscription subscribed email
+   */
+  async sendSubscribedEmail(data: {
+    userEmail: string;
+    userName?: string;
+    subscriptionTitle: string;
+    periodStart: string;
+    periodEnd: string;
+  }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.warn('[EmailService] Email service not configured. Skipping subscribed email.');
+      return false;
+    }
+
+    try {
+      const htmlContent = await this.renderTemplate('subscribed', {
+        subscription_title: data.subscriptionTitle,
+        period_start: data.periodStart,
+        period_end: data.periodEnd,
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: data.userEmail,
+        subject: 'Welcome to MO\'GUALA - Subscription Active',
+        html: htmlContent,
+      };
+
+      const result = await this.transporter!.sendMail(mailOptions);
+      console.log(`[EmailService] ✅  Subscribed email sent to ${data.userEmail}:`, result.messageId);
+      return true;
+    } catch (error) {
+      console.error('[EmailService] ❌  Error sending subscribed email:', error);
       return false;
     }
   }
@@ -147,28 +200,99 @@ class EmailService {
 
     try {
       const htmlContent = await this.renderTemplate('renewal', {
-        USER_NAME: data.userName || 'Subscriber',
-        USER_EMAIL: data.userEmail,
-        SUBSCRIPTION_STATUS: data.subscriptionStatus,
-        SUBSCRIPTION_ID: data.subscriptionId,
-        PERIOD_START: data.periodStart,
-        PERIOD_END: data.periodEnd,
-        SUBSCRIPTION_INVOICE_PDF_URL: data.subscriptionInvoicePdfUrl || '',
-        LOGO_URL: 'https://nba.m-api.net/api/v1/test/convert',
+        subscription_title: data.subscriptionId,
+        period_start: data.periodStart,
+        period_end: data.periodEnd,
       });
 
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: data.userEmail,
-        subject: '🔄 Subscription Renewed - Premium Access Continues',
+        subject: 'MO\'GUALA Subscription Renewed - Premium Access Continues',
         html: htmlContent,
       };
 
       const result = await this.transporter!.sendMail(mailOptions);
-      console.log(`[EmailService] 🔄 Renewal email sent to ${data.userEmail}:`, result.messageId);
+      console.log(`[EmailService] ✅  Renewal email sent to ${data.userEmail}:`, result.messageId);
       return true;
     } catch (error) {
-      console.error('[EmailService] Error sending renewal email:', error);
+      console.error('[EmailService] ❌  Error sending renewal email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send subscription reactivated email
+   */
+  async sendReactivateEmail(data: {
+    userEmail: string;
+    userName?: string;
+    subscriptionTitle: string;
+    periodStart: string;
+    periodEnd: string;
+  }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.warn('[EmailService] Email service not configured. Skipping reactivate email.');
+      return false;
+    }
+
+    try {
+      const htmlContent = await this.renderTemplate('reactivate', {
+        subscription_title: data.subscriptionTitle,
+        period_start: data.periodStart,
+        period_end: data.periodEnd,
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: data.userEmail,
+        subject: 'Welcome Back! Subscription Reactivated',
+        html: htmlContent,
+      };
+
+      const result = await this.transporter!.sendMail(mailOptions);
+      console.log(`[EmailService] ✅  Reactivate email sent to ${data.userEmail}:`, result.messageId);
+      return true;
+    } catch (error) {
+      console.error('[EmailService] ❌  Error sending reactivate email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send subscription resumed email
+   */
+  async sendResumeEmail(data: {
+    userEmail: string;
+    userName?: string;
+    subscriptionTitle: string;
+    periodStart: string;
+    periodEnd: string;
+  }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.warn('[EmailService] Email service not configured. Skipping resume email.');
+      return false;
+    }
+
+    try {
+      const htmlContent = await this.renderTemplate('resume', {
+        subscription_title: data.subscriptionTitle,
+        period_start: data.periodStart,
+        period_end: data.periodEnd,
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        to: data.userEmail,
+        subject: 'Subscription Resumed - Access Restored',
+        html: htmlContent,
+      };
+
+      const result = await this.transporter!.sendMail(mailOptions);
+      console.log(`[EmailService] ✅  Resume email sent to ${data.userEmail}:`, result.messageId);
+      return true;
+    } catch (error) {
+      console.error('[EmailService] ❌  Error sending resume email:', error);
       return false;
     }
   }
@@ -179,30 +303,34 @@ class EmailService {
   async sendCanceledEmail(data: {
     userEmail: string;
     userName?: string;
+    subscriptionTitle: string;
+    periodEnd: string;
+    cancelDate?: string;
   }): Promise<boolean> {
     if (!this.isConfigured) {
-      console.warn('[EmailService] Email service not configured. Skipping cancel email.');
+      console.warn('[EmailService] Email service not configured. Skipping canceled email.');
       return false;
     }
 
     try {
-      const htmlContent = await this.renderTemplate('cancel', {
-        USER_NAME: data.userName || 'User',
-        USER_EMAIL: data.userEmail,
+      const htmlContent = await this.renderTemplate('canceled', {
+        subscription_title: data.subscriptionTitle,
+        cancel_date: data.cancelDate || new Date().toLocaleDateString(),
+        period_end: data.periodEnd,
       });
 
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: data.userEmail,
-        subject: '⏸️ Checkout Canceled - No Payment Processed',
+        subject: 'Subscription Canceled',
         html: htmlContent,
       };
 
       const result = await this.transporter!.sendMail(mailOptions);
-      console.log(`[EmailService] ⏸️ Cancel email sent to ${data.userEmail}:`, result.messageId);
+      console.log(`[EmailService] ✅  Canceled email sent to ${data.userEmail}:`, result.messageId);
       return true;
     } catch (error) {
-      console.error('[EmailService] Error sending cancel email:', error);
+      console.error('[EmailService] ❌  Error sending canceled email:', error);
       return false;
     }
   }
@@ -230,15 +358,15 @@ class EmailService {
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: data.userEmail,
-        subject: '❌ Subscription Error - Action Required',
+        subject: 'Subscription Error - Action Required',
         html: htmlContent,
       };
 
       const result = await this.transporter!.sendMail(mailOptions);
-      console.log(`[EmailService] ❌ Error email sent to ${data.userEmail}:`, result.messageId);
+      console.log(`[EmailService] ✅  Error email sent to ${data.userEmail}:`, result.messageId);
       return true;
     } catch (error) {
-      console.error('[EmailService] Error sending error email:', error);
+      console.error('[EmailService] ❌  Error sending error email:', error);
       return false;
     }
   }
@@ -266,15 +394,15 @@ class EmailService {
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: data.userEmail,
-        subject: '⚠️ Invalid Subscription Request',
+        subject: 'Invalid Subscription Request',
         html: htmlContent,
       };
 
       const result = await this.transporter!.sendMail(mailOptions);
-      console.log(`[EmailService] ⚠️ Invalid email sent to ${data.userEmail}:`, result.messageId);
+      console.log(`[EmailService] ✅  Invalid email sent to ${data.userEmail}:`, result.messageId);
       return true;
     } catch (error) {
-      console.error('[EmailService] Error sending invalid email:', error);
+      console.error('[EmailService] ❌  Error sending invalid email:', error);
       return false;
     }
   }
@@ -284,10 +412,18 @@ class EmailService {
    */
   async sendSubscriptionEmail(status: SubscriptionStatus, data: EmailData): Promise<boolean> {
     switch (status) {
-      case 'success':
-        return this.sendSuccessEmail(data as any);
+      case 'subscribed':
+        return this.sendSubscribedEmail(data as any);
       case 'renewal':
         return this.sendRenewalEmail(data as any);
+      case 'reactivate':
+        return this.sendReactivateEmail(data as any);
+      case 'resume':
+        return this.sendResumeEmail(data as any);
+      case 'canceled':
+        return this.sendCanceledEmail(data as any);
+      case 'success':
+        return this.sendSuccessEmail(data as any);
       case 'cancel':
         return this.sendCanceledEmail(data as any);
       case 'error':
@@ -322,10 +458,10 @@ class EmailService {
           html: '<p>This is a test email to verify the email service is working correctly.</p>',
         });
         
-        console.log(`[EmailService] ✅ Test email sent to ${testEmail}`);
+        console.log(`[EmailService] Test email sent to ${testEmail}`);
         return true;
       } else {
-        console.error('[EmailService] ❌ Email configuration verification failed');
+        console.error('[EmailService] Email configuration verification failed');
         return false;
       }
     } catch (error) {

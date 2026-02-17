@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to MO'GUALA</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            padding: 20px;
+            color: #1f2937;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.3);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+            border: 1px solid #e5e7eb;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .header {
+            background: linear-gradient(135deg, #0078D4 0%, #0066B2 100%);
+            padding: 30px;
+            text-align: center;
+        }
+        .logo {
+            max-width: 80px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-section {
+            margin-bottom: 30px;
+        }
+        .welcome-section p {
+            color: #6b7280;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        .info-table {
+            width: 600px;
+            max-width: 100%;
+            border-collapse: collapse;
+            margin: 25px auto;
+            background: #f9fafb;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }
+        .info-table tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .info-table tr:last-child {
+            border-bottom: none;
+        }
+        .info-table td {
+            padding: 14px 16px;
+            font-size: 14px;
+        }
+        .table-label {
+            width: 40%;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .table-value {
+            color: #1f2937;
+            font-weight: 500;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #E8F4FD;
+            color: #0078D4;
+        }
+        .benefits {
+            background: #f0f9ff;
+            border-left: 4px solid #0078D4;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .benefits h3 {
+            color: #0078D4;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .benefits ul {
+            list-style: none;
+            padding: 0;
+        }
+        .benefits li {
+            color: #4b5563;
+            font-size: 13px;
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .benefits li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+        .footer {
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .footer-link {
+            color: #0078D4;
+            text-decoration: none;
+        }
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="https://nba.m-api.net/api/v1/test/convert" alt="MO'GUALA" class="logo">
+            <h1>Welcome to MO'GUALA</h1> 
+            <p>Your subscription is now active</p>
+        </div>
+        
+        <div class="content">
+            <div class="welcome-section">
+                <p>Thank you for subscribing to MO'GUALA! 🎉</p>
+                <p>Your premium subscription is now active and you have full access to all exclusive features and real-time NBA statistics.</p>
+            </div>
+
+            <table class="info-table">
+                <tr>
+                    <td class="table-label">Status</td>
+                    <td class="table-value"><span class="status-badge">Active</span></td>
+                </tr>
+                <tr>
+                    <td class="table-label">Subscription</td>
+                    <td class="table-value">{{subscription_title}}</td>
+                </tr>
+                <tr>
+                    <td class="table-label">Started</td>
+                    <td class="table-value">{{period_start}}</td>
+                </tr>
+                <tr>
+                    <td class="table-label">Renews On</td>
+                    <td class="table-value">{{period_end}}</td>
+                </tr>
+            </table>
+
+            <div class="benefits">
+                <h3>Your Premium Benefits</h3>
+                <ul>
+                    <li>Real-time game scores and statistics</li>
+                    <li>Advanced player performance analytics</li>
+                    <li>Historical data and trend analysis</li>
+                    <li>Exclusive notifications and alerts</li>
+                    <li>Priority customer support</li>
+                </ul>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin: 20px 0;">
+                If you have any questions or need assistance, our support team is here to help. Visit your dashboard to manage your subscription settings.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>© 2026 MO'GUALA. All rights reserved.</p> 
+        </div>
+    </div>
+</body>
+</html>

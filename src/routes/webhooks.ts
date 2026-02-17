@@ -15,7 +15,7 @@ function getStripeWebhookSecret(): string {
   let secret: string | undefined;
   console.log('Determining Stripe webhook secret...', `NODE_ENV: ${process.env.NODE_ENV}`);
   if (process.env.NODE_ENV && process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
-    secret =   'whsec_yKLLjagRnMG4sSG5oDjtsT7g4kkx6q3h';
+    secret = 'whsec_yKLLjagRnMG4sSG5oDjtsT7g4kkx6q3h';
   } else {
     secret = process.env.STRIPE_WEBHOOK_SECRET;
   }
@@ -37,18 +37,18 @@ function convertStripeTimestamp(unixTimestamp: number | null | undefined): Date 
   if (!unixTimestamp || typeof unixTimestamp !== 'number') {
     throw new Error(`Invalid Stripe timestamp: ${unixTimestamp}. Stripe timestamps must be valid Unix seconds.`);
   }
-  
+
   try {
     // Stripe timestamps are in seconds, convert to milliseconds for JavaScript
     const date = new Date(unixTimestamp * 1000);
-    
+
     // Validate the date
     if (isNaN(date.getTime())) {
       throw new Error(`Invalid date after conversion: ${unixTimestamp}`);
     }
-    
+
     console.log(`[Webhook] Converted timestamp ${unixTimestamp} to date: ${date.toISOString()}`);
-    
+
     // Return Date object for SQL Server (will be properly serialized)
     return date;
   } catch (error) {
@@ -66,7 +66,7 @@ function convertStripeTimestampNullable(unixTimestamp: number | null | undefined
   if (!unixTimestamp || typeof unixTimestamp !== 'number') {
     return null;
   }
-  
+
   try {
     return convertStripeTimestamp(unixTimestamp);
   } catch (error) {
@@ -113,9 +113,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
     }
 
     console.log(`[Webhook] Processing Stripe webhook...`);
-    console.log(`[Webhook] Signature (first 30 chars): ${sig.substring(0, 30)}`);
-    console.log(`[Webhook] Body type: ${body instanceof Buffer ? 'Buffer' : typeof body}, size: ${body instanceof Buffer ? body.length : (body as string).length} bytes`);
-
+  
     const event = getStripeClient().webhooks.constructEvent(
       body,
       sig,
@@ -141,6 +139,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
           subscription_latest_invoice_Id: data.latest_invoice || '',
           subscription_invoice_pdf_url: await stripeService.getInvoice(data.latest_invoice as string) || '',
           subscription_canceled_at: null,
+          subscription_cancel_at_period_end: data.cancel_at_period_end || false,
           product_id: data.items.data[0].plan.product
         };
 
@@ -159,18 +158,15 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
 
-            await emailService.sendSuccessEmail({
+            await emailService.sendSubscribedEmail({
               userEmail: customerEmail,
-              userClerkId: data.customer,
-              subscriptionStatus: data.status.toUpperCase(),
-              subscriptionId: data.id,
+              subscriptionTitle: (productData as any).name,
               periodStart,
               periodEnd,
-              subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
             });
           }
         } catch (emailError) {
-          console.error('[Webhook] Error sending success email:', emailError);
+          console.error('[Webhook] Error sending subscribed email:', emailError);
         }
 
         console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
@@ -190,6 +186,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
           subscription_latest_invoice_Id: data.latest_invoice || '',
           subscription_invoice_pdf_url: await stripeService.getInvoice(data.latest_invoice as string) || '',
           subscription_canceled_at: convertStripeTimestampNullable(data.canceled_at),
+          subscription_cancel_at_period_end: data.cancel_at_period_end || false,
           product_id: data.items.data[0].plan.product
         };
 
@@ -201,47 +198,42 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
 
         // Send email based on status change
         try {
-          const customerEmail = data.billing_details?.email || data.customer_email;
+          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
+          console.log(`[Webhook] Subscription updated for customer: ${data.customer}, email: ${customerEmail}, previous status: ${previousStatus}, new status: ${data.status}` );
           if (customerEmail) {
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
 
-            // Check if this is a renewal (subscription was canceled/inactive and is now active)
-            if (data.status === 'active' && previousStatus !== 'active') {
-              // Subscription renewed after being canceled
-              await emailService.sendRenewalEmail({
+            // Check if subscription was reactivated (cancel_at_period_end = false after being true)
+            if (subscriptionData.subscription_cancel_at_period_end === false && previousSub?.subscription_cancel_at_period_end === true) {
+              console.log(`[Webhook] Detected subscription reactivation for customer: ${data.customer}`);
+              await emailService.sendReactivateEmail({
                 userEmail: customerEmail,
-                subscriptionStatus: data.status.toUpperCase(),
-                subscriptionId: data.id,
+                subscriptionTitle: (productData as any).name,
                 periodStart,
                 periodEnd,
-                subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
               });
             }
-            // Check if this is a continuation renewal (still active, same period continues)
-            else if (data.status === 'active' && previousStatus === 'active') {
-              // Check if period end date changed (indicates renewal)
-              const previousPeriodEnd = previousSub?.subscription_end_date
-                ? new Date(previousSub.subscription_end_date).getTime()
-                : 0;
-              const currentPeriodEnd = new Date(data.current_period_end * 1000).getTime();
-
-              if (currentPeriodEnd > previousPeriodEnd + (30 * 24 * 60 * 60 * 1000)) {
-                // Period was extended by more than 30 days - likely a renewal
-                await emailService.sendRenewalEmail({
-                  userEmail: customerEmail,
-                  subscriptionStatus: data.status.toUpperCase(),
-                  subscriptionId: data.id,
-                  periodStart,
-                  periodEnd,
-                  subscriptionInvoicePdfUrl: subscriptionData.subscription_invoice_pdf_url
-                });
-              }
+            // Check if subscription was resumed (status active after being inactive)
+            else if (data.status === 'active' && previousStatus !== 'active') {
+              console.log(`[Webhook] Detected subscription renewal/resume for customer: ${data.customer}`);
+              await emailService.sendResumeEmail({
+                userEmail: customerEmail,
+                subscriptionTitle: (productData as any).name,
+                periodStart,
+                periodEnd,
+              });
             }
-            // If subscription was canceled
-            else if (data.status === 'canceled') {
+            // Check if subscription was canceled (either now or scheduled)
+            else if (subscriptionData.subscription_cancel_at_period_end === true && previousSub?.subscription_cancel_at_period_end === false) {
+              console.log(`[Webhook] Detected subscription pause/scheduled cancellation for customer: ${data.customer}`);
+              // Send cancellation notice but subscription is still active until period end
+              const cancelDate = new Date(data.canceled_at * 1000).toLocaleDateString();
               await emailService.sendCanceledEmail({
                 userEmail: customerEmail,
+                subscriptionTitle: (productData as any).name,
+                periodEnd,
+                cancelDate,
               });
             }
           }
@@ -254,9 +246,35 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
       }
 
       case 'customer.subscription.deleted': {
+        console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`, data);
+        // Send cancellation email
+        try {
+          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(data.id) ;
+          if (customerEmail) {
+            const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
+            const cancelDate = new Date().toLocaleDateString();
+            // Get subscription title if possible
+            let subscriptionTitle = 'MO\'GUALA Subscription';
+            try {
+              const product = await stripeService.getProductsByID(data.items.data[0].plan.product);
+              subscriptionTitle = (product as any).name || subscriptionTitle;
+            } catch (e) {
+              console.warn('[Webhook] Could not fetch product info for deleted subscription');
+            }
+            await emailService.sendCanceledEmail({
+              userEmail: customerEmail,
+              subscriptionTitle,
+              periodEnd,
+              cancelDate,
+            });
+          }
+        } catch (emailError) {
+          console.error('[Webhook] Error sending cancellation email:', emailError);
+        }
+
         await executeQuery(
-          'UPDATE subscriptions SET subscription_canceled_at = @now WHERE stripe_id = @stripeId',
-          { now: new Date(), stripeId: data.customer }
+          'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId',
+          { status: 'canceled', now: new Date(), stripeId: data.customer }
         );
         console.log(`[Webhook] Subscription deleted for customer: ${data.customer}`);
         return res.json({ received: true });
@@ -272,7 +290,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
 
         // Send payment failed email
         try {
-          const customerEmail = data.customer_email;
+          const customerEmail =  await stripeService.getCustomerEmailBySubscriptionId(data.id) ;
           if (customerEmail) {
             await emailService.sendErrorEmail({
               userEmail: customerEmail,

@@ -330,6 +330,7 @@ export const clerkService = {
                   subscription_latest_invoice_Id: (sub.latest_invoice as string) || '',
                   subscription_invoice_pdf_url: await stripeService.getInvoice(sub.latest_invoice as string) || '',
                   subscription_canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+                  subscription_cancel_at_period_end: sub.cancel_at_period_end || false,
                   product_id: productId || ''
                 };
 
@@ -532,6 +533,7 @@ export const clerkService = {
                   subscription_latest_invoice_Id: (sub.latest_invoice as string) || '',
                   subscription_invoice_pdf_url: await stripeService.getInvoice(sub.latest_invoice as string) || '',
                   subscription_canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+                  subscription_cancel_at_period_end: sub.cancel_at_period_end || false,
                   product_id: productId || ''
                 };
 

@@ -11,6 +11,7 @@ interface SubscriptionData {
     subscription_latest_invoice_Id: string;
     subscription_invoice_pdf_url: string;
     subscription_canceled_at: Date | null;
+    subscription_cancel_at_period_end: boolean;
     product_id: string;
 }
 export declare const stripeService: {
@@ -42,6 +43,7 @@ export declare const stripeService: {
      * Get product by ID
      */
     getProductsByID(productID: string): Promise<Stripe.Response<Stripe.Product>>;
+    getCustomerEmailBySubscriptionId(subscriptionId: string): Promise<string | null>;
     /**
      * Get invoice by ID
      */

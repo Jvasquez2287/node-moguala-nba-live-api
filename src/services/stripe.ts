@@ -28,6 +28,7 @@ interface SubscriptionData {
   subscription_latest_invoice_Id: string;
   subscription_invoice_pdf_url: string;
   subscription_canceled_at: Date | null;
+  subscription_cancel_at_period_end: boolean;
   product_id: string;
 }
 
@@ -111,6 +112,21 @@ export const stripeService = {
       return await getStripeClient().products.retrieve(productID);
     } catch (error) {
       console.error('[Stripe] Error getting product:', error);
+      throw error;
+    }
+  },
+
+  async getCustomerEmailBySubscriptionId(subscriptionId: string): Promise<string | null> {
+    try {
+      const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
+      const customer = await getStripeClient().customers.retrieve(subscription.customer as string);
+      // Type guard: ensure customer is not deleted and has email
+      if ('email' in customer && customer.email) {
+        return customer.email;
+      }
+      return null;
+    } catch (error) {
+      console.error('[Stripe] Error getting customer email by subscription ID:', error);
       throw error;
     }
   },

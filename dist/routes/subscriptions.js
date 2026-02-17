@@ -145,6 +145,7 @@ router.post('/', async (req, res) => {
             subscription_latest_invoice_Id: '',
             subscription_invoice_pdf_url: '',
             subscription_canceled_at: null,
+            subscription_cancel_at_period_end: subscription?.cancel_at_period_end || false,
             product_id: productId || ''
         };
         await stripe_1.stripeService.createSubscriptionInDB(subscriptionData);

@@ -137,6 +137,7 @@ router.post('/', async (req: Request, res: Response) => {
       subscription_latest_invoice_Id: '',
       subscription_invoice_pdf_url: '',
       subscription_canceled_at: null,
+      subscription_cancel_at_period_end: subscription?.cancel_at_period_end || false,
       product_id: productId || ''
     };
 

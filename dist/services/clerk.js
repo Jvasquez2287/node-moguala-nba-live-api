@@ -279,6 +279,7 @@ exports.clerkService = {
                                     subscription_latest_invoice_Id: sub.latest_invoice || '',
                                     subscription_invoice_pdf_url: await stripe_1.default.getInvoice(sub.latest_invoice) || '',
                                     subscription_canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+                                    subscription_cancel_at_period_end: sub.cancel_at_period_end || false,
                                     product_id: productId || ''
                                 };
                                 const existingSubscription = await stripe_1.default.getSubscriptionFromDB(sub.customer);
@@ -464,6 +465,7 @@ exports.clerkService = {
                                     subscription_latest_invoice_Id: sub.latest_invoice || '',
                                     subscription_invoice_pdf_url: await stripe_1.default.getInvoice(sub.latest_invoice) || '',
                                     subscription_canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
+                                    subscription_cancel_at_period_end: sub.cancel_at_period_end || false,
                                     product_id: productId || ''
                                 };
                                 const existingSubscription = await stripe_1.default.getSubscriptionFromDB(sub.customer);

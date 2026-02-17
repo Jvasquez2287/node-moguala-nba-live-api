@@ -104,6 +104,21 @@ exports.stripeService = {
             throw error;
         }
     },
+    async getCustomerEmailBySubscriptionId(subscriptionId) {
+        try {
+            const subscription = await getStripeClient().subscriptions.retrieve(subscriptionId);
+            const customer = await getStripeClient().customers.retrieve(subscription.customer);
+            // Type guard: ensure customer is not deleted and has email
+            if ('email' in customer && customer.email) {
+                return customer.email;
+            }
+            return null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting customer email by subscription ID:', error);
+            throw error;
+        }
+    },
     /**
      * Get invoice by ID
      */

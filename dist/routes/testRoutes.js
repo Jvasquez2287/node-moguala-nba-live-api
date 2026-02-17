@@ -108,6 +108,9 @@ router.post('/send-cancel-email', async (req, res) => {
         const success = await emailService_1.emailService.sendCanceledEmail({
             userEmail: email,
             userName: name,
+            subscriptionTitle: 'MO\'GUALA',
+            periodEnd: new Date().toLocaleDateString(),
+            cancelDate: new Date().toLocaleDateString(),
         });
         if (success) {
             res.json({ success: true, message: `Cancel email sent to ${email}` });
