@@ -127,20 +127,20 @@ exports.subscriptionsService = {
                 subscription_invoice_pdf_url: await stripe_1.default.getInvoice(subscription.latest_invoice) || '',
                 subscription_canceled_at: convertTimestampToISO(subscription.canceled_at),
                 product_id: productId || '',
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                subscription_cancel_at_period_end: subscription.cancel_at_period_end || false
             };
             const newSubscriptionId = subscriptionData.subscription_id;
-            // Step 7: Check if user already has a subscription
-            const existingSubscription = await (0, database_1.executeQuery)('SELECT subscription_id, user_id FROM subscriptions WHERE subscription_id = @subscription_id OR user_id = @user_id', { subscription_id: newSubscriptionId, user_id: user.id });
+            // Step 7: Check if subscription already exists by subscription_id (the UNIQUE KEY constraint)
+            const existingSubscription = await (0, database_1.executeQuery)('SELECT subscription_id, user_id FROM subscriptions WHERE subscription_id = @subscription_id', { subscription_id: newSubscriptionId });
             const hasExistingSubscription = existingSubscription.recordset.length > 0;
             const existingRecord = hasExistingSubscription ? existingSubscription.recordset[0] : null;
             const existingSubscriptionId = existingRecord?.subscription_id;
             // Step 8: Create or update subscription in database
             if (hasExistingSubscription) {
-                // Update existing subscription using the subscription_id that was found
+                // Update existing subscription by subscription_id
                 await (0, database_1.executeQuery)(`UPDATE subscriptions 
-           SET subscription_id = @subscription_id,
-               subscription_status = @status, 
+           SET subscription_status = @status, 
                subscription_start_date = @start_date,
                subscription_end_date = @end_date,
                subscription_next_billing_date = @next_billing,
@@ -148,9 +148,9 @@ exports.subscriptionsService = {
                user_id = @user_id,
                stripe_id = @stripe_id,
                clerk_id = @clerk_id,
-               updated_at = @updated_at
-           WHERE subscription_id = @existing_subscription_id`, {
-                    subscription_id: subscription.id,
+               updated_at = @updated_at,
+               subscription_cancel_at_period_end = @cancel_at_period_end
+           WHERE subscription_id = @subscription_id`, {
                     status: subscriptionData.subscription_status,
                     start_date: subscriptionData.subscription_start_date,
                     end_date: subscriptionData.subscription_end_date,
@@ -159,8 +159,9 @@ exports.subscriptionsService = {
                     user_id: user.id,
                     stripe_id: subscriptionData.stripe_id,
                     clerk_id: subscriptionData.clerk_id,
-                    existing_subscription_id: existingSubscriptionId,
-                    updated_at: new Date().toISOString()
+                    subscription_id: newSubscriptionId,
+                    updated_at: new Date().toISOString(),
+                    cancel_at_period_end: subscriptionData.subscription_cancel_at_period_end
                 });
                 console.log(`[SubscriptionsService] Updated existing subscription ${existingSubscriptionId} for user: ${user.id}`);
             }
@@ -171,13 +172,13 @@ exports.subscriptionsService = {
             subscription_end_date, subscription_status, subscription_title,
             subscription_next_billing_date, subscription_latest_invoice_Id,
             subscription_invoice_pdf_url, subscription_canceled_at, product_id, 
-            created_at, updated_at
+            created_at, updated_at, subscription_cancel_at_period_end
           ) VALUES (
             @stripe_id, @subscription_id, @user_id, @clerk_id, @start_date,
             @end_date, @status, @title,
             @next_billing, @invoice_id,
             @invoice_pdf, @canceled_at, @product_id,
-            @created_at, @updated_at
+            @created_at, @updated_at, @cancel_at_period_end
           )`, {
                     stripe_id: subscriptionData.stripe_id,
                     subscription_id: subscriptionData.subscription_id,
@@ -193,7 +194,8 @@ exports.subscriptionsService = {
                     canceled_at: subscriptionData.subscription_canceled_at,
                     product_id: subscriptionData.product_id,
                     created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    cancel_at_period_end: subscriptionData.subscription_cancel_at_period_end
                 });
                 console.log(`[SubscriptionsService] Created new subscription: ${subscription.id}`);
             }
@@ -224,7 +226,8 @@ exports.subscriptionsService = {
                         currentPeriodEnd: endISO,
                         cancelAt: convertTimestampToISO(subscription.cancel_at),
                         canceledAt: convertTimestampToISO(subscription.canceled_at),
-                        subscription_invoice_pdf_url: subscriptionData.subscription_invoice_pdf_url
+                        subscription_invoice_pdf_url: subscriptionData.subscription_invoice_pdf_url,
+                        cancelAtPeriodEnd: subscriptionData.subscription_cancel_at_period_end
                     }
                 }
             };

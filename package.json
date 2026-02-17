@@ -7,8 +7,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "build": "tsc && npm run copy:migrations && npm run copy:templates",
-    "copy:migrations": "node -e \"const fs=require('fs'); const path=require('path'); const src='src/migrations'; const dst='dist/migrations'; if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true}); fs.readdirSync(src).forEach(f=>{fs.copyFileSync(path.join(src,f),path.join(dst,f))})\"",
-    "copy:templates": "node -e \"const fs=require('fs'); const path=require('path'); const src='src/templates'; const dst='dist/templates'; if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true}); fs.readdirSync(src).forEach(f=>{fs.copyFileSync(path.join(src,f),path.join(dst,f))})\"",
+    "copy:migrations": "node -e \"const fs=require('fs'); const path=require('path'); function copyRecursive(src,dst){if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>{const srcPath=path.join(src,f);const dstPath=path.join(dst,f);if(fs.statSync(srcPath).isDirectory()){copyRecursive(srcPath,dstPath)}else{fs.copyFileSync(srcPath,dstPath)}})}copyRecursive('src/migrations','dist/migrations')\"",
+    "copy:templates": "node -e \"const fs=require('fs'); const path=require('path'); function copyRecursive(src,dst){if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>{const srcPath=path.join(src,f);const dstPath=path.join(dst,f);if(fs.statSync(srcPath).isDirectory()){copyRecursive(srcPath,dstPath)}else{fs.copyFileSync(srcPath,dstPath)}})}copyRecursive('src/templates','dist/templates')\"",
     "watch": "tsc --watch",
     "iisnode": "node dist/index.js"
   },

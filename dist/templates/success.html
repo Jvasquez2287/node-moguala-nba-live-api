@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Subscription Successful</title>
-  <style>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Successful</title>
+    <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Roboto, sans-serif; 
@@ -124,6 +124,7 @@
       gap: 12px; 
       margin-top: 30px; 
       justify-content: center;
+      text-align: center;
     }
     button { 
       flex: 1; 
@@ -180,107 +181,80 @@
       color: #374151;
     }
   </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo-container">
-      <img src="/api/v1/test/convert" alt="NBA Tracker Logo" class="logo" onerror="this.style.display='none'">
-    </div>
-    <div class="header">
-      <div class="success-icon">✅</div>
-      <h1>Subscription Confirmed!</h1>
-      <p class="subtitle">Your payment has been processed successfully</p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Account Information</div>
-      <div class="info-grid">
-        <div class="info-item">
-          <div class="info-label">Name</div>
-          <div class="info-value">{{USER_NAME}}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Email</div>
-          <div class="info-value">{{USER_EMAIL}}</div>
-        </div>
-        <div class="info-item full-width">
-          <div class="info-label">Clerk ID</div>
-          <div class="info-value">{{USER_CLERK_ID}}</div>
-        </div>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo-container">
+        <img src="/api/v1/test/convert" alt="NBA Tracker Logo" class="logo"
+          onerror="this.style.display='none'">
       </div>
-    </div>
+      <div class="header">
+        <div class="success-icon">✅</div>
+        <h1>Subscription Confirmed!</h1>
+        <p class="subtitle">Your payment has been processed successfully</p>
+      </div>
 
-    <div class="section">
-      <div class="section-title">Subscription Details</div>
-      <div class="info-grid">
-        <div class="info-item">
-          <div class="info-label">Status</div>
-          <div class="info-value">
-            <span class="status-badge status-active">{{SUBSCRIPTION_STATUS}}</span>
+      <div class="section">
+        <div class="section-title">Account Information</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Name</div>
+            <div class="info-value">{{USER_NAME}}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Email</div>
+            <div class="info-value">{{USER_EMAIL}}</div>
+          </div>
+          <div class="info-item full-width">
+            <div class="info-label">Clerk ID</div>
+            <div class="info-value">{{USER_CLERK_ID}}</div>
           </div>
         </div>
-        <div class="info-item">
-          <div class="info-label">Subscription ID</div>
-          <div class="info-value">{{SUBSCRIPTION_ID}}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Period Start</div>
-          <div class="info-value">{{PERIOD_START}}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Period End</div>
-          <div class="info-value">{{PERIOD_END}}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Subscription Details</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Status</div>
+            <div class="info-value">
+              <span
+                class="status-badge status-active">{{SUBSCRIPTION_STATUS}}</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Subscription ID</div>
+            <div class="info-value">{{SUBSCRIPTION_ID}}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Period Start</div>
+            <div class="info-value">{{PERIOD_START}}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Period End</div>
+            <div class="info-value">{{PERIOD_END}}</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="details">
-      <div class="details-title">📋 What's Next?</div>
-      <div class="details-text">
-        <strong>Close this window/tab and go back to the app.</strong> If the premium features are not activated automatically, log out and back in to refresh your subscription status.
+      <div class="details">
+        <div class="details-title">📋 What's Next?</div>
+        <div class="details-text">
+          <strong>Close this window/tab and go back to the app.</strong> If the
+          premium features are not activated automatically, log out and back in
+          to refresh your subscription status.
+        </div>
       </div>
+
+      <div class="actions">
+        <a href="{{SUBSCRIPTION_INVOICE_PDF_URL}}" target="_blank"
+          style="text-decoration: none; flex: 1;">
+          <button class="btn-continue" >📥 Download
+            Invoice PDF</button>
+        </a>
+      </div>
+
+     
     </div>
-
-    <div class="actions">
-      <button class="btn-continue" onclick="downloadInvoice()">📥 Download Invoice PDF</button>
-    </div>
-    
-    <script>
-      function downloadInvoice() {
-        const invoiceId = '{{SUBSCRIPTION_ID}}';
-        const invoicePdfUrl = '{{SUBSCRIPTION_INVOICE_PDF_URL}}';
-        
-        if (!invoiceId || invoiceId.includes('SUBSCRIPTION_ID')) {
-          alert('Invoice data not available. Please contact support.');
-          window.close();
-          return;
-        }
-
-        // If we have a Stripe invoice PDF URL, open it directly
-        if (invoicePdfUrl && invoicePdfUrl.length > 0 && !invoicePdfUrl.includes('{{')) {
-          window.open(invoicePdfUrl, '_blank');
-          setTimeout(() => window.close(), 500);
-          return;
-        }
-
-        // Otherwise, create a simple text file with subscription details
-        const invoiceContent = 'Subscription Invoice\n' +
-          'Subscription ID: {{SUBSCRIPTION_ID}}\n' +
-          'Status: {{SUBSCRIPTION_STATUS}}\n' +
-          'Period Start: {{PERIOD_START}}\n' +
-          'Period End: {{PERIOD_END}}\n' +
-          '\nThank you for your subscription!';
-        
-        const element = document.createElement('a');
-        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(invoiceContent));
-        element.setAttribute('download', 'invoice_{{SUBSCRIPTION_ID}}.txt');
-        element.style.display = 'none';
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-        setTimeout(() => window.close(), 500);
-      }
-    </script>
-  </div>
-</body>
+  </body>
 </html>

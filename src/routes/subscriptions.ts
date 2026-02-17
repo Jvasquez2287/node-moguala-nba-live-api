@@ -141,6 +141,18 @@ router.post('/', async (req: Request, res: Response) => {
       product_id: productId || ''
     };
 
+    // Check if subscription already exists - if so, update instead of create
+    const existingSubscription = await stripeService.getSubscriptionFromDB(customerId);
+    if (existingSubscription) {
+      console.log(`[Subscriptions] Subscription already exists for customerId: ${customerId}, updating instead`);
+      await stripeService.updateSubscriptionInDB(customerId, subscriptionData);
+      return res.status(200).json({
+        success: true,
+        data: subscriptionData,
+        message: 'Subscription updated'
+      });
+    }
+
     await stripeService.createSubscriptionInDB(subscriptionData);
 
     res.status(201).json({

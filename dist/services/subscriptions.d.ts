@@ -31,6 +31,7 @@ export declare const subscriptionsService: {
                 cancelAt: string | null;
                 canceledAt: string | null;
                 subscription_invoice_pdf_url: string;
+                cancelAtPeriodEnd: boolean;
             };
         };
     }>;

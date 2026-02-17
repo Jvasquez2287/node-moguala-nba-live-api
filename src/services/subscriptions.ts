@@ -20,6 +20,7 @@ interface StripeSubscription {
   canceled_at?: number | null;
   cancel_at?: number | null;
   latest_invoice?: string;
+  cancel_at_period_end?: boolean;
 }
 
 export const subscriptionsService = {
@@ -37,13 +38,13 @@ export const subscriptionsService = {
       if (!session.subscription) {
         throw new Error('No subscription found in checkout session');
       }
-      
-
+       
       console.log(`[SubscriptionsService] Session retrieved: ${session.id}`);
       // Step 2: Get subscription details from Stripe
       const subscription = await getStripeClient().subscriptions.retrieve(session.subscription as string) as any as StripeSubscription;
  
       console.log(`[SubscriptionsService] Subscription retrieved: ${subscription.id}, status: ${subscription.status}` );
+ 
 
       if(subscription.status !== 'active' && subscription.status !== 'trialing') {
         console.warn(`[SubscriptionsService] Subscription ${subscription.id} is not active or trialing. Status: ${subscription.status}`);
@@ -136,15 +137,16 @@ export const subscriptionsService = {
         subscription_invoice_pdf_url: await stripeService.getInvoice(subscription.latest_invoice as string) || '',
         subscription_canceled_at: convertTimestampToISO(subscription.canceled_at),
         product_id: productId || '',
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        subscription_cancel_at_period_end: subscription.cancel_at_period_end || false
       };
  
       const newSubscriptionId = subscriptionData.subscription_id;
 
-      // Step 7: Check if user already has a subscription
+      // Step 7: Check if subscription already exists by subscription_id (the UNIQUE KEY constraint)
       const existingSubscription = await executeQuery(
-        'SELECT subscription_id, user_id FROM subscriptions WHERE subscription_id = @subscription_id OR user_id = @user_id',
-        { subscription_id: newSubscriptionId, user_id: user.id }
+        'SELECT subscription_id, user_id FROM subscriptions WHERE subscription_id = @subscription_id',
+        { subscription_id: newSubscriptionId }
       );
 
       const hasExistingSubscription = existingSubscription.recordset.length > 0;
@@ -155,11 +157,10 @@ export const subscriptionsService = {
       // Step 8: Create or update subscription in database
       if (hasExistingSubscription) {
         
-        // Update existing subscription using the subscription_id that was found
+        // Update existing subscription by subscription_id
          await executeQuery(
           `UPDATE subscriptions 
-           SET subscription_id = @subscription_id,
-               subscription_status = @status, 
+           SET subscription_status = @status, 
                subscription_start_date = @start_date,
                subscription_end_date = @end_date,
                subscription_next_billing_date = @next_billing,
@@ -167,10 +168,10 @@ export const subscriptionsService = {
                user_id = @user_id,
                stripe_id = @stripe_id,
                clerk_id = @clerk_id,
-               updated_at = @updated_at
-           WHERE subscription_id = @existing_subscription_id`,
+               updated_at = @updated_at,
+               subscription_cancel_at_period_end = @cancel_at_period_end
+           WHERE subscription_id = @subscription_id`,
           {
-            subscription_id: subscription.id,
             status: subscriptionData.subscription_status,
             start_date: subscriptionData.subscription_start_date,
             end_date: subscriptionData.subscription_end_date,
@@ -179,8 +180,9 @@ export const subscriptionsService = {
             user_id: user.id,
             stripe_id: subscriptionData.stripe_id,
             clerk_id: subscriptionData.clerk_id,
-            existing_subscription_id: existingSubscriptionId,
-            updated_at: new Date().toISOString()
+            subscription_id: newSubscriptionId,
+            updated_at: new Date().toISOString(),
+            cancel_at_period_end: subscriptionData.subscription_cancel_at_period_end
           }
         );
         console.log(`[SubscriptionsService] Updated existing subscription ${existingSubscriptionId} for user: ${user.id}` );
@@ -192,13 +194,13 @@ export const subscriptionsService = {
             subscription_end_date, subscription_status, subscription_title,
             subscription_next_billing_date, subscription_latest_invoice_Id,
             subscription_invoice_pdf_url, subscription_canceled_at, product_id, 
-            created_at, updated_at
+            created_at, updated_at, subscription_cancel_at_period_end
           ) VALUES (
             @stripe_id, @subscription_id, @user_id, @clerk_id, @start_date,
             @end_date, @status, @title,
             @next_billing, @invoice_id,
             @invoice_pdf, @canceled_at, @product_id,
-            @created_at, @updated_at
+            @created_at, @updated_at, @cancel_at_period_end
           )`,
           {
             stripe_id: subscriptionData.stripe_id,
@@ -215,7 +217,8 @@ export const subscriptionsService = {
             canceled_at: subscriptionData.subscription_canceled_at,
             product_id: subscriptionData.product_id,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            cancel_at_period_end: subscriptionData.subscription_cancel_at_period_end
           }
         );
         console.log(`[SubscriptionsService] Created new subscription: ${subscription.id}`);
@@ -250,7 +253,8 @@ export const subscriptionsService = {
             currentPeriodEnd: endISO,
             cancelAt: convertTimestampToISO(subscription.cancel_at),
             canceledAt: convertTimestampToISO(subscription.canceled_at),
-            subscription_invoice_pdf_url: subscriptionData.subscription_invoice_pdf_url
+            subscription_invoice_pdf_url: subscriptionData.subscription_invoice_pdf_url,
+            cancelAtPeriodEnd: subscriptionData.subscription_cancel_at_period_end
           }
         }
       };
