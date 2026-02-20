@@ -349,7 +349,7 @@ export class ScoreboardWebSocketManager {
       } else {
         console.log(`[${timestamp}] [Scoreboard WS] PERIODIC broadcast (1 min) to ${this.activeConnections.size} clients`);
       }
-
+ 
       for (const connection of this.activeConnections) {
         try {
           if (connection.readyState === WebSocket.OPEN) {

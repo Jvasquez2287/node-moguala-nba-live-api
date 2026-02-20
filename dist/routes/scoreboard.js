@@ -11,10 +11,9 @@ const router = express_1.default.Router();
 router.get('/', async (req, res) => {
     try {
         if (process.env.USE_MOCK_DATA === 'true') {
-            console.log('[Scoreboard] Using mock data for scoreboard');
             await dataCache_1.dataCache.refreshScoreboard(); // Ensure mock data is loaded
         }
-        console.log('[Scoreboard] route called');
+        console.log('[Scoreboard] Fetching scoreboard data...');
         const scoreboard = await dataCache_1.dataCache.getScoreboard();
         console.log('[Scoreboard] data:', scoreboard ? 'found' : 'null');
         if (!scoreboard) {

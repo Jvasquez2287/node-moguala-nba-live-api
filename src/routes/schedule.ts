@@ -47,7 +47,8 @@ router.get('/schedule', async (req, res) => {
 router.get('/schedule/date/:date', async (req, res) => {
   try {
     const dateParam = req.params.date; // Format: YYYY-MM-DD
-
+    
+ 
     // Validate date format
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(dateParam)) {
@@ -57,12 +58,14 @@ router.get('/schedule/date/:date', async (req, res) => {
       });
     }
 
+        
+   
     // Get today's date
     const todayDate = new Date().toISOString().split('T')[0];
     const isHistorical = dateParam < todayDate;
     const isFuture = dateParam > todayDate;
     const isToday = dateParam === todayDate;
-
+ 
     // For today's games, use the live NBA API via cache
     if (isToday) {
       let scoreboardData = await dataCache.getScoreboard();
@@ -191,7 +194,7 @@ router.get('/schedule/date/:date', async (req, res) => {
         if (!dateRegex.test(date)) {
           return res.json({ error: 'Invalid date format. Use YYYY-MM-DD' });
         }
-
+ 
         const gamesData = await getGamesForDate(date);
 
         console.log(`Fetched games for date ${date} from nba-tracker-api:`);

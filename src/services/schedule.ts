@@ -489,7 +489,7 @@ function clearScheduleCache(): void {
   scheduleCacheTimestamp = 0;
   console.log('[Schedule] Cache cleared');
 }
- // {"arena": "Chase Center", "away_team": {"points": 126, "team_abbreviation": "SAS", "team_id": 1610612759}, "gameLeaders": {"awayLeaders": {"assists": 8, "name": "De'Aaron Fox", "personId": 1628368, "points": 27, "rebounds": 9, "teamTricode": "SAS"}, "homeLeaders": {"assists": 8, "name": "Draymond Green", "personId": 203110, "points": 17, "rebounds": 12, "teamTricode": "GSW"}}, "game_date": "2026-02-11", "game_id": "0022500788", "game_status": "Final", "game_time_utc": null, "home_team": {"points": 113, "team_abbreviation": "GSW", "team_id": 1610612744}, "matchup": "GSW vs SAS", "top_scorer": {"assists": 8, "player_id": 203110, "player_name": "Draymond Green", "points": 17, "rebounds": 12, "team_id": 1610612744}}
+// {"arena": "Chase Center", "away_team": {"points": 126, "team_abbreviation": "SAS", "team_id": 1610612759}, "gameLeaders": {"awayLeaders": {"assists": 8, "name": "De'Aaron Fox", "personId": 1628368, "points": 27, "rebounds": 9, "teamTricode": "SAS"}, "homeLeaders": {"assists": 8, "name": "Draymond Green", "personId": 203110, "points": 17, "rebounds": 12, "teamTricode": "GSW"}}, "game_date": "2026-02-11", "game_id": "0022500788", "game_status": "Final", "game_time_utc": null, "home_team": {"points": 113, "team_abbreviation": "GSW", "team_id": 1610612744}, "matchup": "GSW vs SAS", "top_scorer": {"assists": 8, "player_id": 203110, "player_name": "Draymond Green", "points": 17, "rebounds": 12, "team_id": 1610612744}}
 
 function formatGameResponse(games: any[]): any[] {
   return games.map((game: any) => ({
@@ -531,7 +531,7 @@ export const scheduleService = {
   clearScheduleCache
 };
 
- 
+
 /**
  * Get all NBA games for a specific date
  */
@@ -546,12 +546,13 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
 
     console.log(`Cache miss for games on ${date}, fetching from API`);
 
-    // Convert date from YYYY-MM-DD to MM/DD/YYYY format for NBA API
-    const dateParts = date.split('-');
-    const nbaDateFormat = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
 
     // Get game data from NBA API for the specified date
     const data = await retryAxiosRequest(async () => {
+      // Convert date from YYYY-MM-DD to MM/DD/YYYY format for NBA API
+      const dateParts = date.split('-');
+      const nbaDateFormat = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
+
       const response = await axios.get('https://stats.nba.com/stats/scoreboardv2', {
         headers: {
           "Host": "stats.nba.com",

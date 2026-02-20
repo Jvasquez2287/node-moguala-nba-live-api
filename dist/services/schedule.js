@@ -469,11 +469,11 @@ async function getGamesForDate(date) {
             return cachedData;
         }
         console.log(`Cache miss for games on ${date}, fetching from API`);
-        // Convert date from YYYY-MM-DD to MM/DD/YYYY format for NBA API
-        const dateParts = date.split('-');
-        const nbaDateFormat = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
         // Get game data from NBA API for the specified date
         const data = await retryAxiosRequest(async () => {
+            // Convert date from YYYY-MM-DD to MM/DD/YYYY format for NBA API
+            const dateParts = date.split('-');
+            const nbaDateFormat = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
             const response = await axios_1.default.get('https://stats.nba.com/stats/scoreboardv2', {
                 headers: {
                     "Host": "stats.nba.com",

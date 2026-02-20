@@ -182,7 +182,7 @@ export class DataCache {
   }
 
   async getScoreboard(): Promise<ScoreboardResponse | null> {
- 
+  
     return await this.dbCache.get<ScoreboardResponse>('scoreboard');
   }
 
