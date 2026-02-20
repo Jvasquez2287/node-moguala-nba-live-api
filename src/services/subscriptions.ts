@@ -44,7 +44,6 @@ export const subscriptionsService = {
       const subscription = await getStripeClient().subscriptions.retrieve(session.subscription as string) as any as StripeSubscription;
  
       console.log(`[SubscriptionsService] Subscription retrieved: ${subscription.id}, status: ${subscription.status}` );
- 
 
       if(subscription.status !== 'active' && subscription.status !== 'trialing') {
         console.warn(`[SubscriptionsService] Subscription ${subscription.id} is not active or trialing. Status: ${subscription.status}`);

@@ -200,6 +200,7 @@ async function fetchNBASchedule() {
                 }
             }
         }
+        // Store the games in the cached data structure for easier access later (local database) for 24H
         let games = data.leagueSchedule?.gameDates || [];
         data.league = {
             season: data.leagueSchedule?.seasonId,
@@ -229,17 +230,42 @@ function parseScheduleData(rawData) {
 }
 async function getSchedule() {
     const currentTime = Date.now();
-    // Return cached data if available and not expired
+    const DB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    // 1. Check memory cache first (1 hour TTL)
     if (scheduleCache && (currentTime - scheduleCacheTimestamp) < SCHEDULE_CACHE_TTL) {
-        console.log('[Schedule] Returning cached schedule data');
+        console.log('[Schedule] Returning cached schedule data from memory');
         return scheduleCache;
     }
+    // 2. Check database cache (24 hour TTL)
     try {
-        console.log('[Schedule] Fetching fresh schedule data');
+        console.log('[Schedule] Checking database cache...');
+        const cachedData = await dataCache_1.dataCache.getScheduleData();
+        if (cachedData) {
+            console.log(`[Schedule] Found schedule data in database cache with ${cachedData.games.length} games`);
+            scheduleCache = cachedData;
+            scheduleCacheTimestamp = currentTime;
+            return cachedData;
+        }
+    }
+    catch (error) {
+        console.warn('[Schedule] Database cache lookup failed, will fetch from API:', error instanceof Error ? error.message : error);
+    }
+    // 3. Fetch fresh data from API
+    try {
+        console.log('[Schedule] Fetching fresh schedule data from API');
         const rawData = await fetchNBASchedule();
         scheduleCache = parseScheduleData(rawData);
         scheduleCacheTimestamp = currentTime;
         console.log(`[Schedule] Successfully fetched schedule with ${scheduleCache.games.length} games`);
+        // 4. Store in database cache for 24 hours
+        try {
+            dataCache_1.dataCache.setScheduleData(scheduleCache);
+            console.log('[Schedule] Stored schedule data in database cache (24h TTL)');
+        }
+        catch (cacheError) {
+            console.warn('[Schedule] Failed to store in database cache:', cacheError instanceof Error ? cacheError.message : cacheError);
+            // Continue anyway - we still have the data in memory
+        }
         return scheduleCache;
     }
     catch (error) {
@@ -392,6 +418,7 @@ function clearScheduleCache() {
     scheduleCacheTimestamp = 0;
     console.log('[Schedule] Cache cleared');
 }
+// {"arena": "Chase Center", "away_team": {"points": 126, "team_abbreviation": "SAS", "team_id": 1610612759}, "gameLeaders": {"awayLeaders": {"assists": 8, "name": "De'Aaron Fox", "personId": 1628368, "points": 27, "rebounds": 9, "teamTricode": "SAS"}, "homeLeaders": {"assists": 8, "name": "Draymond Green", "personId": 203110, "points": 17, "rebounds": 12, "teamTricode": "GSW"}}, "game_date": "2026-02-11", "game_id": "0022500788", "game_status": "Final", "game_time_utc": null, "home_team": {"points": 113, "team_abbreviation": "GSW", "team_id": 1610612744}, "matchup": "GSW vs SAS", "top_scorer": {"assists": 8, "player_id": 203110, "player_name": "Draymond Green", "points": 17, "rebounds": 12, "team_id": 1610612744}}
 function formatGameResponse(games) {
     return games.map((game) => ({
         gameId: game.gameId,
@@ -465,20 +492,6 @@ async function getGamesForDate(date) {
             });
             return response.data;
         });
-        // TODO: Create a json backup of the raw data as cached files. 
-        // The request will check if the file exists first before making the API call.
-        // If it exists and is recent enough, use that instead of making the API call.
-        // Structure the files by js_res_bk -> ${date} folder and inside have schedule_${date}.json
-        /*
-        // Save the received data to a JSON file
-        const logsDir = path.join(__dirname, '../../logs');
-        if (!fs.existsSync(logsDir)) {
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-        const filename = path.join(logsDir, `schedule_data_${date.replace(/-/g, '_')}.json`);
-        fs.writeFileSync(filename, JSON.stringify(data, null, 2));
-       console.log(`Data saved to ${filename}`);
-        */
         // Check if we got valid data
         if (!data.resultSets || !data.resultSets.length) {
             throw new Error(`No game data found for ${date}`);

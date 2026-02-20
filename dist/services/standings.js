@@ -9,6 +9,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSeasonStandings = getSeasonStandings;
 const axios_1 = __importDefault(require("axios"));
+const dataCache_1 = require("./dataCache");
 // Cache duration in milliseconds (1 hour)
 const CACHE_DURATION = 3600000;
 // Cache for standings by season
@@ -45,13 +46,32 @@ async function retryAxiosRequest(requestFn, maxRetries = 3, baseDelay = 1000) {
  */
 async function getSeasonStandings(season) {
     try {
-        // Check cache first
+        const DB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        const cacheKey = `standings_${season}`;
+        // 1. Check in-memory cache first (1 hour TTL)
         const cached = standingsCache.get(season);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            console.log(`Returning cached standings for season ${season}`);
+            console.log(`[Standings] Returning cached standings for season ${season} from memory`);
             return cached.data;
         }
-        console.log(`Cache miss for standings ${season}, fetching from API`);
+        // 2. Check database cache (24 hour TTL)
+        try {
+            console.log(`[Standings] Checking database cache for season ${season}...`);
+            const dbCachedData = await dataCache_1.dataCache.getStandingsData(season);
+            if (dbCachedData) {
+                console.log(`[Standings] Found standings data in database cache for season ${season}`);
+                // Also populate memory cache
+                standingsCache.set(season, {
+                    data: dbCachedData,
+                    timestamp: Date.now()
+                });
+                return dbCachedData;
+            }
+        }
+        catch (error) {
+            console.warn(`[Standings] Database cache lookup failed for season ${season}, will fetch from API:`, error instanceof Error ? error.message : error);
+        }
+        console.log(`[Standings] Cache miss for standings ${season}, fetching from API`);
         const standingsResponse = await retryAxiosRequest(async () => {
             return await axios_1.default.get('https://stats.nba.com/stats/leaguestandingsv3', {
                 headers: {
@@ -71,7 +91,7 @@ async function getSeasonStandings(season) {
             });
         });
         if (!standingsResponse.data?.resultSets?.[0]?.rowSet) {
-            console.log(`No standings data found for season ${season}`);
+            console.log(`[Standings] No standings data found for season ${season}`);
             return null;
         }
         const headers = standingsResponse.data.resultSets[0].headers;
@@ -124,7 +144,7 @@ async function getSeasonStandings(season) {
                 }
             }
             catch (error) {
-                console.log(`Could not extract PPG/OPP PPG for team ${getValue('TeamID')}:`, error);
+                console.log(`[Standings] Could not extract PPG/OPP PPG for team ${getValue('TeamID')}:`, error);
             }
             return {
                 season_id: safeStr(getValue('SeasonID'), '0'),
@@ -153,15 +173,24 @@ async function getSeasonStandings(season) {
         const result = {
             standings
         };
-        // Cache the result
+        // Cache the result in memory
         standingsCache.set(season, {
             data: result,
             timestamp: Date.now()
         });
+        // 3. Store in database cache for 24 hours
+        try {
+            dataCache_1.dataCache.setStandingsData(season, result);
+            console.log(`[Standings] Stored standings data in database cache for season ${season} (24h TTL)`);
+        }
+        catch (cacheError) {
+            console.warn(`[Standings] Failed to store in database cache for season ${season}:`, cacheError instanceof Error ? cacheError.message : cacheError);
+            // Continue anyway - we have the data in memory
+        }
         return result;
     }
     catch (error) {
-        console.log(`Error fetching season standings for ${season}:`, error);
+        console.log(`[Standings] Error fetching season standings for ${season}:`, error);
         throw new Error(`Failed to fetch season standings: ${error}`);
     }
 }

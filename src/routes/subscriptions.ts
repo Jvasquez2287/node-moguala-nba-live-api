@@ -2,12 +2,65 @@ import express, { Request, Response } from 'express';
 import { stripeService, getStripeClient } from '../services/stripe';
 import clerkService from '../services/clerk';
 import subscriptionsService from '../services/subscriptions';
+import { emailService } from '../services/emailService';
 
 const router = express.Router();
 
 
 const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID || 'prod_QDRXMY3ecBW5bP';
 const PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1PN0eXC9Z59e8GjO06cltizs';
+
+
+
+/**
+ * Convert Stripe Unix timestamp (in seconds) to JavaScript Date object
+ * SQL Server datetime fields can accept Date objects which are properly serialized
+ * Stripe provides timestamps in seconds since epoch, JS Date expects milliseconds
+ * @param unixTimestamp - Stripe timestamp in seconds
+ * @returns JavaScript Date object for SQL Server
+ * @throws Error if timestamp is invalid or missing for required fields
+ */
+function convertStripeTimestamp(unixTimestamp: number | null | undefined): Date {
+  if (!unixTimestamp || typeof unixTimestamp !== 'number') {
+    throw new Error(`Invalid Stripe timestamp: ${unixTimestamp}. Stripe timestamps must be valid Unix seconds.`);
+  }
+
+  try {
+    // Stripe timestamps are in seconds, convert to milliseconds for JavaScript
+    const date = new Date(unixTimestamp * 1000);
+
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date after conversion: ${unixTimestamp}`);
+    }
+
+    console.log(`[Webhook] Converted timestamp ${unixTimestamp} to date: ${date.toISOString()}`);
+
+    // Return Date object for SQL Server (will be properly serialized)
+    return date;
+  } catch (error) {
+    console.error(`[Webhook] Error converting Stripe timestamp ${unixTimestamp}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Convert Stripe Unix timestamp for optional fields that can be null
+ * @param unixTimestamp - Stripe timestamp in seconds or null/undefined
+ * @returns JavaScript Date object or null
+ */
+function convertStripeTimestampNullable(unixTimestamp: number | null | undefined): Date | null {
+  if (!unixTimestamp || typeof unixTimestamp !== 'number') {
+    return null;
+  }
+
+  try {
+    return convertStripeTimestamp(unixTimestamp);
+  } catch (error) {
+    console.warn(`[Webhook] Failed to convert optional timestamp:`, error);
+    return null;
+  }
+}
 
 
 /**
@@ -37,7 +90,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] Returning subscription for customerId ${customerId}:`, subscription);
 
-   return  res.json({
+    return res.json({
       success: true,
       data: subscription
     });
@@ -61,15 +114,15 @@ router.get('/current', async (req: Request, res: Response) => {
       return res.json({ error: 'clerkId is required' });
     }
 
-    const subscription = await  stripeService.getSubscriptionFromDBWithClerkId(clerkId as string);
+    const subscription = await stripeService.getSubscriptionFromDBWithClerkId(clerkId as string);
 
-    console.log(`[Subscriptions] Subscription fetched from DB:`, subscription);
+    console.log(`[Subscriptions] Subscription fetched from DB`);
 
     if (!subscription) {
       return res.json({ error: 'Subscription not found' });
     }
 
-    console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}:`, subscription);
+    console.log(`[Subscriptions] Returning subscription for clientId ${clerkId}`);
 
     return res.json({
       success: true,
@@ -110,61 +163,7 @@ router.get('/:subscriptionId', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * POST /api/v1/subscriptions
- * Create a new subscription
- * Body: { customerId, priceId/productId, name }
- */
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { customerId, priceId, productId, name } = req.body;
-
-    if (!customerId || (!priceId && !productId)) {
-      return res.json({ error: 'customerId and (priceId or productId) are required' });
-    }
-
-    const subscriptions = await stripeService.getUsersSubscription();
-    const subscription = subscriptions.find((sub: any) => sub.customer === customerId);
-
-    const subscriptionData = {
-      stripe_id: customerId,
-      subscription_id: subscription?.id || '',
-      subscription_start_date: new Date(),
-      subscription_end_date: new Date(),
-      subscription_status: subscription?.status || 'active',
-      subscription_title: name || 'Premium Subscription',
-      subscription_next_billing_date: new Date(),
-      subscription_latest_invoice_Id: '',
-      subscription_invoice_pdf_url: '',
-      subscription_canceled_at: null,
-      subscription_cancel_at_period_end: subscription?.cancel_at_period_end || false,
-      product_id: productId || ''
-    };
-
-    // Check if subscription already exists - if so, update instead of create
-    const existingSubscription = await stripeService.getSubscriptionFromDB(customerId);
-    if (existingSubscription) {
-      console.log(`[Subscriptions] Subscription already exists for customerId: ${customerId}, updating instead`);
-      await stripeService.updateSubscriptionInDB(customerId, subscriptionData);
-      return res.status(200).json({
-        success: true,
-        data: subscriptionData,
-        message: 'Subscription updated'
-      });
-    }
-
-    await stripeService.createSubscriptionInDB(subscriptionData);
-
-    res.status(201).json({
-      success: true,
-      data: subscriptionData
-    });
-  } catch (error) {
-    console.error('[Subscriptions] Error creating subscription:', error);
-    res.json({ error: 'Failed to create subscription' });
-  }
-});
-
+  
 /**
  * DELETE /api/v1/subscriptions/cancel
  * Cancel a subscription (POST with body containing subscriptionId)
@@ -172,8 +171,8 @@ router.post('/', async (req: Request, res: Response) => {
 router.delete('/cancel', async (req: Request, res: Response) => {
   try {
     const { subscriptionId } = req.body;
-    
-    console.log(`[Subscriptions] Canceling subscription with ID:`, subscriptionId); 
+
+    console.log(`[Subscriptions] Canceling subscription with ID:`, subscriptionId);
 
     if (!subscriptionId) {
       return res.json({ error: 'subscriptionId is required in body' });
@@ -182,7 +181,7 @@ router.delete('/cancel', async (req: Request, res: Response) => {
     // Handle subscriptionId as array [dbId, stripeId] or string
     let dbId: number | string;
     let stripeSubscriptionId: string;
-    
+
     if (Array.isArray(subscriptionId)) {
       dbId = subscriptionId[0]; // Database ID
       stripeSubscriptionId = subscriptionId[1]; // Stripe subscription ID
@@ -190,31 +189,41 @@ router.delete('/cancel', async (req: Request, res: Response) => {
       stripeSubscriptionId = subscriptionId;
       dbId = subscriptionId;
     }
+  
+    // Cancel subscription in Stripe 
+    const sub = await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true }) as any; 
 
-    console.log(`[Subscriptions] Parsed IDs - DB ID: ${dbId}, Stripe ID: ${stripeSubscriptionId}`);
-
-    // Cancel subscription in Stripe
-    try {
-      await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true });
-      console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} canceled successfully`);
-    } catch (stripeError) {
-      console.error(`[Subscriptions] Error canceling Stripe subscription ${stripeSubscriptionId}:`, stripeError);
-    }
+    const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(sub.id);
+    const productData = await stripeService.getProductsByID(sub.plan?.product);
+    const canceledDate = new Date(sub?.canceled_at * 1000).toLocaleDateString();
+    const periodEnd = new Date(sub?.items?.data[0]?.current_period_end * 1000).toLocaleDateString();
 
     // Update subscription status in database
     const { executeQuery } = await import('../config/database');
     await executeQuery(
-      'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE id = @id OR subscription_id = @subId',
-      { 
-        status: 'canceled', 
-        now: new Date().toISOString(), 
+      'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now, subscription_cancel_at_period_end = @cancelAtPeriodEnd WHERE id = @id OR subscription_id = @subId',
+      {
+        status: 'active',
+        now: new Date().toISOString(),
+        cancelAtPeriodEnd: sub?.canceled_at,
         id: typeof dbId === 'number' ? dbId : parseInt(dbId as string),
-        subId: stripeSubscriptionId
+        subId: sub.id
       }
     );
 
-    console.log(`[Subscriptions] Updated subscription status in database`);
 
+    // Send cancellation notice but subscription is still active until period end
+    const cancelDate = new Date(sub.canceled_at * 1000).toLocaleDateString();
+    if (customerEmail) {
+      await emailService.sendCanceledEmail({
+        userEmail: customerEmail,
+        subscriptionTitle: (productData as any).name,
+        periodEnd,
+        cancelDate,
+      });
+    }
+
+    console.log(`[Subscriptions] Subscription canceled successfully for Stripe ID: ${stripeSubscriptionId}, DB ID: ${dbId}`);
     return res.json({
       success: true,
       message: 'Subscription canceled successfully',
@@ -228,87 +237,16 @@ router.delete('/cancel', async (req: Request, res: Response) => {
     res.json({ error: 'Failed to cancel subscription' });
   }
 });
-
-/**
- * DELETE /api/v1/subscriptions/:subscriptionId
- * Cancel a subscription by ID
- */
-router.delete('/:subscriptionId', async (req: Request, res: Response) => {
-  try {
-    const { subscriptionId } = req.params;
-
-    console.log(`[Subscriptions] Canceling subscription with ID: ${subscriptionId}`);
-    console.log('Body:', req.body);
-    console.log('Headers:', req.headers);
-
-    if (!subscriptionId) {
-      return res.json({ error: 'subscriptionId is required' });
-    }
-
-    // Get subscription from database
-    const subscription = await stripeService.getSubscriptionFromDB(subscriptionId);
-
-    if (!subscription) {
-      return res.json({ error: 'Subscription not found' });
-    }
-
-    // Cancel in Stripe if we have the Stripe subscription ID
-    if (subscription.subscription_id) {
-      try {
-        await getStripeClient().subscriptions.update(subscription.subscription_id, { cancel_at_period_end: true });
-        console.log(`[Subscriptions] Stripe subscription ${subscription.subscription_id} canceled successfully`);
-      } catch (stripeError) {
-        console.error(`[Subscriptions] Error canceling Stripe subscription:`, stripeError);
-      }
-    }
-
-    // Update subscription status in database
-    const { executeQuery } = await import('../config/database');
-    await executeQuery(
-      'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE subscription_id = @subId',
-      { status: 'canceled', now: new Date().toISOString(), subId: subscriptionId }
-    );
-
-    return res.json({
-      success: true,
-      message: 'Subscription canceled'
-    });
-  } catch (error) {
-    console.error('[Subscriptions] Error deleting subscription:', error);
-    res.json({ error: 'Failed to cancel subscription' });
-  }
-});
-
-
-router.delete('/cancel/:subscriptionId', async (req: Request, res: Response) => {
-  try {
-    const { subscriptionId } = req.params;
-    console.log(`[Subscriptions] Canceling Stripe subscription with ID: ${subscriptionId}`);
-
-    if (!subscriptionId) {
-      return res.json({ error: 'subscriptionId is required' });
-    } 
-    await getStripeClient().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
-    console.log(`[Subscriptions] Stripe subscription ${subscriptionId} canceled successfully`);
-    return res.json({
-      success: true,
-      message: 'Stripe subscription canceled'
-      });
-  } catch (error) {
-    console.error('[Subscriptions] Error canceling Stripe subscription:', error);
-    res.json({ error: 'Failed to cancel Stripe subscription' });
-  }
-});
-
+ 
 
 router.post('/reactivate', async (req: Request, res: Response) => {
   try {
     const { subscriptionId } = req.body;
 
-     // Handle subscriptionId as array [dbId, stripeId] or string
+    // Handle subscriptionId as array [dbId, stripeId] or string
     let dbId: number | string;
     let stripeSubscriptionId: string;
-    
+
     if (Array.isArray(subscriptionId)) {
       dbId = subscriptionId[0]; // Database ID
       stripeSubscriptionId = subscriptionId[1]; // Stripe subscription ID
@@ -316,37 +254,52 @@ router.post('/reactivate', async (req: Request, res: Response) => {
       stripeSubscriptionId = subscriptionId;
       dbId = subscriptionId;
     }
- 
+
     console.log(`[Subscriptions] Reactivating Stripe subscription with ID: ${stripeSubscriptionId}`);
     if (!subscriptionId || !stripeSubscriptionId) {
       return res.json({ error: 'subscriptionId is required in body' });
     }
-    
+
     // Reactivate subscription in Stripe
-    await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false });
-    console.log(`[Subscriptions] Stripe subscription ${stripeSubscriptionId} reactivated successfully`);
+    const sub = await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: false }) as any;
 
     // Update subscription status in database
     const { executeQuery } = await import('../config/database');
-    
+
     await executeQuery(
       'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = NULL, updated_at = @now WHERE id = @id OR subscription_id = @subId',
-      { 
-        status: 'active', 
+      {
+        status: 'active',
         now: new Date().toISOString(),
         id: typeof dbId === 'number' ? dbId : parseInt(dbId as string),
-        subId: stripeSubscriptionId
+        subId: sub.id
       }
     );
 
-    console.log(`[Subscriptions] Updated subscription status in database`);
+    const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(sub.id);
+    const productData = await stripeService.getProductsByID(sub.plan?.product);
+    const periodStart = new Date(sub?.items?.data[0]?.current_period_start * 1000).toLocaleDateString();
+    const periodEnd = new Date(sub?.items?.data[0]?.current_period_end * 1000).toLocaleDateString();
+
+    if (customerEmail) {
+      try {
+        await emailService.sendResumeEmail({
+          userEmail: customerEmail,
+          subscriptionTitle: (productData as any).name,
+          periodStart: periodStart || "N/A",
+          periodEnd: periodEnd || "N/A",
+        });
+      } catch (emailError) {
+        console.error('[Subscriptions] Error sending reactivation email:', emailError);
+      }
+    }
 
     return res.json({
       success: true,
       message: 'Subscription reactivated successfully',
       data: {
         dbId,
-        stripeSubscriptionId
+        stripeSubscriptionId: sub.id
       }
     });
   } catch (error) {
@@ -436,7 +389,7 @@ router.get('/product/:productId', async (req: Request, res: Response) => {
       } : null
     }));
 
-   return  res.json({
+    return res.json({
       success: true,
       productId,
       count: subscriptions.length,
@@ -659,7 +612,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
     console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
 
-   return  res.json({
+    return res.json({
       success: true,
       data: {
         sessionUrl: session.url,
@@ -687,7 +640,7 @@ router.get('/success', async (req: express.Request, res: express.Response) => {
 
     const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
 
-   return  res.json(result);
+    return res.json(result);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     res.json({

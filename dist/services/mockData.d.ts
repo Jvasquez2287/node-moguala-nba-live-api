@@ -108,6 +108,10 @@ export declare const mockPlayers: {
 export declare const createMockPlayByPlay: (gameId: string) => PlayByPlayResponse;
 export declare const createMockBoxScore: (gameId: string) => BoxScoreResponse;
 export declare const createMockGameLeaders: () => GameLeaders;
+export declare const createMockPeriods: () => Array<{
+    period: number;
+    score: number;
+}>;
 export declare const createMockLiveGames: (gameDate: string) => TypesLiveGame[];
 export declare const createMockScoreboard: () => TypesScoreboard;
 export declare const createMockKeyMoments: (gameId: string) => KeyMomentsResponse;

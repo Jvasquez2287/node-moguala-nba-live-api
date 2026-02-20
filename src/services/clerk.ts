@@ -184,7 +184,7 @@ export const clerkService = {
         updatedAt: new Date(clerkUser.updated_at)
       });
 
-      console.log(`[Clerk] User updated: ${email} (Stripe: ${stripeCustomer.id})`);
+      //console.log(`[Clerk] User updated: ${email} (Stripe: ${stripeCustomer.id})`);
       return result;
     } catch (error) {
       console.error('[Clerk] Error handling user updated:', error);

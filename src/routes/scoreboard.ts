@@ -18,6 +18,10 @@ const router = express.Router();
 // GET /api/scoreboard - Get live NBA scores
 router.get('/', async (req, res) => {
   try {
+      if (process.env.USE_MOCK_DATA === 'true') {
+        console.log('[Scoreboard] Using mock data for scoreboard');
+         await dataCache.refreshScoreboard(); // Ensure mock data is loaded
+      }
     console.log('[Scoreboard] route called');
     const scoreboard = await dataCache.getScoreboard();
     console.log('[Scoreboard] data:', scoreboard ? 'found' : 'null');

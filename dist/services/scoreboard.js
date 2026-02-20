@@ -217,10 +217,22 @@ async function getPlayByPlay(gameId) {
         }
         // Get all the game actions (shots, fouls, timeouts, etc.)
         const actions = playByPlayData.game.actions;
+        // Helper function to format clock time - "PT11M16.00S" to "11:16"
+        const formatClock = (clock) => {
+            const match = clock.match(/PT(\d+)M(\d{2})\.\d{2}S/);
+            if (match) {
+                const minutes = match[1].padStart(2, '0');
+                const seconds = match[2];
+                return `${minutes}:${seconds}`;
+            }
+            return clock; // Return original if format is unexpected
+        };
+        //const lastAction = actions[actions.length - 1];
+        //console.log(`Last play action number for game ${gameId}: ${lastAction.actionNumber}`);
         // Convert each action into our PlayByPlayEvent format
         const plays = actions.map((action) => ({
             action_number: action.actionNumber,
-            clock: action.clock,
+            clock: formatClock(action.clock),
             period: action.period,
             team_id: action.teamId,
             team_tricode: action.teamTricode,
@@ -231,10 +243,11 @@ async function getPlayByPlay(gameId) {
             score_home: action.scoreHome,
             score_away: action.scoreAway,
         }));
+        const last50Plays = plays.slice(-50);
         // Return all the plays
         return {
             game_id: gameId,
-            plays,
+            plays: last50Plays,
         };
     }
     catch (error) {

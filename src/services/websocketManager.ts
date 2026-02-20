@@ -38,7 +38,7 @@ export class ScoreboardWebSocketManager {
   private readonly CLEANUP_INTERVAL_PBP = 600000; // 10 minutes - clean up stale data
   private readonly MIN_UPDATE_INTERVAL_PBP = 2000; // Minimum 2 seconds between updates per game
   private readonly CLEANUP_THRESHOLD_PBP = 3600000; // 1 hour - remove stale timestamps older than this
- 
+
   constructor() {
     if (!this.initialized) {
       this.initialized = true;
@@ -133,7 +133,7 @@ export class ScoreboardWebSocketManager {
     if (this.activeConnections.size === 0) {
       this.lastUpdateTimestamp.clear();
     }
-  } 
+  }
 
   private async sendInitialData(websocket: WebSocket): Promise<void> {
 
@@ -152,8 +152,7 @@ export class ScoreboardWebSocketManager {
       if (scoreboardData && scoreboardData.scoreboard && scoreboardData.scoreboard.games && scoreboardData.scoreboard.games.length > 0) {
         const message = JSON.stringify({ scoreboard: scoreboardData.scoreboard });
         if (websocket.readyState === WebSocket.OPEN) {
-          websocket.send(message);
-          console.log(`[Scoreboard WebSocket] Sent initial data`, message); // Log a truncated version of the message
+          websocket.send(message); 
           console.log(`[Scoreboard WebSocket] Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
         } else {
           console.warn(`[Scoreboard WebSocket] Cannot send - websocket not open (readyState: ${websocket.readyState})`);
@@ -461,13 +460,15 @@ export class ScoreboardWebSocketManager {
 
   // Scoreboard Testing Method - Broadcast custom data to all clients
   async broadcastToAllClientsScoreBoard(data: any): Promise<number> {
-     
+
     try {
       if (process.env.USE_MOCK_DATA === 'false') {
         return 0; // Only allow manual broadcasts when using mock data to prevent interference with live data
       }
       let clientCount = 0;
       const disconnectedClients: WebSocket[] = [];
+
+      console.log(`[Scoreboard WS] Broadcasting custom data to all clients (active connections: ${this.activeConnections.size})` );
 
       for (const client of this.activeConnections) {
         try {
@@ -516,9 +517,9 @@ export class ScoreboardWebSocketManager {
 
       const playbyplayData = await dataCache.getPlaybyplay(gameId);
 
-      if (playbyplayData) { 
+      if (playbyplayData) {
         websocket.send(JSON.stringify({
-          [`playbyplay_${gameId}`]: playbyplayData 
+          [`playbyplay_${gameId}`]: playbyplayData
         }));
       } else {
         // Send empty structure if no data available yet
@@ -545,7 +546,7 @@ export class ScoreboardWebSocketManager {
           try {
             if (client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({
-                [`playbyplay_${gameId}`]: data 
+                [`playbyplay_${gameId}`]: data
               }));
               clientCount++;
             } else {
@@ -663,7 +664,7 @@ export class ScoreboardWebSocketManager {
 
     return false;
   }
- 
+
   private startGameBroadcasting(gameId: string): void {
     if (this.broadcastIntervalsPBP.has(gameId)) return;
 
@@ -674,6 +675,40 @@ export class ScoreboardWebSocketManager {
     // Set up periodic check for new plays
     const interval = setInterval(broadcast, this.BROADCAST_INTERVAL_PBP);
     this.broadcastIntervalsPBP.set(gameId, interval);
+  }
+
+  async broadcastKeyMomentsToAllClientsScoreBoard(data: any): Promise<number> {
+    try {
+      let clientCount = 0;
+      const disconnectedClients: WebSocket[] = [];
+
+      console.log(`[Scoreboard WS] Broadcasting key moments to all clients (active connections: ${this.activeConnections.size})`  );
+
+      for (const client of this.activeConnections) {
+        try {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              keyMoments: data
+            }));
+            clientCount++;
+          } else {
+            disconnectedClients.push(client);
+          }
+        } catch (error) {
+          console.error('[Scoreboard WS] Error sending to client:', error);
+          disconnectedClients.push(client);
+        }
+      }
+
+      // Clean up disconnected clients
+      disconnectedClients.forEach(client => this.activeConnections.delete(client));
+
+      console.log(`[Scoreboard WS] Key moments broadcast sent to ${clientCount} clients`);
+      return clientCount;
+    } catch (error) {
+      console.error('[Scoreboard WS] Error in broadcastToAllClients:', error);
+      return 0;
+    }
   }
 
   startPBPBroadcasting(): void {
@@ -785,7 +820,7 @@ export class ScoreboardWebSocketManager {
   getGameCountPBP(): number {
     return this.activeConnectionsPBP.size;
   }
- 
+
 }
 
 

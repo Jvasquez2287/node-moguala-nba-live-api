@@ -6,9 +6,12 @@
  */
 interface BetPrediction {
     visitorOveral: number;
+    visitorStatus: 'OVER' | 'UNDER' | 'UNKNOW';
     homeOveral: number;
+    homeStatus: 'OVER' | 'UNDER' | 'UNKNOW';
     riskLevel: 'HIGH' | 'LOW' | 'MEDIUM' | 'UNKNOW';
     status: 'OVER' | 'UNDER' | 'UNKNOW';
+    showPrediction?: boolean;
 }
 /**
 * DoMath utility class

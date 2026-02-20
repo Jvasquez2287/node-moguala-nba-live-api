@@ -168,7 +168,8 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
       rawGames = mockData.createMockScoreboard().games;
       gameDate = mockData.createMockScoreboard().gameDate;
     } 
- 
+     
+
       const transformedData: ScoreboardResponse = {
           scoreboard: {
             gameDate:  gameDate || new Date().toISOString().split('T')[0],
@@ -260,10 +261,24 @@ export async function getPlayByPlay(gameId: string): Promise<PlayByPlayResponse>
     // Get all the game actions (shots, fouls, timeouts, etc.)
     const actions = playByPlayData.game.actions;
 
+    // Helper function to format clock time - "PT11M16.00S" to "11:16"
+    const formatClock = (clock: string): string => {
+      const match = clock.match(/PT(\d+)M(\d{2})\.\d{2}S/);
+      if (match) {
+        const minutes = match[1].padStart(2, '0');
+        const seconds = match[2];
+        return `${minutes}:${seconds}`;
+      }
+      return clock; // Return original if format is unexpected
+    };
+
+    //const lastAction = actions[actions.length - 1];
+    //console.log(`Last play action number for game ${gameId}: ${lastAction.actionNumber}`);
+
     // Convert each action into our PlayByPlayEvent format
     const plays: PlayByPlayEvent[] = actions.map((action: any) => ({
       action_number: action.actionNumber,
-      clock: action.clock,
+      clock: formatClock(action.clock),
       period: action.period,
       team_id: action.teamId,
       team_tricode: action.teamTricode,
@@ -275,10 +290,12 @@ export async function getPlayByPlay(gameId: string): Promise<PlayByPlayResponse>
       score_away: action.scoreAway,
     }));
 
+    const last50Plays = plays.slice(-50);
+
     // Return all the plays
     return {
       game_id: gameId,
-      plays,
+       plays: last50Plays,
     };
   } catch (error) {
     // If play-by-play API fails (e.g., game hasn't started), return empty response

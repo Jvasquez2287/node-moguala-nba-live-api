@@ -113,7 +113,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
     }
 
     console.log(`[Webhook] Processing Stripe webhook...`);
-  
+
     const event = getStripeClient().webhooks.constructEvent(
       body,
       sig,
@@ -190,23 +190,25 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
           product_id: data.items.data[0].plan.product
         };
 
+        const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
+
         // Get previous status to detect status changes
-        const previousSub = await stripeService.getSubscriptionFromDB(data.customer);
+        const previousSub = await stripeService.getSubscriptionFromDBWithSubscriptionId(subscriptionData.subscription_id);
         const previousStatus = previousSub?.subscription_status;
 
-        await stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
 
         // Send email based on status change
         try {
-          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
-          console.log(`[Webhook] Subscription updated for customer: ${data.customer}, email: ${customerEmail}, previous status: ${previousStatus}, new status: ${data.status}` );
+
           if (customerEmail) {
+            console.log(`[Webhook] Subscription updated for customer: ${data.customer}, email: ${customerEmail}, previous status: ${previousSub?.subscription_cancel_at_period_end}, new status: ${subscriptionData.subscription_cancel_at_period_end}`);
+
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
-
-            // Check if subscription was reactivated (cancel_at_period_end = false after being true)
-            if (subscriptionData.subscription_cancel_at_period_end === false && previousSub?.subscription_cancel_at_period_end === true) {
-              console.log(`[Webhook] Detected subscription reactivation for customer: ${data.customer}`);
+ 
+            // Check if subscription was resumed (status active after being inactive)
+             if (data.status === 'active' && previousStatus !== 'active') {
+              console.log(`\n\n[Webhook] Detected subscription renewal/resume for customer: ${data.customer}\n\n`);
               await emailService.sendReactivateEmail({
                 userEmail: customerEmail,
                 subscriptionTitle: (productData as any).name,
@@ -214,29 +216,11 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
                 periodEnd,
               });
             }
-            // Check if subscription was resumed (status active after being inactive)
-            else if (data.status === 'active' && previousStatus !== 'active') {
-              console.log(`[Webhook] Detected subscription renewal/resume for customer: ${data.customer}`);
-              await emailService.sendResumeEmail({
-                userEmail: customerEmail,
-                subscriptionTitle: (productData as any).name,
-                periodStart,
-                periodEnd,
-              });
-            }
-            // Check if subscription was canceled (either now or scheduled)
-            else if (subscriptionData.subscription_cancel_at_period_end === true && previousSub?.subscription_cancel_at_period_end === false) {
-              console.log(`[Webhook] Detected subscription pause/scheduled cancellation for customer: ${data.customer}`);
-              // Send cancellation notice but subscription is still active until period end
-              const cancelDate = new Date(data.canceled_at * 1000).toLocaleDateString();
-              await emailService.sendCanceledEmail({
-                userEmail: customerEmail,
-                subscriptionTitle: (productData as any).name,
-                periodEnd,
-                cancelDate,
-              });
-            }
+ 
           }
+            
+          await stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+
         } catch (emailError) {
           console.error('[Webhook] Error sending update email:', emailError);
         }
@@ -245,10 +229,10 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
         return res.json({ received: true });
       }
 
-      case 'customer.subscription.deleted': { 
+      case 'customer.subscription.deleted': {
         // Send cancellation email
         try {
-          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(data.id) ;
+          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(data.id);
           if (customerEmail) {
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
             const cancelDate = new Date().toLocaleDateString();
@@ -275,7 +259,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
           'UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId',
           { status: 'canceled', now: new Date(), stripeId: data.customer }
         );
-        console.log(`[Webhook] Subscription deleted for customer: ${data.id }`);
+        console.log(`[Webhook] Subscription deleted for customer: ${data.id}`);
         return res.json({ received: true });
       }
 
@@ -289,7 +273,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
 
         // Send payment failed email
         try {
-          const customerEmail =  await stripeService.getCustomerEmailBySubscriptionId(data.id) ;
+          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(data.id);
           if (customerEmail) {
             await emailService.sendErrorEmail({
               userEmail: customerEmail,

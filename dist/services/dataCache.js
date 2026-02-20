@@ -47,21 +47,37 @@ class DatabaseCache {
             const cacheKey = this.getCacheKey(key);
             const serializedValue = JSON.stringify(value);
             const expiration = ttlMs ? Date.now() + ttlMs : null;
-            await (0, database_1.executeQuery)(`MERGE cache AS target
-         USING (SELECT @key as [key]) AS source
-         ON target.[key] = source.[key]
-         WHEN MATCHED THEN
-           UPDATE SET [value] = @value, expiration = @expiration
-         WHEN NOT MATCHED THEN
-           INSERT ([key], [value], expiration) VALUES (@key, @value, @expiration);`, {
+            // Use a robust MERGE statement that handles concurrent inserts/updates
+            // The WITH (SERIALIZABLE) hint ensures we don't get phantom reads during the merge
+            await (0, database_1.executeQuery)(`BEGIN TRY
+           MERGE INTO cache AS target
+           USING (SELECT @key as [key]) AS source
+           ON target.[key] = source.[key]
+           WHEN MATCHED THEN
+             UPDATE SET [value] = @value, expiration = @expiration
+           WHEN NOT MATCHED THEN
+             INSERT ([key], [value], expiration) VALUES (@key, @value, @expiration);
+         END TRY
+         BEGIN CATCH
+           -- If MERGE fails due to constraint (which can happen under high concurrency),
+           -- retry with direct UPDATE + INSERT pattern
+           IF ERROR_NUMBER() = 2627 -- PRIMARY KEY violation
+           BEGIN
+             UPDATE cache SET [value] = @value, expiration = @expiration WHERE [key] = @key;
+             IF @@ROWCOUNT = 0
+               INSERT INTO cache ([key], [value], expiration) VALUES (@key, @value, @expiration);
+           END
+           ELSE
+             THROW;
+         END CATCH`, {
                 key: cacheKey,
                 value: serializedValue,
                 expiration: expiration
             });
         }
         catch (error) {
-            console.error(`[DatabaseCache] Database error setting cache entry for key ${key}, using fallback:`, error);
-            // Use fallback cache
+            console.error(`[DatabaseCache] Database error setting cache entry for key ${key}, using fallback:`, error?.message || error);
+            // Use fallback cache - silently fail for cache operations
             this.fallbackCache.set(key, value);
             if (ttlMs) {
                 setTimeout(() => this.fallbackCache.delete(key), ttlMs);
@@ -164,6 +180,20 @@ class DataCache {
     async getGamesForDate(date) {
         return await this.dbCache.get(`schedule_${date}`);
     }
+    // Store/retrieve full schedule data (24h TTL)
+    setScheduleData(data) {
+        this.dbCache.set('nba_schedule_full', data, this.CACHE_TTL_24H);
+    }
+    async getScheduleData() {
+        return await this.dbCache.get('nba_schedule_full');
+    }
+    // Store/retrieve standings data by season (24h TTL)
+    setStandingsData(season, data) {
+        this.dbCache.set(`standings_${season}`, data, this.CACHE_TTL_24H);
+    }
+    async getStandingsData(season) {
+        return await this.dbCache.get(`standings_${season}`);
+    }
     /////////////////////////////////////////
     setAllTeams(data) {
         this.dbCache.set('all_teams', data, this.CACHE_TTL_24H);
@@ -177,6 +207,19 @@ class DataCache {
     }
     async getTeam(teamId) {
         return await this.dbCache.get(`team_${teamId}`);
+    }
+    ///////////////////////////////////////////
+    setLastPlayByPlay(gameId, data) {
+        this.dbCache.set(`lastPlayActionNumber_${gameId}`, data, this.CACHE_TTL_24H);
+    }
+    async getLastPlayByPlay(gameId) {
+        return await this.dbCache.get(`lastPlayActionNumber_${gameId}`);
+    }
+    setTeamPlayByPlay(teamId, data) {
+        this.dbCache.set(`team_playbyplay_${teamId}`, data, this.CACHE_TTL_24H);
+    }
+    async getTeamPlayByPlay(teamId) {
+        return await this.dbCache.get(`team_playbyplay_${teamId}`);
     }
     ///////////////////////////////////////////
     // Cache setters

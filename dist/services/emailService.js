@@ -65,8 +65,6 @@ class EmailService {
             };
             const templatePath = path_1.default.join(__dirname, '..', 'templates', templateMap[templateName]);
             let htmlContent = await promises_1.default.readFile(templatePath, 'utf-8');
-            // Log original template content for debugging
-            console.log(`[EmailService] Processing template ${templateName} with data:`, Object.keys(data));
             // Replace all template variables {{KEY}} with actual data values
             Object.entries(data).forEach(([key, value]) => {
                 const regex = new RegExp(`{{${key}}}`, 'g');

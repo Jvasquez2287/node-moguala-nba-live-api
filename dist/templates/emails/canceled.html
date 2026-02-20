@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Canceled</title>
-    <style>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Subscription Canceled</title>
+        <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Roboto, sans-serif;
@@ -29,22 +29,25 @@
         .header {
             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             padding: 30px;
+            padding-bottom: 0px;    
             text-align: center;
         }
         .logo {
             max-width: 80px;
             height: auto;
             margin-bottom: 20px;
+            padding-top: 20px;
         }
         .header h1 {
             color: white;
             font-size: 28px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
-        .header p {
+          .header p {
             color: rgba(255,255,255,0.9);
             font-size: 14px;
+             padding-bottom: 4px;
         }
         .content {
             padding: 40px 30px;
@@ -168,71 +171,91 @@
         .footer-link:hover {
             text-decoration: underline;
         }
+         .header-logo
+        { 
+            text-align: center;
+            justify-content: center;
+        }
     </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <img src="https://nba.m-api.net/api/v1/test/convert" alt="MO'GUALA" class="logo">
-            <h1>Subscription Canceled</h1> 
-            <p>Your subscription has been canceled</p>
-        </div>
-        
-        <div class="content">
-            <div class="cancel-section">
-                <p>We've successfully canceled your MO'GUALA subscription.</p>
-                <p>Your access details are listed below. If you have any questions, we're here to help.</p>
+    </head>
+    <body>
+        <div class="email-container">
+            <div class="header-logo">
+                <img src="https://nba.m-api.net/api/v1/test/convert"
+                    alt="MO'GUALA" class="logo">
+            </div>
+            <div class="header">
+                <h1>Subscription Canceled</h1>
+                <p>Your subscription has been canceled</p>
             </div>
 
-            <table class="info-table">
-                <tr>
-                    <td class="table-label">Status</td>
-                    <td class="table-value"><span class="status-badge">Canceled</span></td>
-                </tr>
-                <tr>
-                    <td class="table-label">Subscription</td>
-                    <td class="table-value">{{subscription_title}}</td>
-                </tr>
-                <tr>
-                    <td class="table-label">Canceled On</td>
-                    <td class="table-value">{{cancel_date}}</td>
-                </tr>
-                <tr>
-                    <td class="table-label">Final Billing</td>
-                    <td class="table-value">{{period_end}}</td>
-                </tr>
-            </table>
-
-            <div class="cancel-notice">
-                <h3>What Happens Now</h3>
-                <p>Your premium access will remain active until the end of your current billing period ({{period_end}}). After that date, your access will be revoked.</p>
-            </div>
-
-            <div class="options">
-                <h4>What You Can Do</h4>
-                <div class="option-item">
-                    <strong>Reactivate Anytime:</strong> You can reactivate your subscription at any time through your account dashboard.
+            <div class="content">
+                <div class="cancel-section">
+                    <p>We've successfully canceled your MO'GUALA
+                        subscription.</p>
+                    <p>Your access details are listed below. If you have any
+                        questions, we're here to help.</p>
                 </div>
-                <div class="option-item">
-                    <strong>Export Your Data:</strong> Download your saved preferences and history before your access expires.
+
+                <table class="info-table">
+                    <tr>
+                        <td class="table-label">Status</td>
+                        <td class="table-value"><span
+                                class="status-badge">Canceled</span></td>
+                    </tr>
+                    <tr>
+                        <td class="table-label">Subscription</td>
+                        <td class="table-value">{{subscription_title}}</td>
+                    </tr>
+                    <tr>
+                        <td class="table-label">Canceled On</td>
+                        <td class="table-value">{{cancel_date}}</td>
+                    </tr>
+                    <tr>
+                        <td class="table-label">Final Billing</td>
+                        <td class="table-value">{{period_end}}</td>
+                    </tr>
+                </table>
+
+                <div class="cancel-notice">
+                    <h3>What Happens Now</h3>
+                    <p>Your premium access will remain active until the end of
+                        your current billing period ({{period_end}}). After that
+                        date, your access will be revoked.</p>
                 </div>
-                <div class="option-item">
-                    <strong>Contact Us:</strong> We'd love to hear feedback on why you canceled. Reach out to our support team.
+
+                <div class="options">
+                    <h4>What You Can Do</h4>
+                    <div class="option-item">
+                        <strong>Reactivate Anytime:</strong> You can reactivate
+                        your subscription at any time through your account
+                        dashboard.
+                    </div>
+                    <div class="option-item">
+                        <strong>Export Your Data:</strong> Download your saved
+                        preferences and history before your access expires.
+                    </div>
+                    <div class="option-item">
+                        <strong>Contact Us:</strong> We'd love to hear feedback
+                        on why you canceled. Reach out to our support team.
+                    </div>
                 </div>
+
+                <div class="footer-note">
+                    ⚠️ No refund will be issued for the current billing period.
+                    Your account data will be retained for 30 days.
+                </div>
+
+                <p style="color: #6b7280; font-size: 14px; margin: 20px 0;">
+                    We'll miss you! If there's anything we could have done
+                    better, or if you'd like to give us feedback, please don't
+                    hesitate to reach out.
+                </p>
             </div>
 
-            <div class="footer-note">
-                ⚠️ No refund will be issued for the current billing period. Your account data will be retained for 30 days.
+            <div class="footer">
+                <p>© 2026 MO'GUALA. All rights reserved.</p>
             </div>
-
-            <p style="color: #6b7280; font-size: 14px; margin: 20px 0;">
-                We'll miss you! If there's anything we could have done better, or if you'd like to give us feedback, please don't hesitate to reach out.
-            </p>
         </div>
-
-        <div class="footer">
-            <p>© 2026 MO'GUALA. All rights reserved.</p> 
-        </div>
-    </div>
-</body>
+    </body>
 </html>

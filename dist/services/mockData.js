@@ -23,7 +23,8 @@
  * They provide realistic data structures that match the actual API responses.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createMockWinProbability = exports.createMockKeyMoments = exports.createMockScoreboard = exports.createMockLiveGames = exports.createMockGameLeaders = exports.createMockBoxScore = exports.createMockPlayByPlay = exports.mockPlayers = exports.mockTeams = void 0;
+exports.createMockWinProbability = exports.createMockKeyMoments = exports.createMockScoreboard = exports.createMockLiveGames = exports.createMockPeriods = exports.createMockGameLeaders = exports.createMockBoxScore = exports.createMockPlayByPlay = exports.mockPlayers = exports.mockTeams = void 0;
+const lodash_1 = require("lodash");
 // ============================================================================
 // MOCK TEAMS DATA
 // ============================================================================
@@ -532,6 +533,15 @@ const createMockGameLeaders = () => {
     };
 };
 exports.createMockGameLeaders = createMockGameLeaders;
+const createMockPeriods = () => {
+    return [
+        { period: 1, score: (0, lodash_1.random)(8, 30) },
+        { period: 2, score: (0, lodash_1.random)(8, 30) },
+        { period: 3, score: (0, lodash_1.random)(8, 30) },
+        { period: 4, score: (0, lodash_1.random)(8, 30) }
+    ];
+};
+exports.createMockPeriods = createMockPeriods;
 // ============================================================================
 // MOCK LIVE GAMES
 // ============================================================================
@@ -546,11 +556,13 @@ const createMockLiveGames = (gameDate) => {
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...exports.mockTeams.BOS,
-                score: 112
+                score: 112,
+                periods: (0, exports.createMockPeriods)()
             },
             awayTeam: {
                 ...exports.mockTeams.LAL,
-                score: 108
+                score: 108,
+                periods: (0, exports.createMockPeriods)()
             },
             gameLeaders: (0, exports.createMockGameLeaders)()
         },
@@ -578,7 +590,8 @@ const createMockLiveGames = (gameDate) => {
                     teamTricode: 'GSW',
                     points: 31,
                     rebounds: 4,
-                    assists: 9
+                    assists: 9,
+                    periods: (0, exports.createMockPeriods)()
                 },
                 awayLeaders: {
                     personId: 201950,
@@ -588,7 +601,8 @@ const createMockLiveGames = (gameDate) => {
                     teamTricode: 'DEN',
                     points: 28,
                     rebounds: 3,
-                    assists: 7
+                    assists: 7,
+                    periods: (0, exports.createMockPeriods)()
                 }
             }
         },

@@ -18,6 +18,11 @@ export interface PlayByPlayResponse {
   plays: PlayByPlayEvent[];
 }
 
+export interface LastPlayByPlayActionNumber {
+  game_id: string;
+  last_action_number: number;
+}
+
 // Team types
 export interface Team {
   teamId: number;
@@ -28,6 +33,7 @@ export interface Team {
   losses?: number;
   score?: number;
   timeoutsRemaining?: number;
+  periods?: { period: number; score: number }[];
 }
 
 // Game types
@@ -61,6 +67,10 @@ export interface GameLeaderStats {
   points: number | null;
   rebounds: number | null;
   assists: number | null;
+  periods?: Array<{
+    period: number;
+    score: number;
+  }>;
 }
 
 export interface GameLeaders {

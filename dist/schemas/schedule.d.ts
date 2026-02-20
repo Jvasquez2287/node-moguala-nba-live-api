@@ -30,6 +30,10 @@ export interface GameLeader {
     points: number;
     rebounds: number;
     assists: number;
+    periods?: Array<{
+        period: number;
+        score: number;
+    }>;
 }
 /**
  * Game leaders for both teams with season averages

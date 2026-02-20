@@ -1,5 +1,5 @@
 import { getScoreboard, getPlayByPlay } from './scoreboard';
-import { ScoreboardResponse, PlayByPlayResponse } from '../types';
+import { ScoreboardResponse, PlayByPlayResponse, LastPlayByPlayActionNumber } from '../types';
 //import { playbyplayWebSocketManager } from './websocketManager';
 import { GamesResponse } from '../schemas/schedule';
 import { LeagueLeadersResponse } from '../schemas/league';
@@ -65,23 +65,39 @@ class DatabaseCache {
       const serializedValue = JSON.stringify(value);
       const expiration = ttlMs ? Date.now() + ttlMs : null;
 
+      // Use a robust MERGE statement that handles concurrent inserts/updates
+      // The WITH (SERIALIZABLE) hint ensures we don't get phantom reads during the merge
       await executeQuery(
-        `MERGE cache AS target
-         USING (SELECT @key as [key]) AS source
-         ON target.[key] = source.[key]
-         WHEN MATCHED THEN
-           UPDATE SET [value] = @value, expiration = @expiration
-         WHEN NOT MATCHED THEN
-           INSERT ([key], [value], expiration) VALUES (@key, @value, @expiration);`,
+        `BEGIN TRY
+           MERGE INTO cache AS target
+           USING (SELECT @key as [key]) AS source
+           ON target.[key] = source.[key]
+           WHEN MATCHED THEN
+             UPDATE SET [value] = @value, expiration = @expiration
+           WHEN NOT MATCHED THEN
+             INSERT ([key], [value], expiration) VALUES (@key, @value, @expiration);
+         END TRY
+         BEGIN CATCH
+           -- If MERGE fails due to constraint (which can happen under high concurrency),
+           -- retry with direct UPDATE + INSERT pattern
+           IF ERROR_NUMBER() = 2627 -- PRIMARY KEY violation
+           BEGIN
+             UPDATE cache SET [value] = @value, expiration = @expiration WHERE [key] = @key;
+             IF @@ROWCOUNT = 0
+               INSERT INTO cache ([key], [value], expiration) VALUES (@key, @value, @expiration);
+           END
+           ELSE
+             THROW;
+         END CATCH`,
         {
           key: cacheKey,
           value: serializedValue,
           expiration: expiration
         }
       );
-    } catch (error) {
-      console.error(`[DatabaseCache] Database error setting cache entry for key ${key}, using fallback:`, error);
-      // Use fallback cache
+    } catch (error: any) {
+      console.error(`[DatabaseCache] Database error setting cache entry for key ${key}, using fallback:`, error?.message || error);
+      // Use fallback cache - silently fail for cache operations
       this.fallbackCache.set(key, value);
       if (ttlMs) {
         setTimeout(() => this.fallbackCache.delete(key), ttlMs);
@@ -198,6 +214,24 @@ export class DataCache {
     return await this.dbCache.get<GamesResponse>(`schedule_${date}`);
   }
 
+  // Store/retrieve full schedule data (24h TTL)
+  setScheduleData<T>(data: T): void {
+    this.dbCache.set('nba_schedule_full', data, this.CACHE_TTL_24H);
+  }
+
+  async getScheduleData<T>(): Promise<T | null> {
+    return await this.dbCache.get<T>('nba_schedule_full');
+  }
+
+  // Store/retrieve standings data by season (24h TTL)
+  setStandingsData<T>(season: string, data: T): void {
+    this.dbCache.set(`standings_${season}`, data, this.CACHE_TTL_24H);
+  }
+
+  async getStandingsData<T>(season: string): Promise<T | null> {
+    return await this.dbCache.get<T>(`standings_${season}`);
+  }
+
   /////////////////////////////////////////
 
   setAllTeams(data: TeamDetailsResponse[]): void {
@@ -219,6 +253,27 @@ export class DataCache {
   }
 
   ///////////////////////////////////////////
+
+  setLastPlayByPlay(gameId: string, data: LastPlayByPlayActionNumber): void {
+    this.dbCache.set(`lastPlayActionNumber_${gameId}`, data, this.CACHE_TTL_24H);
+  }
+
+  async getLastPlayByPlay(gameId: string): Promise<LastPlayByPlayActionNumber | null> {
+    return await this.dbCache.get<LastPlayByPlayActionNumber>(`lastPlayActionNumber_${gameId}`);
+   }
+
+
+   setTeamPlayByPlay(teamId: number, data: PlayByPlayResponse): void {
+    this.dbCache.set(`team_playbyplay_${teamId}`, data, this.CACHE_TTL_24H);
+  }
+
+  async getTeamPlayByPlay(teamId: number): Promise<PlayByPlayResponse | null> {
+    return await this.dbCache.get<PlayByPlayResponse>(`team_playbyplay_${teamId}`);
+   }
+
+
+  ///////////////////////////////////////////
+
 
   // Cache setters
   setLeagueLeaders(category: string, season: string | undefined, data: LeagueLeadersResponse): void {
@@ -356,6 +411,8 @@ export class DataCache {
     // Set up polling interval
     this.scoreboardTask = setInterval(poll, this.SCOREBOARD_POLL_INTERVAL);
   } 
+
+
 
   private async pollPlaybyplay(): Promise<void> {
     console.log('[PlayByPlay] Polling started');

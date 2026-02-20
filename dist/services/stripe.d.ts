@@ -74,6 +74,7 @@ export declare const stripeService: {
     getCustomerSubscriptions(customerId: string): Promise<Stripe.Subscription[]>;
     getSubscriptionFromDBWithClerkId(clerkId: string): Promise<any>;
     getSubscriptionFromDBWithUserId(userId: string): Promise<any>;
+    getSubscriptionFromDBWithSubscriptionId(subscriptionId: string): Promise<any>;
     /**
      * Get subscription from database
      */

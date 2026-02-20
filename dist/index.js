@@ -162,6 +162,7 @@ const search_1 = __importDefault(require("./routes/search"));
 const predictions_1 = __importDefault(require("./routes/predictions"));
 const league_1 = __importDefault(require("./routes/league"));
 const scoreboard_1 = __importDefault(require("./routes/scoreboard"));
+const keyMoments_1 = __importDefault(require("./routes/keyMoments"));
 const logo_1 = __importDefault(require("./routes/logo"));
 const subscriptions_1 = __importDefault(require("./routes/subscriptions"));
 const users_1 = __importDefault(require("./routes/users"));
@@ -181,6 +182,7 @@ app.use("/api/v1", predictions_1.default); // Predictions routes mounted after s
 app.use("/api/v1", league_1.default); // League routes mounted after teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
 app.use("/api/v1", players_1.default); // Player routes mounted after teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
 app.use("/api/v1/scoreboard", scoreboard_1.default); // Scoreboard routes mounted on /scoreboard to avoid conflicts with schedule and ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
+app.use('/api/v1/key-moments', keyMoments_1.default); // Key moments routes - game-tying shots, lead changes, scoring runs, clutch plays, big shots
 app.use('/api/v1/logo', logo_1.default); // Logo routes mounted before subscriptions and users to ensure they are accessible without subscription checks
 app.use('/api/v1/subscriptions', subscriptions_1.default); // Subscription management routes
 app.use('/api/v1/users', users_1.default); // User management routes - moved after subscriptions to ensure any subscription checks in user routes have access to subscription data
@@ -277,7 +279,7 @@ app.get('/subscriptions/cancel', async (req, res) => {
 });
 // Import WebSocket managers and services
 const websocketManager_1 = require("./services/websocketManager");
-const keyMoments_1 = require("./services/keyMoments");
+const keyMoments_2 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
@@ -318,16 +320,6 @@ wss.on("connection", (ws, req) => {
             console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
             websocketManager_1.webSocketManager.handleConnection(ws);
         }
-        else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
-            const gameId = url.split("/").pop();
-            /*   if (gameId) {
-                 console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
-                 playbyplayWebSocketManager.handleConnection(ws, gameId);
-               } else {
-                 console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
-                 ws.close();
-               }*/
-        }
         else {
             console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
             // Don't close for unknown URLs, just log them
@@ -346,13 +338,6 @@ catch (error) {
     console.error('Error starting data cache:', error);
 }
 try {
-    (0, keyMoments_1.startCleanupTask)();
-    console.log('[Cleanup] Task started');
-}
-catch (error) {
-    console.error('[Cleanup] Error starting cleanup task:', error);
-}
-try {
     websocketManager_1.webSocketManager.startBroadcasting();
     websocketManager_1.webSocketManager.startPBPBroadcasting();
     console.log('[WebSocket] Broadcasting started');
@@ -367,6 +352,21 @@ try {
 }
 catch (error) {
     console.error('[WebSocket] Error starting cleanup tasks:', error);
+}
+// Key moments service - detects game-tying shots, lead changes, scoring runs, clutch plays, and big shots
+try {
+    (0, keyMoments_2.startCleanupTask)();
+    console.log('[KeyMoments] Cleanup task started');
+}
+catch (error) {
+    console.error('[KeyMoments] Error starting cleanup task:', error);
+}
+try {
+    (0, keyMoments_2.startProcessingTask)();
+    console.log('[KeyMoments] Moment detection task started');
+}
+catch (error) {
+    console.error('[KeyMoments] Error starting processing task:', error);
 }
 // Start server
 const PORT = isIISNode ? (process.env.PORT || 'nba-api.local') : parseInt(process.env.PORT || '8000');
@@ -452,7 +452,8 @@ else {
 process.on("SIGTERM", async () => {
     console.log('[Shutdown] SIGTERM received - closing gracefully');
     await dataCache_1.dataCache.stopPolling();
-    await (0, keyMoments_1.stopCleanupTask)();
+    await (0, keyMoments_2.stopCleanupTask)();
+    await (0, keyMoments_2.stopProcessingTask)();
     await websocketManager_1.webSocketManager.stopCleanupTask();
     await websocketManager_1.webSocketManager.stopPBPCleanupTask();
     clerk_1.default.stopAutoSync();
@@ -463,7 +464,8 @@ process.on("SIGTERM", async () => {
 process.on("SIGINT", async () => {
     console.log('[Shutdown] SIGINT received - closing gracefully');
     await dataCache_1.dataCache.stopPolling();
-    await (0, keyMoments_1.stopCleanupTask)();
+    await (0, keyMoments_2.stopCleanupTask)();
+    await (0, keyMoments_2.stopProcessingTask)();
     await websocketManager_1.webSocketManager.stopCleanupTask();
     await websocketManager_1.webSocketManager.stopPBPCleanupTask();
     clerk_1.default.stopAutoSync();

@@ -48,6 +48,7 @@ export declare class ScoreboardWebSocketManager {
     private broadcastPBPUpdates;
     private hasPBPChanged;
     private startGameBroadcasting;
+    broadcastKeyMomentsToAllClientsScoreBoard(data: any): Promise<number>;
     startPBPBroadcasting(): void;
     startPBPCleanupTask(): void;
     stopPBPCleanupTask(): void;

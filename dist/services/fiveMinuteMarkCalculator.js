@@ -39,7 +39,7 @@ class DoMath {
         const divQs = sumQs / 3;
         const div2Qs = divQs / 12;
         const xQs = div2Qs * 7;
-        return xQs;
+        return Math.round(xQs);
     }
     /**
      * Calculate betting status (OVER/UNDER) based on predicted vs actual Q4 score
@@ -59,8 +59,8 @@ class DoMath {
         let homeStatus = 'UNKNOW';
         let visitorStatus = 'UNKNOW';
         // Calculate overall difference from predicted score
-        const visitorOverall = homeQ4 - h;
-        const homeOverall = visitorsQ4 - v;
+        const visitorOverall = visitorsCalculated;
+        const homeOverall = homeCalculated;
         // Determine home team status
         if (h >= homeCalculated) {
             if (h + 4 >= homeCalculated) {
@@ -84,6 +84,7 @@ class DoMath {
                 homeStatus = 'UNKNOW';
             }
         }
+        console.log(`[DoMath] Home Q4: ${h}, Predicted Home Q4: ${homeCalculated}, Home Status: ${homeStatus}`);
         // Determine visitor team status
         if (v >= visitorsCalculated) {
             if (v + 4 >= visitorsCalculated) {
@@ -125,7 +126,9 @@ class DoMath {
         }
         return {
             visitorOveral: visitorOverall,
+            visitorStatus,
             homeOveral: homeOverall,
+            homeStatus,
             riskLevel,
             status: betStatus,
         };
@@ -150,63 +153,72 @@ class FiveMinuteMarkCalculator {
      * @returns BetPrediction with status and risk level
      */
     static calculateBetStatus(game) {
+        const inValidResponse = () => ({
+            visitorOveral: 0,
+            homeOveral: 0,
+            visitorStatus: 'UNKNOW',
+            homeStatus: 'UNKNOW',
+            riskLevel: 'UNKNOW',
+            status: 'UNKNOW',
+            showPrediction: false, // Show prediction at halftime
+        });
         // Validate input
         if (!game || !game.homeTeam) {
-            return {
-                visitorOveral: 0,
-                homeOveral: 0,
-                riskLevel: 'UNKNOW',
-                status: 'UNKNOW',
-            };
+            console.log(`[FiveMinuteMarkCalculator] Invalid game data for game ${game.gameId}`);
+            return inValidResponse();
         }
         // Get away team - API returns either awayTeam or visitorTeam
         const awayTeam = game.awayTeam || game.visitorTeam;
         if (!awayTeam) {
-            return {
-                visitorOveral: 0,
-                homeOveral: 0,
-                riskLevel: 'UNKNOW',
-                status: 'UNKNOW',
-            };
+            console.log(`[FiveMinuteMarkCalculator] No away team data available for game ${game.gameId}`);
+            return inValidResponse();
+        }
+        const period = game.period;
+        const gameClock = game.gameClock;
+        // Only calculate betting status if we're in Q3 (period 3) or later
+        if (period <= 3) {
+            const clockParts = gameClock.split(':');
+            const minutes = parseInt(clockParts[0]) || 0;
+            if (period === 0) {
+                console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has not started yet, skipping prediction`);
+                return inValidResponse();
+            }
+            else if (period === 1) {
+                console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in Q1, skipping prediction`);
+                return inValidResponse();
+            }
+            else if (period === 2) {
+                console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in Q2, skipping prediction`);
+                return inValidResponse();
+            }
+            else if (period === 3 && minutes < 5) {
+                console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in Q3 but before 5-minute mark, skipping prediction (Minutes: ${minutes})`);
+                return inValidResponse();
+            }
         }
         // Get team periods - handle both new schema (periods array) and other formats
         const homeTeamPeriods = game.homeTeam.periods || game.homeTeam.linescore;
         const awayTeamPeriods = awayTeam.periods || awayTeam.linescore;
         // If no periods data available, return unknown
         if (!homeTeamPeriods || !awayTeamPeriods) {
-            return {
-                visitorOveral: 0,
-                homeOveral: 0,
-                riskLevel: 'UNKNOW',
-                status: 'UNKNOW',
-            };
+            console.log(`[FiveMinuteMarkCalculator] No periods data available for game ${game.gameId}`);
+            return inValidResponse();
         }
         // Validate we have at least 3 periods of data
         const homePeriodArray = Array.isArray(homeTeamPeriods) ? homeTeamPeriods : [homeTeamPeriods];
         const awayPeriodArray = Array.isArray(awayTeamPeriods) ? awayTeamPeriods : [awayTeamPeriods];
         if (homePeriodArray.length < 3 || awayPeriodArray.length < 3) {
-            return {
-                visitorOveral: 0,
-                homeOveral: 0,
-                riskLevel: 'UNKNOW',
-                status: 'UNKNOW',
-            };
+            console.log(`[FiveMinuteMarkCalculator] Not enough period data for game ${game.gameId} (Home periods: ${homePeriodArray.length}, Away periods: ${awayPeriodArray.length})`);
+            return inValidResponse();
         }
         // Calculate predicted points for both teams based on first 3 quarters
         const homeCalculated = DoMath.calculateThirdScore(homePeriodArray);
         const awayCalculated = DoMath.calculateThirdScore(awayPeriodArray);
         // Skip halftime processing
         if (game.gameStatusText && game.gameStatusText.toLowerCase().includes('halftime')) {
-            return {
-                visitorOveral: 0,
-                homeOveral: 0,
-                riskLevel: 'UNKNOW',
-                status: 'UNKNOW',
-            };
+            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is at halftime, skipping prediction`);
+            return inValidResponse();
         }
-        // Get current game time and period
-        const period = game.period;
-        const gameClock = game.gameClock;
         // Only calculate betting status if we're in Q3 (period 3) or later
         if (period >= 3 && gameClock) {
             // Parse game clock "mm:ss" format to get minutes
@@ -223,45 +235,32 @@ class FiveMinuteMarkCalculator {
                     const homeQ4 = typeof homeQ4Period === 'object' ? homeQ4Period.score : homeQ4Period;
                     const awayQ4 = typeof awayQ4Period === 'object' ? awayQ4Period.score : awayQ4Period;
                     if (homeQ4 === undefined || awayQ4 === undefined) {
-                        return {
-                            visitorOveral: 0,
-                            homeOveral: 0,
-                            riskLevel: 'UNKNOW',
-                            status: 'UNKNOW',
-                        };
+                        console.log(`[FiveMinuteMarkCalculator] Q4 score data is missing for game ${game.gameId}`);
+                        return inValidResponse();
                     }
                     // Calculate betting prediction
                     const prediction = DoMath.calculateAgainstFourScore(homeCalculated, awayCalculated, awayQ4, homeQ4);
-                    return prediction;
+                    return {
+                        ...prediction,
+                        showPrediction: true
+                    };
                 }
                 else {
                     // Q4 not yet available
-                    return {
-                        visitorOveral: 0,
-                        homeOveral: 0,
-                        riskLevel: 'UNKNOW',
-                        status: 'UNKNOW',
-                    };
+                    console.log(`[FiveMinuteMarkCalculator] Q4 not yet available for game ${game.gameId}`);
+                    return inValidResponse();
                 }
             }
             else {
                 // Not enough data for prediction
-                return {
-                    visitorOveral: 0,
-                    homeOveral: 0,
-                    riskLevel: 'UNKNOW',
-                    status: 'UNKNOW',
-                };
+                console.log(`[FiveMinuteMarkCalculator] Not at 5-minute mark of Q3 yet for game ${game.gameId} (Minutes: ${minutes})`);
+                return inValidResponse();
             }
         }
         else {
             // Before 5-minute mark of Q3
-            return {
-                visitorOveral: 0,
-                homeOveral: 0,
-                riskLevel: 'UNKNOW',
-                status: 'UNKNOW',
-            };
+            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is before 5-minute mark of Q3, skipping prediction`);
+            return inValidResponse();
         }
     }
     /**

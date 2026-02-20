@@ -141,7 +141,6 @@ class ScoreboardWebSocketManager {
                 const message = JSON.stringify({ scoreboard: scoreboardData.scoreboard });
                 if (websocket.readyState === ws_1.default.OPEN) {
                     websocket.send(message);
-                    console.log(`[Scoreboard WebSocket] Sent initial data`, message); // Log a truncated version of the message
                     console.log(`[Scoreboard WebSocket] Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
                 }
                 else {
@@ -415,6 +414,7 @@ class ScoreboardWebSocketManager {
             }
             let clientCount = 0;
             const disconnectedClients = [];
+            console.log(`[Scoreboard WS] Broadcasting custom data to all clients (active connections: ${this.activeConnections.size})`);
             for (const client of this.activeConnections) {
                 try {
                     if (client.readyState === ws_1.default.OPEN) {
@@ -602,6 +602,38 @@ class ScoreboardWebSocketManager {
         // Set up periodic check for new plays
         const interval = setInterval(broadcast, this.BROADCAST_INTERVAL_PBP);
         this.broadcastIntervalsPBP.set(gameId, interval);
+    }
+    async broadcastKeyMomentsToAllClientsScoreBoard(data) {
+        try {
+            let clientCount = 0;
+            const disconnectedClients = [];
+            console.log(`[Scoreboard WS] Broadcasting key moments to all clients (active connections: ${this.activeConnections.size})`);
+            for (const client of this.activeConnections) {
+                try {
+                    if (client.readyState === ws_1.default.OPEN) {
+                        client.send(JSON.stringify({
+                            keyMoments: data
+                        }));
+                        clientCount++;
+                    }
+                    else {
+                        disconnectedClients.push(client);
+                    }
+                }
+                catch (error) {
+                    console.error('[Scoreboard WS] Error sending to client:', error);
+                    disconnectedClients.push(client);
+                }
+            }
+            // Clean up disconnected clients
+            disconnectedClients.forEach(client => this.activeConnections.delete(client));
+            console.log(`[Scoreboard WS] Key moments broadcast sent to ${clientCount} clients`);
+            return clientCount;
+        }
+        catch (error) {
+            console.error('[Scoreboard WS] Error in broadcastToAllClients:', error);
+            return 0;
+        }
     }
     startPBPBroadcasting() {
         console.log('[PlayByPlay WS] Broadcasting manager initialized (games start broadcasting on client connection)');

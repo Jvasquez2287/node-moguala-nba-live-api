@@ -194,10 +194,13 @@ router.get('/schedule/date/:date', async (req, res) => {
 
         const gamesData = await getGamesForDate(date);
 
+        console.log(`Fetched games for date ${date} from nba-tracker-api:`);
+
         if (!gamesData) {
           return res.json({ error: `No games found for date ${date}` });
         }
 
+       
         // Validate response
         const { error } = gamesResponseSchema.validate(gamesData);
         if (error) {

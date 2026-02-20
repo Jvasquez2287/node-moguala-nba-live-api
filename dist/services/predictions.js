@@ -7,6 +7,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculatePredictionsAccuracyForLastMonth = calculatePredictionsAccuracyForLastMonth;
 exports.predictGamesForDate = predictGamesForDate;
 const axios_1 = __importDefault(require("axios"));
 const schedule_1 = require("../services/schedule");
@@ -16,6 +17,8 @@ const CACHE_DURATION = 3600000;
 const teamStatsCache = new Map();
 // Cache for game predictions
 const predictionsCache = new Map();
+// Cache for predictions accuracy
+const accuracyCache = new Map();
 /**
  * Retry utility for NBA API calls with exponential backoff
  */
@@ -197,6 +200,33 @@ async function getTeamStatistics(season) {
     catch (error) {
         console.log(`Error fetching team statistics for season ${season}:`, error);
         return new Map();
+    }
+}
+async function calculatePredictionsAccuracyForLastMonth() {
+    try {
+        const today = new Date();
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        const dateStr = lastMonth.toISOString().split('T')[0];
+        const season = `${lastMonth.getFullYear()}-${(lastMonth.getFullYear() + 1).toString().slice(-2)}`;
+        const cacheKey = `acc_${dateStr}_${season}`;
+        const cached = accuracyCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            console.log(`Returning cached predictions accuracy for last month`);
+            return cached.data;
+        }
+        // Calculate predictions accuracy for last month
+        const result = {
+            accuracy: "76%", // Placeholder, implement actual accuracy calculation logic
+        };
+        // Cache the result
+        accuracyCache.set(cacheKey, {
+            data: result,
+            timestamp: Date.now()
+        });
+        return result;
+    }
+    catch (error) {
+        console.log('Error calculating predictions accuracy for last month:', error);
     }
 }
 /**

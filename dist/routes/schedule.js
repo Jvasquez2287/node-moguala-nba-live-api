@@ -163,6 +163,7 @@ router.get('/schedule/date/:date', async (req, res) => {
                     return res.json({ error: 'Invalid date format. Use YYYY-MM-DD' });
                 }
                 const gamesData = await (0, schedule_1.getGamesForDate)(date);
+                console.log(`Fetched games for date ${date} from nba-tracker-api:`);
                 if (!gamesData) {
                     return res.json({ error: `No games found for date ${date}` });
                 }

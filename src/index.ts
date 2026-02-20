@@ -140,6 +140,7 @@ import searchRoutes from "./routes/search";
 import predictionsRoutes from "./routes/predictions";
 import leagueRoutes from "./routes/league";
 import scoreboardRoutes from "./routes/scoreboard";
+import keyMomentsRouter from "./routes/keyMoments";
 import logoRouter from "./routes/logo";
 import subscriptionsRouter from "./routes/subscriptions";
 import usersRouter from "./routes/users";
@@ -162,6 +163,7 @@ app.use("/api/v1", predictionsRoutes); // Predictions routes mounted after searc
 app.use("/api/v1", leagueRoutes); // League routes mounted after teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
 app.use("/api/v1", playerRoutes); // Player routes mounted after teams to ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
 app.use("/api/v1/scoreboard", scoreboardRoutes); // Scoreboard routes mounted on /scoreboard to avoid conflicts with schedule and ensure they are accessible without subscription checks, as they are used in the homepage and other non-subscription areas
+app.use('/api/v1/key-moments', keyMomentsRouter); // Key moments routes - game-tying shots, lead changes, scoring runs, clutch plays, big shots
 app.use('/api/v1/logo', logoRouter); // Logo routes mounted before subscriptions and users to ensure they are accessible without subscription checks
 app.use('/api/v1/subscriptions', subscriptionsRouter); // Subscription management routes
 app.use('/api/v1/users', usersRouter); // User management routes - moved after subscriptions to ensure any subscription checks in user routes have access to subscription data
@@ -273,7 +275,7 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
 import {
   webSocketManager 
 } from "./services/websocketManager";
-import { startCleanupTask, stopCleanupTask } from "./services/keyMoments";
+import keyMomentsService, { startCleanupTask, stopCleanupTask, startProcessingTask, stopProcessingTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
 import clerkService from "./services/clerk";
@@ -322,16 +324,7 @@ wss.on("connection", (ws, req: any) => {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
       webSocketManager.handleConnection(ws);
-    } else if (url?.startsWith("/api/v1/ws/play-by-play/")) {
-      const gameId = url.split("/").pop();
-   /*   if (gameId) {
-        console.log(`[WebSocket] ✅ Routing to playbyplay for game ${gameId}`);
-        playbyplayWebSocketManager.handleConnection(ws, gameId);
-      } else {
-        console.log(`[WebSocket] ❌ No game ID found in URL: ${url}`);
-        ws.close();
-      }*/
-    } else {
+    }  else {
       console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
       // Don't close for unknown URLs, just log them
     }
@@ -348,13 +341,7 @@ try {
 } catch (error) {
   console.error('Error starting data cache:', error);
 }
-
-try {
-  startCleanupTask();
-  console.log('[Cleanup] Task started');
-} catch (error) {
-  console.error('[Cleanup] Error starting cleanup task:', error);
-}
+ 
 
 try {
   webSocketManager.startBroadcasting();
@@ -372,6 +359,23 @@ try {
   console.error('[WebSocket] Error starting cleanup tasks:', error);
 }
 
+// Key moments service - detects game-tying shots, lead changes, scoring runs, clutch plays, and big shots
+try {
+  startCleanupTask();
+  console.log('[KeyMoments] Cleanup task started');
+} catch (error) {
+  console.error('[KeyMoments] Error starting cleanup task:', error);
+}
+
+try {
+  startProcessingTask();
+  console.log('[KeyMoments] Moment detection task started');
+} catch (error) {
+  console.error('[KeyMoments] Error starting processing task:', error);
+}
+
+ 
+ 
 // Start server
 const PORT = isIISNode ? (process.env.PORT || 'nba-api.local') : parseInt(process.env.PORT || '8000');
 
@@ -463,6 +467,7 @@ process.on("SIGTERM", async () => {
   console.log('[Shutdown] SIGTERM received - closing gracefully');
   await dataCache.stopPolling();
   await stopCleanupTask();
+  await stopProcessingTask();
   await webSocketManager.stopCleanupTask();
   await webSocketManager.stopPBPCleanupTask();
   clerkService.stopAutoSync();
@@ -475,6 +480,7 @@ process.on("SIGINT", async () => {
   console.log('[Shutdown] SIGINT received - closing gracefully');
   await dataCache.stopPolling();
   await stopCleanupTask();
+  await stopProcessingTask();
   await webSocketManager.stopCleanupTask();
   await webSocketManager.stopPBPCleanupTask();
   clerkService.stopAutoSync();

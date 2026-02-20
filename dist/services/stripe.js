@@ -231,7 +231,7 @@ exports.stripeService = {
                 customer = await this.createCustomer(email, name);
             }
             else {
-                console.log(`[Stripe] Customer found for ${email} (ID: ${customer.id})`);
+                //  console.log(`[Stripe] Customer found for ${email} (ID: ${customer.id})`);
             }
             return customer;
         }
@@ -273,6 +273,16 @@ exports.stripeService = {
         }
         catch (error) {
             console.error('[Stripe] Error getting subscription status:', error);
+            throw error;
+        }
+    },
+    async getSubscriptionFromDBWithSubscriptionId(subscriptionId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT * FROM subscriptions WHERE subscription_id = @subscriptionId', { subscriptionId });
+            return result.recordset[0] || null;
+        }
+        catch (error) {
+            console.error('[Stripe] Error getting subscription from DB:', error);
             throw error;
         }
     },

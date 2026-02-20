@@ -15,6 +15,10 @@ export interface PlayByPlayResponse {
     game_id: string;
     plays: PlayByPlayEvent[];
 }
+export interface LastPlayByPlayActionNumber {
+    game_id: string;
+    last_action_number: number;
+}
 export interface Team {
     teamId: number;
     teamName: string;
@@ -24,6 +28,10 @@ export interface Team {
     losses?: number;
     score?: number;
     timeoutsRemaining?: number;
+    periods?: {
+        period: number;
+        score: number;
+    }[];
 }
 export interface Game {
     gameId: string;
@@ -53,6 +61,10 @@ export interface GameLeaderStats {
     points: number | null;
     rebounds: number | null;
     assists: number | null;
+    periods?: Array<{
+        period: number;
+        score: number;
+    }>;
 }
 export interface GameLeaders {
     homeLeaders?: GameLeaderStats | null;

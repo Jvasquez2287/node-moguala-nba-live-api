@@ -24,10 +24,14 @@ export declare const userService: {
             subscription_latest_invoice_Id: any;
             subscription_invoice_pdf_url: any;
             subscription_canceled_at: string | null;
+            subscription_cancel_at_period_end: string | null;
             product_id: any;
             created_at: any;
             updated_at: any;
         }[];
+        days_active: number;
+        today_predictions: number;
+        predictions_accuracy: string;
     } | null>;
     /**
      * Get user by Stripe ID with subscription details
@@ -54,10 +58,14 @@ export declare const userService: {
             subscription_latest_invoice_Id: any;
             subscription_invoice_pdf_url: any;
             subscription_canceled_at: string | null;
+            subscription_cancel_at_period_end: string | null;
             product_id: any;
             created_at: any;
             updated_at: any;
         }[];
+        days_active: number;
+        today_predictions: number;
+        predictions_accuracy: string;
     } | null>;
     /**
      * Get user by email with subscription details
@@ -84,15 +92,19 @@ export declare const userService: {
             subscription_latest_invoice_Id: any;
             subscription_invoice_pdf_url: any;
             subscription_canceled_at: string | null;
+            subscription_cancel_at_period_end: string | null;
             product_id: any;
             created_at: any;
             updated_at: any;
         }[];
+        days_active: number;
+        today_predictions: number;
+        predictions_accuracy: string;
     } | null>;
     /**
      * Transform flat database result into nested user object with subscription
      */
-    transformUserWithSubscription(records: any[]): {
+    transformUserWithSubscription(records: any[]): Promise<{
         id: any;
         clerk_id: any;
         email: any;
@@ -114,11 +126,15 @@ export declare const userService: {
             subscription_latest_invoice_Id: any;
             subscription_invoice_pdf_url: any;
             subscription_canceled_at: string | null;
+            subscription_cancel_at_period_end: string | null;
             product_id: any;
             created_at: any;
             updated_at: any;
         }[];
-    } | null;
+        days_active: number;
+        today_predictions: number;
+        predictions_accuracy: string;
+    } | null>;
     /**
      * Get user by ID with subscription details
      */
@@ -144,10 +160,14 @@ export declare const userService: {
             subscription_latest_invoice_Id: any;
             subscription_invoice_pdf_url: any;
             subscription_canceled_at: string | null;
+            subscription_cancel_at_period_end: string | null;
             product_id: any;
             created_at: any;
             updated_at: any;
         }[];
+        days_active: number;
+        today_predictions: number;
+        predictions_accuracy: string;
     } | null>;
     /**
      * Get all users with their subscription details

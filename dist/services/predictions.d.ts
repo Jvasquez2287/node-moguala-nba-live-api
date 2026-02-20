@@ -3,6 +3,9 @@
  * Handles game outcome predictions based on team statistics.
  */
 import { PredictionsResponse } from '../schemas/predictions';
+export declare function calculatePredictionsAccuracyForLastMonth(): Promise<{
+    accuracy: string;
+} | undefined>;
 /**
  * Predict games for a specific date
  */

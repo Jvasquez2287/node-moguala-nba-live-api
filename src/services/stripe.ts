@@ -246,7 +246,7 @@ export const stripeService = {
         console.log(`[Stripe] Customer not found for ${email}, creating new customer...`);
         customer = await this.createCustomer(email, name);
       } else {
-        console.log(`[Stripe] Customer found for ${email} (ID: ${customer.id})`);
+      //  console.log(`[Stripe] Customer found for ${email} (ID: ${customer.id})`);
       }
 
       return customer;
@@ -295,6 +295,19 @@ export const stripeService = {
       return result.recordset[0] || null;
     } catch (error) {
       console.error('[Stripe] Error getting subscription status:', error);
+      throw error;
+    }
+  },
+
+    async getSubscriptionFromDBWithSubscriptionId(subscriptionId: string) {
+    try {
+      const result = await executeQuery(
+        'SELECT * FROM subscriptions WHERE subscription_id = @subscriptionId',
+        { subscriptionId }
+      );
+      return result.recordset[0] || null;
+    } catch (error) {
+      console.error('[Stripe] Error getting subscription from DB:', error);
       throw error;
     }
   },

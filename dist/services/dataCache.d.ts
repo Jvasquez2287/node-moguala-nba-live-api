@@ -1,4 +1,4 @@
-import { ScoreboardResponse, PlayByPlayResponse } from '../types';
+import { ScoreboardResponse, PlayByPlayResponse, LastPlayByPlayActionNumber } from '../types';
 import { GamesResponse } from '../schemas/schedule';
 import { LeagueLeadersResponse } from '../schemas/league';
 import { PlayerSummary } from '../schemas/player';
@@ -24,10 +24,18 @@ export declare class DataCache {
     getPlaybyplay(gameId: string): Promise<PlayByPlayResponse | null>;
     setGamesForDate(date: string, data: GamesResponse): void;
     getGamesForDate(date: string): Promise<GamesResponse | null>;
+    setScheduleData<T>(data: T): void;
+    getScheduleData<T>(): Promise<T | null>;
+    setStandingsData<T>(season: string, data: T): void;
+    getStandingsData<T>(season: string): Promise<T | null>;
     setAllTeams(data: TeamDetailsResponse[]): void;
     getAllTeams(): Promise<TeamDetailsResponse[] | null>;
     setTeam(teamId: number, data: TeamDetailsResponse): void;
     getTeam(teamId: number): Promise<TeamDetailsResponse | null>;
+    setLastPlayByPlay(gameId: string, data: LastPlayByPlayActionNumber): void;
+    getLastPlayByPlay(gameId: string): Promise<LastPlayByPlayActionNumber | null>;
+    setTeamPlayByPlay(teamId: number, data: PlayByPlayResponse): void;
+    getTeamPlayByPlay(teamId: number): Promise<PlayByPlayResponse | null>;
     setLeagueLeaders(category: string, season: string | undefined, data: LeagueLeadersResponse): void;
     setPlayer(playerId: string, data: PlayerSummary): void;
     setPlayerSearch(query: string, data: PlayerSummary[]): void;
