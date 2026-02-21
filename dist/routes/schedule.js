@@ -46,34 +46,29 @@ router.get('/schedule/date/:date', async (req, res) => {
         // Get today's date
         const todayDate = new Date().toISOString().split('T')[0];
         const isHistorical = dateParam < todayDate;
-        const isFuture = dateParam > todayDate;
-        const isToday = dateParam === todayDate;
-        // For historical or future dates, try to get from Python API (nba-tracker-api)
-        if (isHistorical || isFuture) {
-            try {
-                const { date } = req.params;
-                // Validate date format (YYYY-MM-DD)
-                const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-                if (!dateRegex.test(date)) {
-                    return res.json({ error: 'Invalid date format. Use YYYY-MM-DD' });
-                }
-                const gamesData = await (0, schedule_1.getGamesForDate)(date);
-                console.log(`Fetched games for date ${date} from nba-tracker-api:`);
-                if (!gamesData) {
-                    return res.json({ error: `No games found for date ${date}` });
-                }
-                // Validate response
-                const { error } = schedule_2.gamesResponseSchema.validate(gamesData);
-                if (error) {
-                    console.log('Schedule validation error:', error);
-                    return res.json({ error: 'Invalid schedule data' });
-                }
-                return res.json(gamesData);
+        try {
+            const { date } = req.params;
+            // Validate date format (YYYY-MM-DD)
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(date)) {
+                return res.json({ error: 'Invalid date format. Use YYYY-MM-DD' });
             }
-            catch (error) {
-                console.log('Error fetching games for date:', error);
-                return res.json({ error: 'Failed to fetch games' });
+            const gamesData = await (0, schedule_1.getGamesForDate)(date);
+            console.log(`Fetched games for date ${date} from nba-tracker-api:`);
+            if (!gamesData) {
+                return res.json({ error: `No games found for date ${date}` });
             }
+            // Validate response
+            const { error } = schedule_2.gamesResponseSchema.validate(gamesData);
+            if (error) {
+                console.log('Schedule validation error:', error);
+                return res.json({ error: 'Invalid schedule data' });
+            }
+            return res.json(gamesData);
+        }
+        catch (error) {
+            console.log('Error fetching games for date:', error);
+            return res.json({ error: 'Failed to fetch games' });
         }
         // No data available
         return res.json({

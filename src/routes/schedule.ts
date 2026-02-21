@@ -63,12 +63,8 @@ router.get('/schedule/date/:date', async (req, res) => {
     // Get today's date
     const todayDate = new Date().toISOString().split('T')[0];
     const isHistorical = dateParam < todayDate;
-    const isFuture = dateParam > todayDate;
-    const isToday = dateParam === todayDate;
+   
  
- 
-    // For historical or future dates, try to get from Python API (nba-tracker-api)
-    if (isHistorical || isFuture) {
       try {
         const { date } = req.params;
 
@@ -99,8 +95,7 @@ router.get('/schedule/date/:date', async (req, res) => {
         console.log('Error fetching games for date:', error);
         return res.json({ error: 'Failed to fetch games' });
       }
-    }
-
+ 
     // No data available
     return res.json({
       date: dateParam,
