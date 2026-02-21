@@ -57,9 +57,7 @@ router.get('/schedule/date/:date', async (req, res) => {
         example: '2026-01-25'
       });
     }
-
-        
-   
+ 
     // Get today's date
     const todayDate = new Date().toISOString().split('T')[0];
     const isHistorical = dateParam < todayDate;
