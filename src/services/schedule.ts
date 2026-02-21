@@ -572,6 +572,8 @@ export async function getGamesForDate(date: string): Promise<GamesResponse> {
       return response.data;
     });
 
+    console.log(`\n\n\nSuccessfully fetched games for date ${date} from API\n\n\n`);
+
 
     // Check if we got valid data
     if (!data.resultSets || !data.resultSets.length) {
