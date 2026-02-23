@@ -19,6 +19,19 @@ export declare class DataCache {
     private cleanupTask;
     onScoreChange(callback: () => Promise<void>): void;
     private triggerScoreChangeCallbacks;
+    /**
+     * Generic cache get method
+     * @param key Cache key
+     * @returns Cached value or null if not found/expired
+     */
+    get<T>(key: string): Promise<T | null>;
+    /**
+     * Generic cache set method
+     * @param key Cache key
+     * @param value Value to cache
+     * @param ttlMs Time to live in milliseconds
+     */
+    set<T>(key: string, value: T, ttlMs?: number): Promise<void>;
     getScoreboard(): Promise<ScoreboardResponse | null>;
     refreshScoreboard(): Promise<ScoreboardResponse | null>;
     getPlaybyplay(gameId: string): Promise<PlayByPlayResponse | null>;

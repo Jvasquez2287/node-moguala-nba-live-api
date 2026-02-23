@@ -135,19 +135,17 @@ app.get("/api/v1/cache/status", async (req, res) => {
 });
 // API Endpoints interceptor for security and logging
 app.use('/api/v1', async (req, res, next) => {
-    /*
+    // Log incoming API requests with method, URL, and IP address
     console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
-    const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
+    const validationResult = await tokenCheck_1.tokenCheckService.validateTokenAndCheckSubscription(req);
     if (!validationResult.valid) {
-      return res.json({ success: false, error: 'Invalid or missing security parameters' });
+        return res.json({ success: false, error: 'Invalid or missing security parameters' });
     }
-  
-    if(validationResult.valid && validationResult.subscription?.subscription_status !== 'active' &&
-      validationResult.subscription?.subscription_end_date &&
-      new Date(validationResult.subscription.subscription_end_date) < new Date()) {
-        
-      return res.json({ success: false, error: 'Active subscription required to access this endpoint' });
-    }*/
+    if (validationResult.valid && validationResult.subscription?.subscription_status !== 'active' &&
+        validationResult.subscription?.subscription_end_date &&
+        new Date(validationResult.subscription.subscription_end_date) < new Date()) {
+        return res.json({ success: false, error: 'Active subscription required to access this endpoint' });
+    }
     // Add any authentication or rate limiting logic here if needed
     next();
 });
@@ -283,6 +281,7 @@ const keyMoments_2 = require("./services/keyMoments");
 const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
+const tokenCheck_1 = require("./services/tokenCheck");
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });

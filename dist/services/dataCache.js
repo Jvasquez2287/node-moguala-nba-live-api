@@ -154,6 +154,23 @@ class DataCache {
             }
         }
     }
+    /**
+     * Generic cache get method
+     * @param key Cache key
+     * @returns Cached value or null if not found/expired
+     */
+    async get(key) {
+        return await this.dbCache.get(key);
+    }
+    /**
+     * Generic cache set method
+     * @param key Cache key
+     * @param value Value to cache
+     * @param ttlMs Time to live in milliseconds
+     */
+    async set(key, value, ttlMs) {
+        return await this.dbCache.set(key, value, ttlMs);
+    }
     async getScoreboard() {
         return await this.dbCache.get('scoreboard');
     }

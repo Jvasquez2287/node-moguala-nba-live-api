@@ -25,6 +25,8 @@ export declare class ScoreboardWebSocketManager {
     private readonly CLEANUP_INTERVAL_PBP;
     private readonly MIN_UPDATE_INTERVAL_PBP;
     private readonly CLEANUP_THRESHOLD_PBP;
+    private keyMomentsInterval;
+    private readonly KEY_MOMENTS_BROADCAST_INTERVAL;
     constructor();
     connect(websocket: WebSocket): void;
     disconnect(websocket: WebSocket): void;
@@ -56,6 +58,19 @@ export declare class ScoreboardWebSocketManager {
     broadcastToAllClientsScoreBoard(data: any): Promise<number>;
     startBroadcasting(): void;
     stopBroadcasting(): void;
+    /**
+     * Start broadcasting key moments every 20 seconds
+     * Only active when NODE_ENV is 'true'
+     */
+    private startKeyMomentsBroadcasting;
+    /**
+     * Stop broadcasting key moments
+     */
+    private stopKeyMomentsBroadcasting;
+    /**
+     * Fetch key moments for a specific game
+     */
+    private fetchKeyMomentsForGame;
     private sendInitialPBPData;
     broadcastPBPToAllClients(data: any): Promise<number>;
     private broadcastPBPUpdates;

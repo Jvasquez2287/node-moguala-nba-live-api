@@ -100,12 +100,12 @@ exports.tokenCheckService = {
           subscription_start_date, subscription_end_date, subscription_next_billing_date,
           stripe_id, subscription_canceled_at, created_at, updated_at
         FROM subscriptions
-        WHERE stripe_id = @stripeId
-        `, { stripeId: user.stripe_id });
+        WHERE clerk_id = @clerkId
+        `, { clerkId: user.clerk_id });
             if (!subscriptionResult.recordset || subscriptionResult.recordset.length === 0) {
                 console.warn(`[TokenCheck] No subscription found for user`);
                 return {
-                    valid: true,
+                    valid: false,
                     message: 'Valid token but no active subscription',
                     user: {
                         id: user.id,
@@ -150,7 +150,7 @@ exports.tokenCheckService = {
             if (!user.stripe_id) {
                 console.warn(`[TokenCheck] User has no stripe_id`);
                 return {
-                    valid: true,
+                    valid: false,
                     message: 'Valid token but subscription is inactive',
                     user: {
                         id: user.id,
@@ -177,7 +177,7 @@ exports.tokenCheckService = {
                 if (stripeSubscriptions.length === 0) {
                     console.warn(`[TokenCheck] No subscription found in Stripe`);
                     return {
-                        valid: true,
+                        valid: false,
                         message: 'Valid token but no subscription in Stripe',
                         user: {
                             id: user.id,

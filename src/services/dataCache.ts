@@ -181,6 +181,25 @@ export class DataCache {
     }
   }
 
+  /**
+   * Generic cache get method
+   * @param key Cache key
+   * @returns Cached value or null if not found/expired
+   */
+  async get<T>(key: string): Promise<T | null> {
+    return await this.dbCache.get<T>(key);
+  }
+
+  /**
+   * Generic cache set method
+   * @param key Cache key
+   * @param value Value to cache
+   * @param ttlMs Time to live in milliseconds
+   */
+  async set<T>(key: string, value: T, ttlMs?: number): Promise<void> {
+    return await this.dbCache.set<T>(key, value, ttlMs);
+  }
+
   async getScoreboard(): Promise<ScoreboardResponse | null> {
   
     return await this.dbCache.get<ScoreboardResponse>('scoreboard');

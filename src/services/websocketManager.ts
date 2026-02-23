@@ -40,6 +40,10 @@ export class ScoreboardWebSocketManager {
   private readonly MIN_UPDATE_INTERVAL_PBP = 2000; // Minimum 2 seconds between updates per game
   private readonly CLEANUP_THRESHOLD_PBP = 3600000; // 1 hour - remove stale timestamps older than this
 
+  // Key moments broadcasting
+  private keyMomentsInterval: NodeJS.Timeout | null = null;
+  private readonly KEY_MOMENTS_BROADCAST_INTERVAL = 20000; // 20 seconds
+
   constructor() {
     if (!this.initialized) {
       this.initialized = true;
@@ -48,6 +52,7 @@ export class ScoreboardWebSocketManager {
     }
   }
 
+  // WebSocket connection handling
   connect(websocket: WebSocket): void {
     websocket.on('error', (error: any) => {
       const errorMsg = error?.message || String(error);
@@ -119,7 +124,9 @@ export class ScoreboardWebSocketManager {
     });
 
   }
+  // END WebSocket connection handling
 
+  // Play-by-play initial data send
   disconnect(websocket: WebSocket): void {
     this.activeConnections.delete(websocket);
     for (const [gameId, connections] of this.activeConnectionsPBP.entries()) {
@@ -135,7 +142,13 @@ export class ScoreboardWebSocketManager {
       this.lastUpdateTimestamp.clear();
     }
   }
+  // END Play-by-play initial data send
 
+ // key moments to send notifications on: game start, score updates, 5-minute mark of Q4, game end
+
+ // END key moments
+
+ // Scoreboard Testing Method - can be called from other modules to trigger a broadcast with current data (for testing purposes)
   private async sendInitialData(websocket: WebSocket): Promise<void> {
 
     try {
@@ -176,7 +189,9 @@ export class ScoreboardWebSocketManager {
       this.activeConnections.delete(websocket);
     }
   }
+  // END Scoreboard Testing Method
 
+  // Play-by-play initial data send
   private async sendNotificationOngameStatusChange(game: any, eventType: 'game_started' | 'score_update' | 'game_ended' | 'game_five_minutes_mark'): Promise<void> {
     const gameId = game.gameId || 'unknown';
     const currentTime = Date.now();
@@ -209,7 +224,9 @@ export class ScoreboardWebSocketManager {
       console.error(`[Scoreboard WebSocket] Error in sendNotificationOngameStatusChange for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+// END Play-by-play initial data send
 
+// Rate limiting logic for GenAI API requests
   async sendFiveMinutesMarkNotification(game: any, eventType: 'game_started' | 'score_update' | 'game_ended' | 'game_five_minutes_mark'): Promise<void> {
     const gameId = game.gameId || 'unknown';
     const currentTime = Date.now();
@@ -242,6 +259,7 @@ export class ScoreboardWebSocketManager {
       console.error(`[Scoreboard WebSocket] Error in sendFiveMinutesMarkNotification for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+  // END Rate limiting logic for GenAI API requests
 
   /**
    * Get the last time a notification was sent for a game and event type
@@ -302,7 +320,7 @@ export class ScoreboardWebSocketManager {
     }
   }
 
-
+  // Notification for new game ID (used when a new game appears that wasn't previously tracked)
   private async sendNotificationOnGameIDChange(game: any): Promise<void> {
     const gameId = game.gameId || 'unknown';
 
@@ -330,11 +348,15 @@ export class ScoreboardWebSocketManager {
     }
 
   }
+ // END Notification for new game ID (used when a new game appears that wasn't previously tracked)
 
+ // Rate limiting logic for GenAI API requests
   handleConnection(websocket: WebSocket): void {
     this.connect(websocket);
   }
+  // END Rate limiting logic for GenAI API requests
 
+  // Play-by-play initial data send
   private formatGameResponse(games: any[]): any[] {
     return games.map((game: any) => ({
       gameId: game.gameId,
@@ -366,7 +388,9 @@ export class ScoreboardWebSocketManager {
       gameLeaders: game.gameLeaders || null
     }));
   }
+  // END Play-by-play initial data send
 
+  // Play-by-play initial data send
   private hasGameDataChanged(newGames: any[], oldGames: any[]): boolean {
     const currentTime = Date.now();
     const newMap = new Map(newGames.map(g => [g.gameId, g]));
@@ -407,7 +431,9 @@ export class ScoreboardWebSocketManager {
 
     return false;
   }
+  // END Play-by-play initial data send
 
+  // Scoreboard Testing Method - can be called from other modules to trigger a broadcast with current data (for testing purposes)
   private async checkAndBroadcast(): Promise<void> {
     if (this.activeConnections.size === 0) return;
 
@@ -476,7 +502,9 @@ export class ScoreboardWebSocketManager {
       console.error('[Scoreboard WebSocket] Error in broadcast:', error);
     }
   }
+// END Scoreboard Testing Method
 
+  // Cleanup task to remove dead connections and stale timestamps
   startCleanupTask(): void {
     if (this.cleanupInterval) return;
 
@@ -542,6 +570,7 @@ export class ScoreboardWebSocketManager {
     }
   }
 
+  // Stop cleanup task and broadcasting (called when shutting down server)
   stopCleanupTask(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
@@ -551,11 +580,15 @@ export class ScoreboardWebSocketManager {
 
     this.stopBroadcasting();
   }
+  // END Cleanup task to remove dead connections and stale timestamps
 
+  // Method to get current number of active connections (for monitoring purposes)
   getConnectionCount(): number {
     return this.activeConnections.size;
   }
+  // END Method to get current number of active connections (for monitoring purposes)
 
+  // Scoreboard Testing Method - can be called from other modules to trigger a broadcast with current data (for testing purposes)
   private initializeBroadcasting(): void {
     console.log('[Scoreboard WebSocket] Broadcasting initialized');
 
@@ -569,8 +602,14 @@ export class ScoreboardWebSocketManager {
     // Initialize cleanup task
     this.startCleanupTask();
 
+    // Initialize key moments broadcasting if NODE_ENV is 'true'
+    if (process.env.NODE_ENV === 'true') {
+      this.startKeyMomentsBroadcasting();
+    }
+
     console.log('[Scoreboard WebSocket] Broadcasting started (on change or every 1 minute)');
   }
+  // END Scoreboard Testing Method
 
   // Scoreboard Testing Method - Broadcast custom data to all clients
   async broadcastToAllClientsScoreBoard(data: any): Promise<number> {
@@ -607,21 +646,110 @@ export class ScoreboardWebSocketManager {
       return 0;
     }
   }
+  // END Scoreboard Testing Method - Broadcast custom data to all clients
 
+  // Key moments broadcasting methods
   startBroadcasting(): void {
     if (!this.checkInterval) {
       this.initializeBroadcasting();
     }
   }
+  // END Key moments broadcasting methods
 
+  // Key moments broadcasting methods
   stopBroadcasting(): void {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
       console.log('[Scoreboard WebSocket] Broadcasting stopped');
     }
+
+    // Stop key moments broadcasting
+    this.stopKeyMomentsBroadcasting();
   }
 
+  /**
+   * Start broadcasting key moments every 20 seconds
+   * Only active when NODE_ENV is 'true'
+   */
+  private startKeyMomentsBroadcasting(): void {
+    if (this.keyMomentsInterval) return;
+
+    console.log('[Scoreboard WebSocket] Key moments broadcasting started (every 20 seconds)');
+
+    this.keyMomentsInterval = setInterval(async () => {
+      try {
+        // Only broadcast if there are active connections
+        if (this.activeConnections.size === 0) {
+          return;
+        }
+
+        // Fetch key moments for all current games
+        if (this.currentGames && this.currentGames.length > 0) {
+          for (const game of this.currentGames) {
+            const gameId = game.gameId;
+            if (!gameId) continue;
+
+            try {
+              // Fetch key moments for this game
+              const keyMomentsData = await this.fetchKeyMomentsForGame(gameId);
+              if (keyMomentsData && keyMomentsData.moments && keyMomentsData.moments.length > 0) {
+                // Broadcast to all connected clients
+                await this.broadcastKeyMomentsToAllClientsScoreBoard(keyMomentsData);
+              }
+            } catch (error) {
+              console.error(`[Scoreboard WebSocket] Error fetching key moments for game ${gameId}:`, error instanceof Error ? error.message : String(error));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[Scoreboard WebSocket] Error in key moments broadcasting:', error instanceof Error ? error.message : String(error));
+      }
+    }, this.KEY_MOMENTS_BROADCAST_INTERVAL);
+  }
+
+  /**
+   * Stop broadcasting key moments
+   */
+  private stopKeyMomentsBroadcasting(): void {
+    if (this.keyMomentsInterval) {
+      clearInterval(this.keyMomentsInterval);
+      this.keyMomentsInterval = null;
+      console.log('[Scoreboard WebSocket] Key moments broadcasting stopped');
+    }
+  }
+
+  /**
+   * Fetch key moments for a specific game
+   */
+  private async fetchKeyMomentsForGame(gameId: string): Promise<any> {
+    try {
+      // Check cache first (dataCache.get is async)
+      const cachedKeyMoments = await dataCache.get(`keyMoments_${gameId}`);
+      if (cachedKeyMoments) {
+        return cachedKeyMoments;
+      }
+
+      // If not cached, try to import and use keyMomentsService
+      try {
+        const { keyMomentsService } = await import('./keyMoments');
+        const moments = await keyMomentsService.getKeyMomentsForGame(gameId);
+        if (moments) {
+          // Cache for 5 minutes (300000 milliseconds)
+          await dataCache.set(`keyMoments_${gameId}`, { game_id: gameId, moments }, 300000);
+          return { game_id: gameId, moments };
+        }
+      } catch (importError) {
+        console.warn(`[Scoreboard WebSocket] Could not import keyMomentsService: ${importError instanceof Error ? importError.message : String(importError)}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[Scoreboard WebSocket] Error fetching key moments for game ${gameId}:`, error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+    // Broadcast key moments to all clients
   private async sendInitialPBPData(gameId: string, websocket: WebSocket): Promise<void> {
     try {
       if (websocket.readyState !== WebSocket.OPEN) {
@@ -647,7 +775,9 @@ export class ScoreboardWebSocketManager {
       console.error(`[PlayByPlay WS] Error sending initial data for game ${gameId}:`, error);
     }
   }
+  // END Broadcast key moments to all clients
 
+  // Broadcast play-by-play updates to all clients subscribed to the specific game
   async broadcastPBPToAllClients(data: any): Promise<number> {
     try {
       let clientCount = 0;
@@ -687,7 +817,9 @@ export class ScoreboardWebSocketManager {
       return 0;
     }
   }
+  // END Broadcast play-by-play updates to all clients subscribed to the specific game
 
+  // Broadcast play-by-play updates to all clients subscribed to the specific game with change detection and rate limiting
   private async broadcastPBPUpdates(gameId: string): Promise<void> {
     try {
       const gameConnections = this.activeConnectionsPBP.get(gameId);
@@ -758,7 +890,9 @@ export class ScoreboardWebSocketManager {
       console.error(`[PlayByPlay WS] Error in broadcast for game ${gameId}:`, error);
     }
   }
+  // END Broadcast play-by-play updates to all clients subscribed to the specific game with change detection and rate limiting
 
+  // Check if play-by-play data has changed based on action numbers and rate limit updates
   private hasPBPChanged(newPlays: any[], oldPlays: any[]): boolean {
     const currentTime = Date.now();
     const lastUpdate = this.lastUpdateTimestampPBP.get('playbyplay') || 0;
@@ -777,7 +911,9 @@ export class ScoreboardWebSocketManager {
 
     return false;
   }
+  // END Check if play-by-play data has changed based on action numbers and rate limit updates
 
+  // Start broadcasting play-by-play updates for a specific game at regular intervals
   private startGameBroadcasting(gameId: string): void {
     if (this.broadcastIntervalsPBP.has(gameId)) return;
 
@@ -789,7 +925,9 @@ export class ScoreboardWebSocketManager {
     const interval = setInterval(broadcast, this.BROADCAST_INTERVAL_PBP);
     this.broadcastIntervalsPBP.set(gameId, interval);
   }
+  // END Start broadcasting play-by-play updates for a specific game at regular intervals
 
+  // Broadcast key moments to all clients
   async broadcastKeyMomentsToAllClientsScoreBoard(data: any): Promise<number> {
     try {
       let clientCount = 0;
@@ -823,11 +961,15 @@ export class ScoreboardWebSocketManager {
       return 0;
     }
   }
+  // END Broadcast key moments to all clients
 
+  // Start play-by-play broadcasting manager
   startPBPBroadcasting(): void {
     console.log('[PlayByPlay WS] Broadcasting manager initialized (games start broadcasting on client connection)');
   }
+  // END Start play-by-play broadcasting manager
 
+  // Cleanup task to remove dead connections and stale timestamps for play-by-play manager
   startPBPCleanupTask(): void {
     if (this.cleanupInterval) return;
 
@@ -889,7 +1031,9 @@ export class ScoreboardWebSocketManager {
 
     this.cleanupIntervalPBP = setInterval(cleanup, this.CLEANUP_INTERVAL_PBP);
   }
+  // END Cleanup task to remove dead connections and stale timestamps for play-by-play manager
 
+  // Stop cleanup task and broadcasting for play-by-play manager (called when shutting down server)
   stopPBPCleanupTask(): void {
     if (this.cleanupIntervalPBP) {
       clearInterval(this.cleanupIntervalPBP);
@@ -918,7 +1062,9 @@ export class ScoreboardWebSocketManager {
 
     console.log('[PlayByPlay WS] All connections closed');
   }
+  // END Stop cleanup task and broadcasting for play-by-play manager (called when shutting down server)
 
+  // Method to get current number of active connections for play-by-play manager (for monitoring purposes)
   getConnectionCountPBP(gameId?: string): number {
     if (gameId) {
       return this.activeConnectionsPBP.get(gameId)?.size || 0;
@@ -929,10 +1075,13 @@ export class ScoreboardWebSocketManager {
     }
     return total;
   }
+  // END Method to get current number of active connections for play-by-play manager (for monitoring purposes)
 
+  // Method to get current number of active games being tracked for play-by-play manager (for monitoring purposes)
   getGameCountPBP(): number {
     return this.activeConnectionsPBP.size;
   }
+  // END Method to get current number of active games being tracked for play-by-play manager (for monitoring purposes)
 
 }
 
