@@ -548,11 +548,11 @@ exports.createMockPeriods = createMockPeriods;
 const createMockLiveGames = (gameDate) => {
     return [
         {
-            gameId: '0022500001',
+            gameId: '0022500301',
             gameStatus: 2,
-            gameStatusText: '4th Qtr 3:45',
+            gameStatusText: '4th Qtr 5:00',
             period: 4,
-            gameClock: '3:45',
+            gameClock: '5:00',
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...exports.mockTeams.BOS,
@@ -567,19 +567,21 @@ const createMockLiveGames = (gameDate) => {
             gameLeaders: (0, exports.createMockGameLeaders)()
         },
         {
-            gameId: '0022500002',
+            gameId: '0022500302',
             gameStatus: 2,
-            gameStatusText: '3rd Qtr 6:12',
-            period: 3,
-            gameClock: '6:12',
+            gameStatusText: '4th Qtr 7:00',
+            period: 4,
+            gameClock: '7:00',
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...exports.mockTeams.GSW,
-                score: 85
+                score: 98,
+                periods: (0, exports.createMockPeriods)()
             },
             awayTeam: {
                 ...exports.mockTeams.DEN,
-                score: 82
+                score: 95,
+                periods: (0, exports.createMockPeriods)()
             },
             gameLeaders: {
                 homeLeaders: {
@@ -590,8 +592,7 @@ const createMockLiveGames = (gameDate) => {
                     teamTricode: 'GSW',
                     points: 31,
                     rebounds: 4,
-                    assists: 9,
-                    periods: (0, exports.createMockPeriods)()
+                    assists: 9
                 },
                 awayLeaders: {
                     personId: 201950,
@@ -601,22 +602,48 @@ const createMockLiveGames = (gameDate) => {
                     teamTricode: 'DEN',
                     points: 28,
                     rebounds: 3,
-                    assists: 7,
-                    periods: (0, exports.createMockPeriods)()
+                    assists: 7
                 }
             }
         },
         {
-            gameId: '0022500003',
-            gameStatus: 1,
-            gameStatusText: 'Scheduled',
-            period: 0,
-            gameTimeUTC: new Date(Date.now() + 3600000).toISOString(),
+            gameId: '0022500303',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 8:00',
+            period: 4,
+            gameClock: '8:00',
+            gameTimeUTC: new Date().toISOString(),
             homeTeam: {
-                ...exports.mockTeams.NYK
+                ...exports.mockTeams.NYK,
+                score: 105,
+                periods: (0, exports.createMockPeriods)()
             },
             awayTeam: {
-                ...exports.mockTeams.MIA
+                ...exports.mockTeams.MIA,
+                score: 102,
+                periods: (0, exports.createMockPeriods)()
+            },
+            gameLeaders: {
+                homeLeaders: {
+                    personId: 2544950,
+                    name: 'Jalen Brunson',
+                    jerseyNum: '11',
+                    position: 'G',
+                    teamTricode: 'NYK',
+                    points: 32,
+                    rebounds: 3,
+                    assists: 8
+                },
+                awayLeaders: {
+                    personId: 2544951,
+                    name: 'Jimmy Butler',
+                    jerseyNum: '22',
+                    position: 'F',
+                    teamTricode: 'MIA',
+                    points: 28,
+                    rebounds: 7,
+                    assists: 4
+                }
             }
         }
     ];

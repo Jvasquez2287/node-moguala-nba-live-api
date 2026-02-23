@@ -134,7 +134,7 @@ async function getScoreboard() {
         const transformedData = {
             scoreboard: {
                 gameDate: gameDate || new Date().toISOString().split('T')[0],
-                games: (rawGames || []).map((game) => ({
+                games: await Promise.all((rawGames || []).map(async (game) => ({
                     gameId: game.gameId,
                     gameStatus: game.gameStatus,
                     gameStatusText: game.gameStatusText,
@@ -185,8 +185,8 @@ async function getScoreboard() {
                             } : null
                         }
                     } : { gameLeaders: null }),
-                    BetPrediction: fiveMinuteMarkCalculator_1.FiveMinuteMarkCalculator.calculateBetStatus(game)
-                }))
+                    BetPrediction: await fiveMinuteMarkCalculator_1.FiveMinuteMarkCalculator.calculateBetStatus(game)
+                })))
             }
         };
         return transformedData;

@@ -46,18 +46,36 @@ declare class DoMath {
  */
 declare class FiveMinuteMarkCalculator {
     /**
+     * Validate if prediction should be shown based on game criteria
+     *
+     * Criteria:
+     * 7.1: Never show prediction if teams are under 10 points apart
+     * 7.2: Never show prediction if teams are 6+ points away from predicted score at 5-minute mark
+     * 7.3: Never show prediction if there's inconsistent scoring in Q4
+     *
+     * @param homeCalculated Predicted home team Q4 score
+     * @param awayCalculated Predicted away team Q4 score
+     * @param homeQ4 Actual home team Q4 score at 5-minute mark
+     * @param awayQ4 Actual away team Q4 score at 5-minute mark
+     * @param homePeriodArray Home team period scores
+     * @param awayPeriodArray Away team period scores
+     * @returns Boolean indicating if prediction should be shown
+     */
+    static shouldShowPrediction(homeCalculated: number, awayCalculated: number, homeQ4: number, awayQ4: number, homePeriodArray: any[], awayPeriodArray: any[]): boolean;
+    /**
      * Calculate betting prediction for a single game
      *
      * This function:
      * 1. Validates that game data exists and has proper team data
      * 2. Calculates predicted scores based on Q1-Q3 performance
-     * 3. At the 5-minute mark of Q3 (or later), compares Q4 score to prediction
+     * 3. At the 5-minute mark of Q4, compares Q4 score to prediction
      * 4. Assigns OVER/UNDER betting status based on the comparison
+     * 5. Validates prediction using criteria 7.1, 7.2, 7.3
      *
      * @param game Single game object from NBA API (can be any game format with team and period data)
      * @returns BetPrediction with status and risk level
      */
-    static calculateBetStatus(game: any): BetPrediction;
+    static calculateBetStatus(game: any): Promise<BetPrediction>;
     /**
      * Process all games and calculate betting predictions
      *

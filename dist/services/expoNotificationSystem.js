@@ -299,8 +299,12 @@ class ExpoNotificationSystem {
                     body = `Final: ${awayTeam} vs ${homeTeam} - ${score}`;
                     break;
                 case 'new_prediction':
-                    title = '✨New Prediction 🔮';
-                    body = `${awayTeam} vs ${homeTeam} - (Confidence % In the App 🗑️)`;
+                    title = '✨New Prediction ';
+                    body = `${awayTeam} vs ${homeTeam} - New prediction available! 🔮`;
+                    break;
+                case 'game_five_minutes_mark':
+                    title = '✨Prediction Incoming ';
+                    body = `${awayTeam} vs ${homeTeam} - Five minutes mark prediction will be available in 2 minutes! 🔮`;
                     break;
             }
             // Get all active users

@@ -41,7 +41,7 @@ declare class ExpoNotificationSystem {
     /**
      * Send game update notification
      */
-    sendGameUpdateNotification(gameId: string, homeTeam: string, awayTeam: string, score: string, eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction', percentage?: string): Promise<number>;
+    sendGameUpdateNotification(gameId: string, homeTeam: string, awayTeam: string, score: string, eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction' | 'game_five_minutes_mark', percentage?: string): Promise<number>;
     /**
      * Send subscription notification
      */

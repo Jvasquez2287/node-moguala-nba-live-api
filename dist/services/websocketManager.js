@@ -7,6 +7,8 @@ exports.webSocketManager = exports.ScoreboardWebSocketManager = void 0;
 const ws_1 = __importDefault(require("ws"));
 const dataCache_1 = require("./dataCache");
 const expoNotificationSystem_1 = __importDefault(require("./expoNotificationSystem"));
+const database_1 = require("../config/database");
+const mssql_1 = __importDefault(require("mssql"));
 class ScoreboardWebSocketManager {
     constructor() {
         this.activeConnections = new Set();
@@ -17,8 +19,7 @@ class ScoreboardWebSocketManager {
         this.lastUpdateTimestamp = new Map();
         this.lastFullBroadcast = 0;
         this.initialized = false;
-        // Notification tracking to prevent duplicates
-        this.notificationTracker = new Map();
+        // Notification tracking to prevent duplicates (now stored in database)
         this.seenGameIds = new Set();
         this.NOTIFICATION_COOLDOWN = 5000; // 5 seconds - minimum time between same notification type for same game
         // Scoreboard update intervals and thresholds
@@ -130,7 +131,7 @@ class ScoreboardWebSocketManager {
     async sendInitialData(websocket) {
         try {
             if (!this.activeConnections.has(websocket)) {
-                console.warn('[Scoreboard WebSocket] Websocket not in active connections, skipping initial send');
+                console.warn('\n\n[Scoreboard WebSocket] Websocket not in active connections, skipping initial send\n\n');
                 return;
             }
             if (process.env.USE_MOCK_DATA === 'true') {
@@ -168,28 +169,119 @@ class ScoreboardWebSocketManager {
     }
     async sendNotificationOngameStatusChange(game, eventType) {
         const gameId = game.gameId || 'unknown';
-        const trackerKey = `${gameId}_${eventType}`;
         const currentTime = Date.now();
-        // Check if notification has already been sent for this game and event type
-        const lastNotification = this.notificationTracker.get(trackerKey);
-        if (lastNotification) {
-            const timeSinceLastNotification = currentTime - lastNotification.timestamp;
-            if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
-                console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
-                return; // Skip duplicate notification
+        try {
+            // Check if notification has already been sent recently from database
+            const lastNotification = await this.getLastNotificationTime(gameId, eventType);
+            if (lastNotification) {
+                const timeSinceLastNotification = currentTime - lastNotification.getTime();
+                if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
+                    console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
+                    return; // Skip duplicate notification
+                }
+            }
+            const awayTeam = game.awayTeam?.teamName || 'Away Team';
+            const homeTeam = game.homeTeam?.teamName || 'Home Team';
+            const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
+            const notificationStatus = await expoNotificationSystem_1.default.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, eventType);
+            if (notificationStatus !== 0) {
+                // Track successful notification in database
+                await this.recordNotificationInDatabase(gameId, eventType);
+                console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
+            }
+            else {
+                console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
             }
         }
-        const awayTeam = game.awayTeam?.teamName || 'Away Team';
-        const homeTeam = game.homeTeam?.teamName || 'Home Team';
-        const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
-        const notificationStatus = await expoNotificationSystem_1.default.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, eventType);
-        if (notificationStatus !== 0) {
-            // Track successful notification
-            this.notificationTracker.set(trackerKey, { type: eventType, timestamp: currentTime });
-            console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
+        catch (error) {
+            console.error(`[Scoreboard WebSocket] Error in sendNotificationOngameStatusChange for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
         }
-        else {
-            console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
+    }
+    async sendFiveMinutesMarkNotification(game, eventType) {
+        const gameId = game.gameId || 'unknown';
+        const currentTime = Date.now();
+        try {
+            // Check if notification has already been sent recently from database
+            const lastNotification = await this.getLastNotificationTime(gameId, eventType);
+            if (lastNotification) {
+                const timeSinceLastNotification = currentTime - lastNotification.getTime();
+                if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
+                    console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
+                    return; // Skip duplicate notification
+                }
+            }
+            const awayTeam = game.awayTeam?.teamName || 'Away Team';
+            const homeTeam = game.homeTeam?.teamName || 'Home Team';
+            const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
+            const notificationStatus = await expoNotificationSystem_1.default.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, eventType);
+            if (notificationStatus !== 0) {
+                // Track successful notification in database
+                await this.recordNotificationInDatabase(gameId, eventType);
+                console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
+            }
+            else {
+                console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
+            }
+        }
+        catch (error) {
+            console.error(`[Scoreboard WebSocket] Error in sendFiveMinutesMarkNotification for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    /**
+     * Get the last time a notification was sent for a game and event type
+     * @returns Date of last notification or null if never sent
+     */
+    async getLastNotificationTime(gameId, eventType) {
+        try {
+            const pool = await (0, database_1.connectToDatabase)();
+            if (!pool)
+                return null;
+            const result = await pool
+                .request()
+                .input('gameId', mssql_1.default.VarChar(255), gameId)
+                .input('eventType', mssql_1.default.VarChar(100), eventType)
+                .query(`
+          SELECT TOP 1 last_sent_at 
+          FROM game_notification_tracker 
+          WHERE game_id = @gameId AND event_type = @eventType
+          ORDER BY last_sent_at DESC
+        `);
+            if (result.recordset && result.recordset.length > 0) {
+                return result.recordset[0].last_sent_at;
+            }
+            return null;
+        }
+        catch (error) {
+            console.error(`[Scoreboard WebSocket] Error getting last notification time: ${error instanceof Error ? error.message : String(error)}`);
+            return null;
+        }
+    }
+    /**
+     * Record a notification in the database
+     */
+    async recordNotificationInDatabase(gameId, eventType) {
+        try {
+            const pool = await (0, database_1.connectToDatabase)();
+            if (!pool)
+                return;
+            await pool
+                .request()
+                .input('gameId', mssql_1.default.VarChar(255), gameId)
+                .input('eventType', mssql_1.default.VarChar(100), eventType)
+                .query(`
+          MERGE game_notification_tracker AS target
+          USING (SELECT @gameId as game_id, @eventType as event_type) AS source
+          ON target.game_id = source.game_id AND target.event_type = source.event_type
+          WHEN MATCHED THEN
+            UPDATE SET last_sent_at = GETDATE()
+          WHEN NOT MATCHED THEN
+            INSERT (game_id, event_type, last_sent_at)
+            VALUES (@gameId, @eventType, GETDATE());
+        `);
+            console.log(`[Scoreboard WebSocket] Recorded notification in database for game ${gameId} - event: ${eventType}`);
+        }
+        catch (error) {
+            console.error(`[Scoreboard WebSocket] Error recording notification in database: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
     async sendNotificationOnGameIDChange(game) {
@@ -207,8 +299,8 @@ class ScoreboardWebSocketManager {
         const percentage = "null"; // Placeholder for confidence percentage if available
         const notificationStatus = await expoNotificationSystem_1.default.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, 'new_prediction', percentage);
         if (notificationStatus !== 0) {
-            const trackerKey = `${gameId}_new_game`;
-            this.notificationTracker.set(trackerKey, { type: 'new_game', timestamp: Date.now() });
+            // Track successful notification in database
+            await this.recordNotificationInDatabase(gameId, 'new_game');
             console.log(`[Scoreboard WebSocket] New game notification sent for game ${gameId} - Status: ${notificationStatus}`);
         }
         else {
@@ -349,7 +441,7 @@ class ScoreboardWebSocketManager {
         if (this.cleanupInterval)
             return;
         console.log('[Scoreboard WebSocket] Cleanup task started');
-        const cleanup = () => {
+        const cleanup = async () => {
             // Remove dead connections
             const deadConnections = [];
             for (const client of this.activeConnections) {
@@ -369,19 +461,35 @@ class ScoreboardWebSocketManager {
                 }
             }
             staleKeys.forEach(key => this.lastUpdateTimestamp.delete(key));
-            // Clean up old notification entries (older than 1 hour)
-            const staleNotifications = [];
-            for (const [key, notification] of this.notificationTracker.entries()) {
-                if (currentTime - notification.timestamp > this.CLEANUP_THRESHOLD) {
-                    staleNotifications.push(key);
-                }
-            }
-            staleNotifications.forEach(key => this.notificationTracker.delete(key));
-            if (deadConnections.length > 0 || staleKeys.length > 0 || staleNotifications.length > 0) {
-                console.log(`[Scoreboard WebSocket] Cleanup: removed ${deadConnections.length} dead connections, ${staleKeys.length} stale timestamps, ${staleNotifications.length} old notifications`);
+            // Clean up old notification entries from database (older than 1 hour)
+            await this.cleanupOldNotificationsFromDatabase();
+            if (deadConnections.length > 0 || staleKeys.length > 0) {
+                console.log(`[Scoreboard WebSocket] Cleanup: removed ${deadConnections.length} dead connections, ${staleKeys.length} stale timestamps`);
             }
         };
         this.cleanupInterval = setInterval(cleanup, this.CLEANUP_INTERVAL);
+    }
+    /**
+     * Clean up old notification tracking records from database (older than 1 hour)
+     */
+    async cleanupOldNotificationsFromDatabase() {
+        try {
+            const pool = await (0, database_1.connectToDatabase)();
+            if (!pool)
+                return;
+            const result = await pool
+                .request()
+                .query(`
+          DELETE FROM game_notification_tracker
+          WHERE last_sent_at < DATEADD(HOUR, -1, GETDATE())
+        `);
+            if (result.rowsAffected[0] > 0) {
+                console.log(`[Scoreboard WebSocket] Cleaned up ${result.rowsAffected[0]} old notification records from database`);
+            }
+        }
+        catch (error) {
+            console.error(`[Scoreboard WebSocket] Error cleaning up old notifications from database: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
     stopCleanupTask() {
         if (this.cleanupInterval) {

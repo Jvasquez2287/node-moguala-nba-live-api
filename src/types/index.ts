@@ -78,6 +78,19 @@ export interface GameLeaders {
   awayLeaders?: GameLeaderStats | null;
 }
 
+export interface BetPrediction {
+  visitorOveral: number | null;
+  visitorStatus: 'OVER' | 'UNDER' | 'UNKNOW';
+  homeOveral: number | null;
+  homeStatus: 'OVER' | 'UNDER' | 'UNKNOW';
+  riskLevel: 'HIGH' | 'LOW' | 'MEDIUM' | 'UNKNOW';
+  status: 'OVER' | 'UNDER' | 'UNKNOW';
+  showPrediction?: boolean | false;
+}
+
+
+
+
 export interface LiveGame {
   gameId: string;
   gameDate?: string;
@@ -89,7 +102,8 @@ export interface LiveGame {
   homeTeam: Team;
   awayTeam: Team;
   gameLeaders?: GameLeaders | null;
-}
+  BetPrediction?: BetPrediction | null;
+  }
 
 export interface Scoreboard {
   gameDate: string;

@@ -173,7 +173,7 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
       const transformedData: ScoreboardResponse = {
           scoreboard: {
             gameDate:  gameDate || new Date().toISOString().split('T')[0],
-            games: (rawGames || []).map((game: LiveGame) => ({
+            games: await Promise.all((rawGames || []).map(async (game: LiveGame) => ({
               gameId: game.gameId,
               gameStatus: game.gameStatus,
               gameStatusText: game.gameStatusText,
@@ -224,11 +224,12 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
                   } : null
                 }
               } : { gameLeaders: null }),
-              BetPrediction: FiveMinuteMarkCalculator.calculateBetStatus(game)
+              BetPrediction: await FiveMinuteMarkCalculator.calculateBetStatus(game) 
             }))
-          }
+          )}
         };
-   
+ 
+      
     return transformedData;
   } catch (error) {
     console.error('Error fetching live scoreboard:', error);

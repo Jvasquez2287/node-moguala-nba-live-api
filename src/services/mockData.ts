@@ -576,38 +576,40 @@ export const createMockPeriods = (): Array<{ period: number; score: number }> =>
 export const createMockLiveGames = (gameDate: string): TypesLiveGame[] => {
     return [
         {
-            gameId: '0022500001',
+            gameId: '0022500301',
             gameStatus: 2,
-            gameStatusText: '4th Qtr 3:45',
+            gameStatusText: '4th Qtr 5:00',
             period: 4,
-            gameClock: '3:45',
+            gameClock: '5:00',
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...mockTeams.BOS,
-                score: 112, 
-                periods: createMockPeriods()  
+                score: 112,
+                periods: createMockPeriods()
             } as Team,
             awayTeam: {
                 ...mockTeams.LAL,
                 score: 108,
-                periods: createMockPeriods() 
+                periods: createMockPeriods()
             } as Team,
             gameLeaders: createMockGameLeaders()
         },
         {
-            gameId: '0022500002',
+            gameId: '0022500302',
             gameStatus: 2,
-            gameStatusText: '3rd Qtr 6:12',
-            period: 3,
-            gameClock: '6:12',
+            gameStatusText: '4th Qtr 7:00',
+            period: 4,
+            gameClock: '7:00',
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...mockTeams.GSW,
-                score: 85
+                score: 98,
+                periods: createMockPeriods()
             } as Team,
             awayTeam: {
                 ...mockTeams.DEN,
-                score: 82
+                score: 95,
+                periods: createMockPeriods()
             } as Team,
             gameLeaders: {
                 homeLeaders: {
@@ -618,8 +620,7 @@ export const createMockLiveGames = (gameDate: string): TypesLiveGame[] => {
                     teamTricode: 'GSW',
                     points: 31,
                     rebounds: 4,
-                    assists: 9,
-                    periods: createMockPeriods()
+                    assists: 9
                 },
                 awayLeaders: {
                     personId: 201950,
@@ -629,23 +630,49 @@ export const createMockLiveGames = (gameDate: string): TypesLiveGame[] => {
                     teamTricode: 'DEN',
                     points: 28,
                     rebounds: 3,
-                    assists: 7,
-                    periods: createMockPeriods()
+                    assists: 7
                 }
             }
         },
         {
-            gameId: '0022500003',
-            gameStatus: 1,
-            gameStatusText: 'Scheduled',
-            period: 0,
-            gameTimeUTC: new Date(Date.now() + 3600000).toISOString(),
+            gameId: '0022500303',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 8:00',
+            period: 4,
+            gameClock: '8:00',
+            gameTimeUTC: new Date().toISOString(),
             homeTeam: {
-                ...mockTeams.NYK
+                ...mockTeams.NYK,
+                score: 105,
+                periods: createMockPeriods()
             } as Team,
             awayTeam: {
-                ...mockTeams.MIA
-            } as Team
+                ...mockTeams.MIA,
+                score: 102,
+                periods: createMockPeriods()
+            } as Team,
+            gameLeaders: {
+                homeLeaders: {
+                    personId: 2544950,
+                    name: 'Jalen Brunson',
+                    jerseyNum: '11',
+                    position: 'G',
+                    teamTricode: 'NYK',
+                    points: 32,
+                    rebounds: 3,
+                    assists: 8
+                },
+                awayLeaders: {
+                    personId: 2544951,
+                    name: 'Jimmy Butler',
+                    jerseyNum: '22',
+                    position: 'F',
+                    teamTricode: 'MIA',
+                    points: 28,
+                    rebounds: 7,
+                    assists: 4
+                }
+            }
         }
     ];
 };
