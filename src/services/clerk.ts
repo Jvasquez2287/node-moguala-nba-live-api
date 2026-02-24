@@ -3,13 +3,13 @@ import { Request } from 'express';
 import { executeQuery } from '../config/database';
 import stripeService from './stripe';
 
- 
-const clerkWebhookSecret = (): string =>  {
+
+const clerkWebhookSecret = (): string => {
   console.log('Determining Clerk webhook secret...', `NODE_ENV: ${process.env.NODE_ENV}`);
-  
+
   // Priority: env var > development default
   let secret: string | undefined;
-  
+
   if (process.env.NODE_ENV && process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
     secret = 'whsec_YwRdaveVDGVih3Zr1wkjyXiWIWnYle2T';
     console.log('Using development Clerk webhook secret', secret.slice(0, 10) + '...'); // Log only part of the secret for security
@@ -17,11 +17,11 @@ const clerkWebhookSecret = (): string =>  {
     secret = process.env.CLERK_WEBHOOK_SECRET;
     console.log('Using production Clerk webhook secret from environment variable:', secret?.slice(0, 10) + '...'); // Log only part of the secret for security
   }
-  
+
   if (!secret) {
     throw new Error('CLERK_WEBHOOK_SECRET environment variable is not set and NODE_ENV is not development');
   }
-  
+
   return secret;
 }
 
@@ -31,17 +31,17 @@ const clerkWebhookSecret = (): string =>  {
  */
 const getClerkAPISecret = (): string => {
   const apiSecret = process.env.CLERK_SECRET_KEY;
-  
+
   if (!apiSecret) {
     const errorMsg = 'CLERK_SECRET_KEY environment variable is not set. Required for making API calls to Clerk.';
     console.error(`[Clerk] ${errorMsg}`);
     throw new Error(errorMsg);
   }
-  
+
   // Log which secret is being used (masked for security)
   const secretMasked = apiSecret.substring(0, 10) + '***' + apiSecret.substring(apiSecret.length - 5);
   console.log(`[Clerk] Using API secret: ${secretMasked}`);
-  
+
   return apiSecret;
 }
 
@@ -70,10 +70,10 @@ export const clerkService = {
   async verifyWebhook(req: Request): Promise<WebhookEvent | null> {
     try {
       const wh = new Webhook(clerkWebhookSecret());
-      
+
       // Get raw body - Clerk's Svix library requires the raw body for signature verification
       let rawBody: string;
-      
+
       if (Buffer.isBuffer(req.body)) {
         // If it's a Buffer (from express.raw middleware), convert to string
         rawBody = req.body.toString('utf-8');
@@ -90,17 +90,17 @@ export const clerkService = {
         console.log('[Clerk] Make sure Clerk webhook endpoint has express.raw({type: "application/json"}) middleware');
         throw new Error('Clerk webhook: req.body must be Buffer or string for signature verification. Make sure raw body parser middleware is applied.');
       }
-      
+
       // Log headers for debugging
       const svixId = req.headers['svix-id'];
       const svixSignature = req.headers['svix-signature'];
       const svixTimestamp = req.headers['svix-timestamp'];
-      
+
       console.log('[Clerk] Webhook headers:');
       console.log('  - svix-id:', svixId ? `${String(svixId).substring(0, 10)}...` : 'missing');
       console.log('  - svix-signature (first 30 chars):', svixSignature ? String(svixSignature).substring(0, 30) + '...' : 'missing');
       console.log('  - svix-timestamp:', svixTimestamp);
-      
+
       // Verify the webhook signature
       const msg = wh.verify(rawBody, req.headers as any);
 
@@ -245,20 +245,33 @@ export const clerkService = {
   },
 
   /**
+   * Get user's clerk ID by email
+   */
+  async getClerkIdByEmail(email: string): Promise<string | null> {
+    try {
+      const user = await this.getUserByEmail(email);
+      return user?.clerk_id || null;
+    } catch (error) {
+      console.error('[Clerk] Error getting clerk ID by email:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Handle session created event
    */
   async handleSessionCreated(sessionData: any) {
     try {
       const userId = sessionData.user_id;
       const sessionId = sessionData.id;
-      
+
       if (!userId) {
         throw new Error('No user_id found in session data');
       }
 
       // Get the user from database by clerk_id
       let user = await this.getUserByClerkId(userId);
-      
+
       // If user not found, fetch from Clerk API and create in DB
       if (!user) {
         console.log(`[Clerk] User not found for clerk_id: ${userId}, fetching from Clerk API...`);
@@ -279,19 +292,19 @@ export const clerkService = {
           console.log(`[Stripe] User missing stripe_id, creating/linking Stripe customer...`);
           // Get or create Stripe customer
           const stripeCustomer = await stripeService.getOrCreateCustomer(user.email, `${user.first_name || ''} ${user.last_name || ''}`.trim());
-          
+
           // Update user with stripe_id
           const updateQuery = `
             UPDATE users SET stripe_id = @stripeId, updated_at = @updatedAt
             WHERE clerk_id = @clerkId
           `;
-          
+
           await executeQuery(updateQuery, {
             clerkId: userId,
             stripeId: stripeCustomer.id,
             updatedAt: new Date()
           });
-          
+
           user.stripe_id = stripeCustomer.id;
           console.log(`[Stripe] User linked to Stripe customer: ${stripeCustomer.id}`);
         } catch (error) {
@@ -304,10 +317,10 @@ export const clerkService = {
         try {
           console.log(`[Stripe] Checking subscriptions for customer: ${user.stripe_id}`);
           const subscriptions = await stripeService.getCustomerSubscriptions(user.stripe_id);
-          
+
           if (subscriptions.length > 0) {
             console.log(`[Stripe] Found ${subscriptions.length} subscription(s) for customer ${user.stripe_id}`);
-            
+
             // Sync each subscription to database
             for (const subscription of subscriptions) {
               try {
@@ -388,7 +401,7 @@ export const clerkService = {
 
       // Get the user from database by clerk_id
       let user = await this.getUserByClerkId(userId);
-      
+
       // If user not found, fetch from Clerk API and create in DB
       if (!user) {
         console.log(`[Clerk] User not found for clerk_id: ${userId}, fetching from Clerk API...`);
@@ -409,19 +422,19 @@ export const clerkService = {
           console.log(`[Stripe] User missing stripe_id, creating/linking Stripe customer...`);
           // Get or create Stripe customer
           const stripeCustomer = await stripeService.getOrCreateCustomer(user.email, `${user.first_name || ''} ${user.last_name || ''}`.trim());
-          
+
           // Update user with stripe_id
           const updateQuery = `
             UPDATE users SET stripe_id = @stripeId, updated_at = @updatedAt
             WHERE clerk_id = @clerkId
           `;
-          
+
           await executeQuery(updateQuery, {
             clerkId: userId,
             stripeId: stripeCustomer.id,
             updatedAt: new Date()
           });
-          
+
           user.stripe_id = stripeCustomer.id;
           console.log(`[Stripe] User linked to Stripe customer: ${stripeCustomer.id}`);
         } catch (error) {
@@ -461,7 +474,7 @@ export const clerkService = {
 
       // Get the user from database by clerk_id
       let user = await this.getUserByClerkId(userId);
-      
+
       // If user not found, fetch from Clerk API and create in DB
       if (!user) {
         console.log(`[Clerk] User not found for clerk_id: ${userId}, fetching from Clerk API...`);
@@ -482,19 +495,19 @@ export const clerkService = {
           console.log(`[Stripe] User missing stripe_id, creating/linking Stripe customer...`);
           // Get or create Stripe customer
           const stripeCustomer = await stripeService.getOrCreateCustomer(user.email, `${user.first_name || ''} ${user.last_name || ''}`.trim());
-          
+
           // Update user with stripe_id
           const updateQuery = `
             UPDATE users SET stripe_id = @stripeId, updated_at = @updatedAt
             WHERE clerk_id = @clerkId
           `;
-          
+
           await executeQuery(updateQuery, {
             clerkId: userId,
             stripeId: stripeCustomer.id,
             updatedAt: new Date()
           });
-          
+
           user.stripe_id = stripeCustomer.id;
           console.log(`[Stripe] User linked to Stripe customer: ${stripeCustomer.id}`);
         } catch (error) {
@@ -507,10 +520,10 @@ export const clerkService = {
         try {
           console.log(`[Stripe] Checking subscriptions for customer: ${user.stripe_id}`);
           const subscriptions = await stripeService.getCustomerSubscriptions(user.stripe_id);
-          
+
           if (subscriptions.length > 0) {
             console.log(`[Stripe] Found ${subscriptions.length} subscription(s) for customer ${user.stripe_id}`);
-            
+
             // Sync each subscription to database
             for (const subscription of subscriptions) {
               try {
@@ -607,7 +620,7 @@ export const clerkService = {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         console.warn(`[Clerk] Failed to fetch user ${clerkId} from Clerk API:`, response.status);
         return null;
@@ -628,7 +641,7 @@ export const clerkService = {
     try {
       console.log('[Clerk] Starting full user sync from Clerk API...');
       console.log('[Clerk] Using CLERK_SECRET_KEY:', process.env.CLERK_SECRET_KEY ? 'Set' : 'Not set');
-      
+
       let createdCount = 0;
       let updatedCount = 0;
       let failedCount = 0;
@@ -641,7 +654,7 @@ export const clerkService = {
         try {
           const url = `https://api.clerk.dev/v1/users?offset=${offset}&limit=${limit}`;
           console.log(`[Clerk] Fetching users from: ${url}`);
-          
+
           const response = await fetch(url, {
             headers: {
               'Authorization': `Bearer ${getClerkAPISecret()}`,
@@ -650,7 +663,7 @@ export const clerkService = {
           });
 
           console.log(`[Clerk] API response status: ${response.status}`);
-          
+
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`[Clerk] Failed to fetch users from Clerk API: ${response.status}`, errorText);
@@ -659,7 +672,7 @@ export const clerkService = {
 
           const data = await response.json() as any;
           console.log(`[Clerk] API response data structure:`, JSON.stringify(data).substring(0, 500));
-          
+
           // Handle both array response and wrapped response
           const users = (Array.isArray(data) ? data : data?.data || []) as ClerkUser[];
           console.log(`[Clerk] Parsed ${users.length} users from API`);
@@ -744,7 +757,7 @@ export const clerkService = {
     }
 
     console.log('[Clerk] Starting automatic user sync (every 24 hours)');
-    
+
     // Sync immediately on startup
     this.syncAllUsersFromClerk().catch(error => {
       console.error('[Clerk] Error during initial sync:', error);

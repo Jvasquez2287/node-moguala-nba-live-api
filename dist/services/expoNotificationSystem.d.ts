@@ -27,6 +27,11 @@ declare class ExpoNotificationSystem {
      */
     getUserTokens(userId: string): Promise<string[]>;
     /**
+     * Check if a notification was recently sent to a user (within last 5 minutes)
+     * @returns true if duplicate found, false if ok to send
+     */
+    private hasDuplicateRecentNotification;
+    /**
      * Send a notification to a single user
      */
     sendNotificationToUser(userId: string, title: string, body: string, notificationType: string, data?: Record<string, string>): Promise<boolean>;
@@ -83,6 +88,11 @@ declare class ExpoNotificationSystem {
         totalNotificationsSent: number;
         failedNotifications: number;
     }>;
+    /**
+     *
+     * @returns Get user's tokens by Clerk Id
+     */
+    getUserExpoTokens(clerkId: string): Promise<string[]>;
     sendTestNotificationToAllUsers(): Promise<boolean>;
 }
 declare const _default: ExpoNotificationSystem;

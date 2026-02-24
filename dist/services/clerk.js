@@ -203,6 +203,19 @@ exports.clerkService = {
         }
     },
     /**
+     * Get user's clerk ID by email
+     */
+    async getClerkIdByEmail(email) {
+        try {
+            const user = await this.getUserByEmail(email);
+            return user?.clerk_id || null;
+        }
+        catch (error) {
+            console.error('[Clerk] Error getting clerk ID by email:', error);
+            throw error;
+        }
+    },
+    /**
      * Handle session created event
      */
     async handleSessionCreated(sessionData) {

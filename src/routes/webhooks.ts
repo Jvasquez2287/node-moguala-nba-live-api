@@ -4,6 +4,7 @@ import { stripeService, getStripeClient } from '../services/stripe';
 import { clerkService } from '../services/clerk';
 import { emailService } from '../services/emailService';
 import { executeQuery } from '../config/database';
+import expoNotificationSystem from '../services/expoNotificationSystem';
 
 const router = express.Router();
 
@@ -23,6 +24,31 @@ function getStripeWebhookSecret(): string {
     throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
   }
   return secret;
+}
+
+
+/**
+ * Hadler for notification of subscription renewal/resume (when a subscription becomes active again after being inactive)
+ * This can happen when a subscription is renewed after a failed payment, or when a user reactivates a canceled subscription
+ * We want to send a notification  in this case to welcome the user back and confirm their subscription is active again
+ */
+
+async function handleSubscriptionStatusNotification(customerEmail: string, subscriptionTitle: string, eventType: 'subscription_created' | 'subscription_renewed' | 'subscription_canceled' | 'subscription_expired') {
+  // Send notification to user
+  try {
+    if (customerEmail) {
+      const clerkId = await clerkService.getClerkIdByEmail(customerEmail);
+      if (clerkId) {
+        await expoNotificationSystem.sendSubscriptionNotification(
+          clerkId,
+          eventType,
+          subscriptionTitle
+        );
+      }
+    }
+  } catch (notificationError) {
+    console.error(`[Webhook] Error sending ${eventType} notification:`, notificationError);
+  }
 }
 
 /**
@@ -151,9 +177,10 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
           await stripeService.createSubscriptionInDB(subscriptionData);
         }
 
+        const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
+
         // Send success email
         try {
-          const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
           if (customerEmail) {
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
@@ -165,9 +192,16 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
               periodEnd,
             });
           }
+
+
+          if (customerEmail) {
+            await handleSubscriptionStatusNotification(customerEmail, subscriptionData.subscription_title, 'subscription_created');
+          }
+
         } catch (emailError) {
           console.error('[Webhook] Error sending subscribed email:', emailError);
         }
+
 
         console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
         return res.json({ received: true });
@@ -205,9 +239,9 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
 
             const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
             const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
- 
+
             // Check if subscription was resumed (status active after being inactive)
-             if (data.status === 'active' && previousStatus !== 'active') {
+            if (data.status === 'active' && previousStatus !== 'active') {
               console.log(`\n\n[Webhook] Detected subscription renewal/resume for customer: ${data.customer}\n\n`);
               await emailService.sendReactivateEmail({
                 userEmail: customerEmail,
@@ -216,10 +250,13 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
                 periodEnd,
               });
             }
- 
+
           }
-            
           await stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+
+          if (customerEmail) {
+            await handleSubscriptionStatusNotification(customerEmail, subscriptionData.subscription_title, 'subscription_renewed');
+          }
 
         } catch (emailError) {
           console.error('[Webhook] Error sending update email:', emailError);
@@ -251,6 +288,11 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Re
               cancelDate,
             });
           }
+
+          if (customerEmail) {
+            await handleSubscriptionStatusNotification(customerEmail, data.items.data[0].plan.nickname || 'a subscription', 'subscription_canceled');
+          }
+
         } catch (emailError) {
           console.error('[Webhook] Error sending cancellation email:', emailError);
         }

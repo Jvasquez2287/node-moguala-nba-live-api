@@ -136,6 +136,35 @@ class ExpoNotificationSystem {
         }
     }
     /**
+     * Check if a notification was recently sent to a user (within last 5 minutes)
+     * @returns true if duplicate found, false if ok to send
+     */
+    async hasDuplicateRecentNotification(userId, notificationType, cooldownMinutes = 5) {
+        try {
+            const cutoffTime = new Date();
+            cutoffTime.setMinutes(cutoffTime.getMinutes() - cooldownMinutes);
+            const result = await (0, database_1.executeQuery)(`SELECT COUNT(*) as count 
+                 FROM notifications 
+                 WHERE user_id = @userId 
+                 AND notification_type = @notificationType 
+                 AND sent_at > @cutoffTime
+                 AND delivery_status IN ('sent', 'pending')`, { userId, notificationType, cutoffTime });
+            const duplicateCount = result.recordset[0]?.count || 0;
+            if (duplicateCount > 0) {
+                console.log(`[Expo] Skipping duplicate notification - User: ${userId}, ` +
+                    `Type: ${notificationType}, ` +
+                    `Recent count: ${duplicateCount} (sent within last ${cooldownMinutes} minutes)`);
+                return true;
+            }
+            return false;
+        }
+        catch (error) {
+            console.error('[Expo] Error checking for duplicate notifications:', error);
+            // On error, allow sending (fail open)
+            return false;
+        }
+    }
+    /**
      * Send a notification to a single user
      */
     async sendNotificationToUser(userId, title, body, notificationType, data) {
@@ -143,6 +172,12 @@ class ExpoNotificationSystem {
             // Check if token is configured before attempting to send
             if (!this.tokenValid) {
                 console.warn('[Expo] Cannot send notification - EXPO_ACCESS_TOKEN is not configured');
+                return false;
+            }
+            // Check for recent duplicate notifications (within 5 minutes)
+            const hasDuplicate = await this.hasDuplicateRecentNotification(userId, notificationType);
+            if (hasDuplicate) {
+                console.log(`[Expo] Skipped duplicate notification for user ${userId} (type: ${notificationType})`);
                 return false;
             }
             const tokens = await this.getUserTokens(userId);
@@ -495,6 +530,21 @@ class ExpoNotificationSystem {
                 totalNotificationsSent: 0,
                 failedNotifications: 0,
             };
+        }
+    }
+    /**
+     *
+     * @returns Get user's tokens by Clerk Id
+     */
+    async getUserExpoTokens(clerkId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT token FROM device_tokens WHERE user_id = @clerkId AND is_active = 1 ORDER BY last_used DESC', { clerkId });
+            const tokens = result.recordset.map((row) => row.token);
+            return tokens;
+        }
+        catch (error) {
+            console.error('[Expo] Error retrieving user tokens by Clerk ID:', error);
+            return [];
         }
     }
     async sendTestNotificationToAllUsers() {

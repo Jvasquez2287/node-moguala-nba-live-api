@@ -8,6 +8,7 @@ const stripe_1 = require("../services/stripe");
 const clerk_1 = require("../services/clerk");
 const emailService_1 = require("../services/emailService");
 const database_1 = require("../config/database");
+const expoNotificationSystem_1 = __importDefault(require("../services/expoNotificationSystem"));
 const router = express_1.default.Router();
 // NOTE: Raw body parser is applied specifically to the /stripe POST endpoint
 // This ensures the raw request body is available for Stripe signature verification
@@ -25,6 +26,25 @@ function getStripeWebhookSecret() {
         throw new Error('STRIPE_WEBHOOK_SECRET environment variable is not set');
     }
     return secret;
+}
+/**
+ * Hadler for notification of subscription renewal/resume (when a subscription becomes active again after being inactive)
+ * This can happen when a subscription is renewed after a failed payment, or when a user reactivates a canceled subscription
+ * We want to send a notification  in this case to welcome the user back and confirm their subscription is active again
+ */
+async function handleSubscriptionStatusNotification(customerEmail, subscriptionTitle, eventType) {
+    // Send notification to user
+    try {
+        if (customerEmail) {
+            const clerkId = await clerk_1.clerkService.getClerkIdByEmail(customerEmail);
+            if (clerkId) {
+                await expoNotificationSystem_1.default.sendSubscriptionNotification(clerkId, eventType, subscriptionTitle);
+            }
+        }
+    }
+    catch (notificationError) {
+        console.error(`[Webhook] Error sending ${eventType} notification:`, notificationError);
+    }
 }
 /**
  * Convert Stripe Unix timestamp (in seconds) to JavaScript Date object
@@ -134,9 +154,9 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 else {
                     await stripe_1.stripeService.createSubscriptionInDB(subscriptionData);
                 }
+                const customerEmail = await stripe_1.stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
                 // Send success email
                 try {
-                    const customerEmail = await stripe_1.stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
                     if (customerEmail) {
                         const periodStart = new Date(data.current_period_start * 1000).toLocaleDateString();
                         const periodEnd = new Date(data.current_period_end * 1000).toLocaleDateString();
@@ -146,6 +166,9 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                             periodStart,
                             periodEnd,
                         });
+                    }
+                    if (customerEmail) {
+                        await handleSubscriptionStatusNotification(customerEmail, subscriptionData.subscription_title, 'subscription_created');
                     }
                 }
                 catch (emailError) {
@@ -192,6 +215,9 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                         }
                     }
                     await stripe_1.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+                    if (customerEmail) {
+                        await handleSubscriptionStatusNotification(customerEmail, subscriptionData.subscription_title, 'subscription_renewed');
+                    }
                 }
                 catch (emailError) {
                     console.error('[Webhook] Error sending update email:', emailError);
@@ -221,6 +247,9 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                             periodEnd,
                             cancelDate,
                         });
+                    }
+                    if (customerEmail) {
+                        await handleSubscriptionStatusNotification(customerEmail, data.items.data[0].plan.nickname || 'a subscription', 'subscription_canceled');
                     }
                 }
                 catch (emailError) {

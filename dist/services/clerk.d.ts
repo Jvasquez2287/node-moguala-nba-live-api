@@ -41,6 +41,10 @@ export declare const clerkService: {
      */
     getUserByEmail(email: string): Promise<any>;
     /**
+     * Get user's clerk ID by email
+     */
+    getClerkIdByEmail(email: string): Promise<string | null>;
+    /**
      * Handle session created event
      */
     handleSessionCreated(sessionData: any): Promise<any>;
