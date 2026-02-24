@@ -112,6 +112,16 @@ app.get("/api/v1/cache/status", async (req, res) => {
 });
 // API Endpoints interceptor for security and logging
 app.use('/api/v1', async (req, res, next) => {
+
+  if(app.use('/api/v1/webhooks', webhooksRouter)) {
+     // Skip token validation for webhook routes to allow external services like Stripe to send data without needing a token
+     return next();
+   }
+    //app.use('/api/v1/logo', logoRouter); 
+   if(req.url.includes('logo') ||req.url.includes('logos') || req.url.includes('/scoreboard') || req.url.includes('/schedule') || req.url.includes('/standings') || req.url.includes('/teams') || req.url.includes('/search') || req.url.includes('/predictions') || req.url.includes('/league') || req.url.includes('/players')) {
+     // Skip token validation for public data endpoints to allow free access to essential data without requiring a subscription, while still protecting user-specific and premium endpoints
+     return next();
+   }
   // Log incoming API requests with method, URL, and IP address
   console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
   const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
