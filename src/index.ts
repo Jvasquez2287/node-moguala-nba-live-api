@@ -118,7 +118,7 @@ app.use('/api/v1', async (req, res, next) => {
      return next();
    }
     //app.use('/api/v1/logo', logoRouter); 
-   if(req.url.includes('logo') ||req.url.includes('logos') || req.url.includes('/scoreboard') || req.url.includes('/schedule') || req.url.includes('/standings') || req.url.includes('/teams') || req.url.includes('/search') || req.url.includes('/predictions') || req.url.includes('/league') || req.url.includes('/players')) {
+   if(req.url.includes('logo') ||req.url.includes('logos') || req.url.includes('/scoreboard') || req.url.includes('/schedule') || req.url.includes('/standings') || req.url.includes('/teams') || req.url.includes('/search') || req.url.includes('/league') || req.url.includes('/players')) {
      // Skip token validation for public data endpoints to allow free access to essential data without requiring a subscription, while still protecting user-specific and premium endpoints
      return next();
    }
