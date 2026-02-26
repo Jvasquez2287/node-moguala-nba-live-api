@@ -160,6 +160,7 @@ export class DataCache {
   private readonly CLEANUP_INTERVAL = 300000; // 5 minutes
   private readonly CACHE_TTL_24H = 24 * 60 * 60 * 1000; // 24 hours
   private readonly CACHE_TTL_10M = 10 * 60 * 1000; // 10 minutes
+  private readonly CACHE_TTL_1MONTH = 30 * 24 * 60 * 60 * 1000; // 30 days (1 month)
 
   private scoreboardTask: NodeJS.Timeout | null = null;
   private playbyplayTask: NodeJS.Timeout | null = null;
@@ -497,6 +498,25 @@ export class DataCache {
     if (!this.cleanupTask) {
       this.periodicCleanup(); 
     }
+  }
+
+  /**
+   * Get cached predictions for a specific date
+   * @param date Date in YYYY-MM-DD format
+   * @returns Cached predictions response or null if not found/expired
+   */
+  async getPredictionsForDate(date: string): Promise<any | null> {
+    return await this.dbCache.get(`predictions_${date}`);
+  }
+
+  /**
+   * Cache predictions for a specific date
+   * @param date Date in YYYY-MM-DD format
+   * @param data Predictions response data to cache
+   * @param ttl TTL in milliseconds (defaults to 1 month)
+   */
+  setPredictionsForDate(date: string, data: any, ttl: number = this.CACHE_TTL_1MONTH): void {
+    this.dbCache.set(`predictions_${date}`, data, ttl);
   }
 
   async stopPolling(): Promise<void> { 

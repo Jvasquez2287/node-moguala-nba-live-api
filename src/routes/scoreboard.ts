@@ -18,12 +18,12 @@ const router = express.Router();
 // GET /api/scoreboard - Get live NBA scores
 router.get('/', async (req, res) => {
   try {
-      if (process.env.USE_MOCK_DATA === 'true') {
-         await dataCache.refreshScoreboard(); // Ensure mock data is loaded
-      }
+    if (process.env.USE_MOCK_DATA === 'true') {
+      await dataCache.refreshScoreboard(); // Ensure mock data is loaded
+    }
     console.log('[Scoreboard] Fetching scoreboard data...');
     const scoreboard = await dataCache.getScoreboard();
-    console.log('[Scoreboard] data:', scoreboard ? 'found' : 'null'); 
+    console.log('[Scoreboard] data:', scoreboard ? 'found' : 'null');
     if (!scoreboard) {
       return res.json({ error: 'Scoreboard data not available' });
     }
@@ -143,7 +143,7 @@ router.get('/game/:gameId/key-moments', async (req, res) => {
   try {
     const { gameId } = req.params;
     const playbyplay = await getPlayByPlay(gameId);
-    
+
     if (!playbyplay || !playbyplay.plays) {
       return res.json({
         gameId,
@@ -197,7 +197,7 @@ router.get('/game/:gameId/key-moments', async (req, res) => {
       lastScore = { home: homeScore, away: awayScore };
     }
 
-   return  res.json({
+    return res.json({
       gameId,
       moments: moments.slice(-10), // Return last 10 moments
       total: moments.length

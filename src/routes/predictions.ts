@@ -6,9 +6,7 @@ import { predictionsResponseSchema } from '../schemas/predictions';
 
 const router = express.Router();
 
-// Python API base URL (nba-tracker-api)
-const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://nba-v1.m-api.net:8000/api/v1';
-
+ 
 // Simple prediction algorithm based on team record
 function calculatePrediction(homeTeam: any, awayTeam: any): { prediction: string; confidence: number } {
   const homeWinPct = homeTeam.wins ? homeTeam.wins / (homeTeam.wins + homeTeam.losses) : 0.5;
@@ -39,6 +37,8 @@ router.get('/predictions', async (req, res) => {
         lastUpdated: new Date().toISOString()
       });
     }
+
+   
 
     const predictions = scoreboard.games
       .filter((game: any) => game.gameStatus < 3) // Only live/upcoming games

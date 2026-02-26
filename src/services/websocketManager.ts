@@ -85,10 +85,7 @@ export class ScoreboardWebSocketManager {
             console.warn(`[Scoreboard WebSocket] Client already subscribed, ignoring duplicate subscribe request`);
           } else {
             this.activeConnections.add(websocket);
-            console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
           }
-          // Send initial data
-          this.sendInitialData(websocket);
         }
         else if (message.type === 'unsubscribe_scoreboard') {
           this.activeConnections.delete(websocket);
@@ -123,6 +120,12 @@ export class ScoreboardWebSocketManager {
       }
     });
 
+
+    this.activeConnections.add(websocket);
+    console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
+
+    // Send initial data
+    this.sendInitialData(websocket);
   }
   // END WebSocket connection handling
 
@@ -144,11 +147,11 @@ export class ScoreboardWebSocketManager {
   }
   // END Play-by-play initial data send
 
- // key moments to send notifications on: game start, score updates, 5-minute mark of Q4, game end
+  // key moments to send notifications on: game start, score updates, 5-minute mark of Q4, game end
 
- // END key moments
+  // END key moments
 
- // Scoreboard Testing Method - can be called from other modules to trigger a broadcast with current data (for testing purposes)
+  // Scoreboard Testing Method - can be called from other modules to trigger a broadcast with current data (for testing purposes)
   private async sendInitialData(websocket: WebSocket): Promise<void> {
 
     try {
@@ -199,7 +202,7 @@ export class ScoreboardWebSocketManager {
     try {
       // Check if notification has already been sent recently from database
       const lastNotification = await this.getLastNotificationTime(gameId, eventType);
-      
+
       if (lastNotification) {
         const timeSinceLastNotification = currentTime - lastNotification.getTime();
         if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
@@ -224,9 +227,9 @@ export class ScoreboardWebSocketManager {
       console.error(`[Scoreboard WebSocket] Error in sendNotificationOngameStatusChange for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-// END Play-by-play initial data send
+  // END Play-by-play initial data send
 
-// Rate limiting logic for GenAI API requests
+  // Rate limiting logic for GenAI API requests
   async sendFiveMinutesMarkNotification(game: any, eventType: 'game_started' | 'score_update' | 'game_ended' | 'game_five_minutes_mark'): Promise<void> {
     const gameId = game.gameId || 'unknown';
     const currentTime = Date.now();
@@ -348,9 +351,9 @@ export class ScoreboardWebSocketManager {
     }
 
   }
- // END Notification for new game ID (used when a new game appears that wasn't previously tracked)
+  // END Notification for new game ID (used when a new game appears that wasn't previously tracked)
 
- // Rate limiting logic for GenAI API requests
+  // Rate limiting logic for GenAI API requests
   handleConnection(websocket: WebSocket): void {
     this.connect(websocket);
   }
@@ -373,7 +376,11 @@ export class ScoreboardWebSocketManager {
         wins: game.homeTeam?.wins || 0,
         losses: game.homeTeam?.losses || 0,
         score: game.homeTeam?.score || 0,
-        timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0
+        timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0,
+        periods: (Array.isArray(game.homeTeam?.periods) && game.homeTeam.periods.length > 0) ? game.homeTeam.periods.map((p: any) => ({
+          period: p.period,
+          score: p.score
+        })) : []
       },
       away_Team: {
         teamId: game.awayTeam?.teamId,
@@ -383,7 +390,11 @@ export class ScoreboardWebSocketManager {
         wins: game.awayTeam?.wins || 0,
         losses: game.awayTeam?.losses || 0,
         score: game.awayTeam?.score || 0,
-        timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0
+        timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0,
+        periods: (Array.isArray(game.awayTeam?.periods) && game.awayTeam.periods.length > 0) ? game.awayTeam.periods.map((p: any) => ({
+          period: p.period,
+          score: p.score
+        })) : []
       },
       gameLeaders: game.gameLeaders || null
     }));
@@ -444,6 +455,8 @@ export class ScoreboardWebSocketManager {
         return;
       }
 
+
+
       const newGames = scoreboardData.scoreboard.games || [];
       const currentTime = Date.now();
       const timeSinceLastBroadcast = currentTime - this.lastFullBroadcast;
@@ -455,6 +468,8 @@ export class ScoreboardWebSocketManager {
       if (!shouldBroadcast) {
         return; // No changes and periodic interval not reached
       }
+
+
 
       // Update tracking
       this.currentGames = newGames;
@@ -502,7 +517,7 @@ export class ScoreboardWebSocketManager {
       console.error('[Scoreboard WebSocket] Error in broadcast:', error);
     }
   }
-// END Scoreboard Testing Method
+  // END Scoreboard Testing Method
 
   // Cleanup task to remove dead connections and stale timestamps
   startCleanupTask(): void {
@@ -749,7 +764,7 @@ export class ScoreboardWebSocketManager {
     }
   }
 
-    // Broadcast key moments to all clients
+  // Broadcast key moments to all clients
   private async sendInitialPBPData(gameId: string, websocket: WebSocket): Promise<void> {
     try {
       if (websocket.readyState !== WebSocket.OPEN) {

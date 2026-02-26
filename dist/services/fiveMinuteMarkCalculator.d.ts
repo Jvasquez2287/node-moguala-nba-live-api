@@ -45,6 +45,7 @@ declare class DoMath {
  * Processes NBA games and calculates betting predictions at the 5-minute mark of Q3
  */
 declare class FiveMinuteMarkCalculator {
+    static checkAtSevenMinuteMark(homeQ4: number, awayQ4: number, homePeriodArray: any[], awayPeriodArray: any[], homeTeamId?: number, awayTeamId?: number, gameId?: string): boolean;
     /**
      * Validate if prediction should be shown based on game criteria
      *

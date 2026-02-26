@@ -507,7 +507,11 @@ function formatGameResponse(games: any[]): any[] {
       wins: game.homeTeam?.wins || 0,
       losses: game.homeTeam?.losses || 0,
       score: game.homeTeam?.score || 0,
-      timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0
+      timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0,
+      periods: (Array.isArray(game.homeTeam?.periods) && game.homeTeam.periods.length > 0) ? game.homeTeam.periods.map((p: any) => ({
+        period: p.period,
+        score: p.score
+      })) : []
     },
     away_Team: {
       teamId: game.awayTeam?.teamId,
@@ -517,7 +521,11 @@ function formatGameResponse(games: any[]): any[] {
       wins: game.awayTeam?.wins || 0,
       losses: game.awayTeam?.losses || 0,
       score: game.awayTeam?.score || 0,
-      timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0
+      timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0,
+      periods: (Array.isArray(game.awayTeam?.periods) && game.awayTeam.periods.length > 0) ? game.awayTeam.periods.map((p: any) => ({
+        period: p.period,
+        score: p.score
+      })) : []
     },
     gameLeaders: game.pointsLeaders || null
   }));

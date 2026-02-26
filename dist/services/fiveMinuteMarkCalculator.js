@@ -12,6 +12,45 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FiveMinuteMarkCalculator = exports.DoMath = void 0;
 const axios_1 = __importDefault(require("axios"));
 const websocketManager_1 = require("./websocketManager");
+// Cache for checkAtSevenMinuteMark results - persists for 2 hours
+const checkAtSevenMinuteMarkCache = new Map();
+const CACHE_TTL_2HOURS = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+/**
+ * Get cached result for checkAtSevenMinuteMark
+ * Returns null if cache miss or entry expired
+ */
+function getCheckAtSevenMinuteMarkCache(cacheKey) {
+    const entry = checkAtSevenMinuteMarkCache.get(cacheKey);
+    if (!entry) {
+        return null;
+    }
+    // Check if entry has expired
+    const now = Date.now();
+    if (now - entry.timestamp > CACHE_TTL_2HOURS) {
+        checkAtSevenMinuteMarkCache.delete(cacheKey);
+        console.log(`[FiveMinuteMarkCalculator] Cache entry expired for key: ${cacheKey}`);
+        return null;
+    }
+    console.log(`[FiveMinuteMarkCalculator] Cache HIT for key: ${cacheKey}, result: ${entry.result}`);
+    return entry.result;
+}
+/**
+ * Store result in checkAtSevenMinuteMark cache
+ */
+function setCheckAtSevenMinuteMarkCache(cacheKey, teamId, result) {
+    checkAtSevenMinuteMarkCache.set(cacheKey, {
+        teamId,
+        result,
+        timestamp: Date.now()
+    });
+    console.log(`[FiveMinuteMarkCalculator] Cache stored for key: ${cacheKey}, teamId: ${teamId}, result: ${result}`);
+}
+/**
+ * Create cache key from team data
+ */
+function createCheckAtSevenMinuteMarkCacheKey(homeTeamId, awayTeamId, gameId) {
+    return `check_7min_${gameId}_${homeTeamId}_${awayTeamId}`;
+}
 /**
 * DoMath utility class
 * Performs calculations for game predictions
@@ -141,35 +180,16 @@ exports.DoMath = DoMath;
  * Processes NBA games and calculates betting predictions at the 5-minute mark of Q3
  */
 class FiveMinuteMarkCalculator {
-    /**
-     * Validate if prediction should be shown based on game criteria
-     *
-     * Criteria:
-     * 7.1: Never show prediction if teams are under 10 points apart
-     * 7.2: Never show prediction if teams are 6+ points away from predicted score at 5-minute mark
-     * 7.3: Never show prediction if there's inconsistent scoring in Q4
-     *
-     * @param homeCalculated Predicted home team Q4 score
-     * @param awayCalculated Predicted away team Q4 score
-     * @param homeQ4 Actual home team Q4 score at 5-minute mark
-     * @param awayQ4 Actual away team Q4 score at 5-minute mark
-     * @param homePeriodArray Home team period scores
-     * @param awayPeriodArray Away team period scores
-     * @returns Boolean indicating if prediction should be shown
-     */
-    static shouldShowPrediction(homeCalculated, awayCalculated, homeQ4, awayQ4, homePeriodArray, awayPeriodArray) {
-        // Criterion 7.1: Check if teams are under 10 points apart at 5-minute mark
-        const scoreDifferential = Math.abs(homeQ4 - awayQ4);
-        if (scoreDifferential < 10) {
-            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.1): Score differential ${scoreDifferential} is less than 10 points`);
-            return false;
-        }
-        // Criterion 7.2: Check if teams are 6+ points away from predicted score
-        const homeDeviation = Math.abs(homeQ4 - homeCalculated);
-        const awayDeviation = Math.abs(awayQ4 - awayCalculated);
-        if (homeDeviation >= 6 || awayDeviation >= 6) {
-            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.2): Team deviation too large - Home: ${homeDeviation}pts, Away: ${awayDeviation}pts (threshold: 6)`);
-            return false;
+    static checkAtSevenMinuteMark(homeQ4, awayQ4, homePeriodArray, awayPeriodArray, homeTeamId, awayTeamId, gameId) {
+        // Create cache key if team IDs and game ID provided
+        let cacheKey = null;
+        if (homeTeamId && awayTeamId && gameId) {
+            cacheKey = createCheckAtSevenMinuteMarkCacheKey(homeTeamId, awayTeamId, gameId);
+            // Check cache first
+            const cachedResult = getCheckAtSevenMinuteMarkCache(cacheKey);
+            if (cachedResult !== null) {
+                return cachedResult;
+            }
         }
         // Criterion 7.3: Check for inconsistent scoring patterns in Q4
         // Calculate average of Q1-Q3 for both teams
@@ -188,11 +208,63 @@ class FiveMinuteMarkCalculator {
         // If Q4 pace at 5-minute mark differs by more than 50% from average, it's inconsistent
         const homeInconsistency = Math.abs(homeQ4Pace - homeAverage) / homeAverage;
         const awayInconsistency = Math.abs(awayQ4Pace - awayAverage) / awayAverage;
+        // Determine result
+        let result = true;
+        // Log inconsistency metrics for debugging
         if (homeInconsistency > 0.5 || awayInconsistency > 0.5) {
             console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.3): Inconsistent scoring pattern - Home inconsistency: ${(homeInconsistency * 100).toFixed(1)}%, Away inconsistency: ${(awayInconsistency * 100).toFixed(1)}% (threshold: 50%)`);
+            result = false;
+        }
+        // Store in cache if cache key is available
+        if (cacheKey && homeTeamId && awayTeamId) {
+            // Store for both teams
+            setCheckAtSevenMinuteMarkCache(cacheKey, homeTeamId, result);
+        }
+        return result;
+    }
+    /**
+     * Validate if prediction should be shown based on game criteria
+     *
+     * Criteria:
+     * 7.1: Never show prediction if teams are under 10 points apart
+     * 7.2: Never show prediction if teams are 6+ points away from predicted score at 5-minute mark
+     * 7.3: Never show prediction if there's inconsistent scoring in Q4
+     *
+     * @param homeCalculated Predicted home team Q4 score
+     * @param awayCalculated Predicted away team Q4 score
+     * @param homeQ4 Actual home team Q4 score at 5-minute mark
+     * @param awayQ4 Actual away team Q4 score at 5-minute mark
+     * @param homePeriodArray Home team period scores
+     * @param awayPeriodArray Away team period scores
+     * @returns Boolean indicating if prediction should be shown
+     */
+    static shouldShowPrediction(homeCalculated, awayCalculated, homeQ4, awayQ4, homePeriodArray, awayPeriodArray) {
+        /*
+             7.1. It should never give predictions on games where the teams are under 10 points from each other.
+             
+             7.2. It should never give predictions when the teams are 6 points apart from where they are supposed to be at the 5 minute mark.
+                For example if at the 5 minute mark the lakers are supposed to be at 17 points and the Knicks are supposed to be at 15 points but in
+                reality Lakers are at 24 points and Knicks are at 9 points. When the teams are 6 points or more from where they are supposed to be at
+                the 5 minute mark then it should cancel the prediction.
+
+             7.3. It should not give predictions on games where In the 4th quarter all of a sudden the teams are not scoring with a consistent flow of
+                either scoring or missing. For example If the Lakers have been averaging 30 points each quarter and all of a sudden in the 4th quarter they
+                start scoring rapidly and are at there 5 minute mark estimation by the 8th minute then it should cancel that game.
+        
+        */
+        // Criterion 7.1: Check if teams are under 10 points apart at 5-minute mark
+        const scoreDifferential = Math.abs(homeQ4 - awayQ4);
+        if (scoreDifferential < 10) {
+            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.1): Score differential ${scoreDifferential} is less than 10 points`);
             return false;
         }
-        console.log(`[FiveMinuteMarkCalculator] Prediction validated: Score diff: ${scoreDifferential}pts, Home dev: ${homeDeviation}pts, Away dev: ${awayDeviation}pts, Consistency OK`);
+        // Criterion 7.2: Check if teams are 6+ points away from predicted score
+        const homeDeviation = Math.abs(homeQ4 - homeCalculated);
+        const awayDeviation = Math.abs(awayQ4 - awayCalculated);
+        if (homeDeviation >= 6 || awayDeviation >= 6) {
+            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.2): Team deviation too large - Home: ${homeDeviation}pts, Away: ${awayDeviation}pts (threshold: 6)`);
+            return false;
+        }
         return true;
     }
     /**
@@ -313,6 +385,7 @@ class FiveMinuteMarkCalculator {
                     const prediction = DoMath.calculateAgainstFourScore(homeCalculated, awayCalculated, awayQ4, homeQ4);
                     // Validate prediction based on criteria 7.1, 7.2, 7.3
                     const showPrediction = FiveMinuteMarkCalculator.shouldShowPrediction(homeCalculated, awayCalculated, homeQ4, awayQ4, homePeriodArray, awayPeriodArray) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';
+                    //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
                     return {
                         ...prediction,
                         showPrediction: showPrediction

@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.subscriptionsService = void 0;
 const database_1 = require("../config/database");
 const stripe_1 = __importStar(require("./stripe"));
+const clerk_1 = require("./clerk");
 exports.subscriptionsService = {
     /**
      * Handle successful Stripe checkout session
@@ -65,10 +66,35 @@ exports.subscriptionsService = {
             console.log(`[SubscriptionsService] Customer email: ${customer.email}`);
             // Step 4: Find user by email
             let userResult = await (0, database_1.executeQuery)('SELECT id, clerk_id, email, first_name, last_name, stripe_id FROM users WHERE email = @email', { email: customer.email });
+            let user;
             if (!userResult.recordset || userResult.recordset.length === 0) {
-                throw new Error(`User not found for email: ${customer.email}`);
+                // User not found in local DB, try to fetch from Clerk and create locally
+                console.log(`[SubscriptionsService] User not found in local DB for email: ${customer.email}, fetching from Clerk API...`);
+                try {
+                    const clerkUsersResponse = await clerk_1.clerkService.getUserFromClerkAPI(customer.email);
+                    if (!clerkUsersResponse || !Array.isArray(clerkUsersResponse.data) || clerkUsersResponse.data.length === 0) {
+                        throw new Error(`User not found in Clerk API for email: ${customer.email}`);
+                    }
+                    const clerkUser = clerkUsersResponse.data[0];
+                    console.log(`[SubscriptionsService] Found user in Clerk API: ${clerkUser.id}`);
+                    // Create user in local database from Clerk info
+                    await clerk_1.clerkService.handleUserCreated(clerkUser);
+                    console.log(`[SubscriptionsService] Created user in local DB from Clerk info: ${clerkUser.id}`);
+                    // Fetch the newly created user from local DB
+                    userResult = await (0, database_1.executeQuery)('SELECT id, clerk_id, email, first_name, last_name, stripe_id FROM users WHERE email = @email', { email: customer.email });
+                    if (!userResult.recordset || userResult.recordset.length === 0) {
+                        throw new Error(`Failed to create user in local DB for email: ${customer.email}`);
+                    }
+                    user = userResult.recordset[0];
+                }
+                catch (clerkError) {
+                    console.error(`[SubscriptionsService] Error fetching/creating user from Clerk:`, clerkError);
+                    throw clerkError;
+                }
             }
-            const user = userResult.recordset[0];
+            else {
+                user = userResult.recordset[0];
+            }
             console.log(`[SubscriptionsService] Found user: ${user.id}, clerk_id: ${user.clerk_id}`);
             // Step 5: Update user with stripe_id if not already set
             if (!user.stripe_id || user.stripe_id !== subscription.customer) {

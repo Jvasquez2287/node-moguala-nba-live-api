@@ -163,7 +163,7 @@ router.get('/:subscriptionId', async (req: Request, res: Response) => {
   }
 });
 
-  
+
 /**
  * DELETE /api/v1/subscriptions/cancel
  * Cancel a subscription (POST with body containing subscriptionId)
@@ -189,9 +189,9 @@ router.delete('/cancel', async (req: Request, res: Response) => {
       stripeSubscriptionId = subscriptionId;
       dbId = subscriptionId;
     }
-  
+
     // Cancel subscription in Stripe 
-    const sub = await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true }) as any; 
+    const sub = await getStripeClient().subscriptions.update(stripeSubscriptionId, { cancel_at_period_end: true }) as any;
 
     const customerEmail = await stripeService.getCustomerEmailBySubscriptionId(sub.id);
     const productData = await stripeService.getProductsByID(sub.plan?.product);
@@ -237,7 +237,7 @@ router.delete('/cancel', async (req: Request, res: Response) => {
     res.json({ error: 'Failed to cancel subscription' });
   }
 });
- 
+
 
 router.post('/reactivate', async (req: Request, res: Response) => {
   try {
@@ -579,6 +579,12 @@ router.post('/checkout', async (req: Request, res: Response) => {
     }
 
     console.log(`[Subscriptions] Creating checkout session for price: ${stripePriceId}`);
+    const cutomerId = await stripeService.getCustomerIdByClerkId(userId);
+
+    if (!cutomerId) {
+      console.log(`[Subscriptions] No Stripe customer found for userId: ${userId}, creating new customer in Stripe...`);
+    }
+
 
     // Determine base URL for redirects - respect incoming request protocol
     let baseUrl = process.env.APP_URL;
@@ -608,10 +614,12 @@ router.post('/checkout', async (req: Request, res: Response) => {
       metadata: {
         userId: userId,
       },
-    });
+      customer: cutomerId || undefined, // Attach existing customer if found, otherwise Stripe will create a new one
+    },);
 
     console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
 
+ 
     return res.json({
       success: true,
       data: {

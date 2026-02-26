@@ -64,6 +64,62 @@ interface BetPrediction {
     showPrediction?: boolean;
 }
 
+/**
+ * Cache entry for checkAtSevenMinuteMark results
+ * Stores team ID and boolean result with 2-hour TTL
+ */
+interface CheckAtSevenMinuteMarkCacheEntry {
+    teamId: number;
+    result: boolean;
+    timestamp: number;
+}
+
+// Cache for checkAtSevenMinuteMark results - persists for 2 hours
+const checkAtSevenMinuteMarkCache = new Map<string, CheckAtSevenMinuteMarkCacheEntry>();
+const CACHE_TTL_2HOURS = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+
+/**
+ * Get cached result for checkAtSevenMinuteMark
+ * Returns null if cache miss or entry expired
+ */
+function getCheckAtSevenMinuteMarkCache(cacheKey: string): boolean | null {
+    const entry = checkAtSevenMinuteMarkCache.get(cacheKey);
+
+    if (!entry) {
+        return null;
+    }
+
+    // Check if entry has expired
+    const now = Date.now();
+    if (now - entry.timestamp > CACHE_TTL_2HOURS) {
+        checkAtSevenMinuteMarkCache.delete(cacheKey);
+        console.log(`[FiveMinuteMarkCalculator] Cache entry expired for key: ${cacheKey}`);
+        return null;
+    }
+
+    console.log(`[FiveMinuteMarkCalculator] Cache HIT for key: ${cacheKey}, result: ${entry.result}`);
+    return entry.result;
+}
+
+/**
+ * Store result in checkAtSevenMinuteMark cache
+ */
+function setCheckAtSevenMinuteMarkCache(cacheKey: string, teamId: number, result: boolean): void {
+    checkAtSevenMinuteMarkCache.set(cacheKey, {
+        teamId,
+        result,
+        timestamp: Date.now()
+    });
+    console.log(`[FiveMinuteMarkCalculator] Cache stored for key: ${cacheKey}, teamId: ${teamId}, result: ${result}`);
+}
+
+/**
+ * Create cache key from team data
+ */
+function createCheckAtSevenMinuteMarkCacheKey(homeTeamId: number, awayTeamId: number, gameId: string): string {
+    return `check_7min_${gameId}_${homeTeamId}_${awayTeamId}`;
+}
+
 
 
 /**
@@ -192,7 +248,7 @@ class DoMath {
             riskLevel = 'HIGH';
         }
 
-      
+
         return {
             visitorOveral: visitorOverall,
             visitorStatus,
@@ -209,6 +265,72 @@ class DoMath {
  * Processes NBA games and calculates betting predictions at the 5-minute mark of Q3
  */
 class FiveMinuteMarkCalculator {
+
+
+
+    static checkAtSevenMinuteMark(
+        homeQ4: number,
+        awayQ4: number,
+        homePeriodArray: any[],
+        awayPeriodArray: any[],
+        homeTeamId?: number,
+        awayTeamId?: number,
+        gameId?: string
+    ): boolean {
+        // Create cache key if team IDs and game ID provided
+        let cacheKey: string | null = null;
+        if (homeTeamId && awayTeamId && gameId) {
+            cacheKey = createCheckAtSevenMinuteMarkCacheKey(homeTeamId, awayTeamId, gameId);
+
+            // Check cache first
+            const cachedResult = getCheckAtSevenMinuteMarkCache(cacheKey);
+            if (cachedResult !== null) {
+                return cachedResult;
+            }
+        }
+
+        // Criterion 7.3: Check for inconsistent scoring patterns in Q4
+        // Calculate average of Q1-Q3 for both teams
+        const homeQ1 = typeof homePeriodArray[0] === 'object' ? homePeriodArray[0].score : homePeriodArray[0];
+        const homeQ2 = typeof homePeriodArray[1] === 'object' ? homePeriodArray[1].score : homePeriodArray[1];
+        const homeQ3 = typeof homePeriodArray[2] === 'object' ? homePeriodArray[2].score : homePeriodArray[2];
+        const homeAverage = (homeQ1 + homeQ2 + homeQ3) / 3;
+
+        const awayQ1 = typeof awayPeriodArray[0] === 'object' ? awayPeriodArray[0].score : awayPeriodArray[0];
+        const awayQ2 = typeof awayPeriodArray[1] === 'object' ? awayPeriodArray[1].score : awayPeriodArray[1];
+        const awayQ3 = typeof awayPeriodArray[2] === 'object' ? awayPeriodArray[2].score : awayPeriodArray[2];
+        const awayAverage = (awayQ1 + awayQ2 + awayQ3) / 3;
+
+        // Check if Q4 scoring is inconsistent with Q1-Q3 trend
+        // If a team is scoring significantly faster than their average, it breaks consistency
+        const homeQ4Pace = homeQ4 / (5 / 12); // Adjust for 5 minutes out of 12
+        const awayQ4Pace = awayQ4 / (5 / 12);
+
+        // If Q4 pace at 5-minute mark differs by more than 50% from average, it's inconsistent
+        const homeInconsistency = Math.abs(homeQ4Pace - homeAverage) / homeAverage;
+        const awayInconsistency = Math.abs(awayQ4Pace - awayAverage) / awayAverage;
+
+        // Determine result
+        let result = true;
+
+        // Log inconsistency metrics for debugging
+        if (homeInconsistency > 0.5 || awayInconsistency > 0.5) {
+            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.3): Inconsistent scoring pattern - Home inconsistency: ${(homeInconsistency * 100).toFixed(1)}%, Away inconsistency: ${(awayInconsistency * 100).toFixed(1)}% (threshold: 50%)`);
+            result = false;
+        }
+
+        // Store in cache if cache key is available
+        if (cacheKey && homeTeamId && awayTeamId) {
+            // Store for both teams
+            setCheckAtSevenMinuteMarkCache(cacheKey, homeTeamId, result);
+        }
+
+        return result;
+    }
+
+
+
+
     /**
      * Validate if prediction should be shown based on game criteria
      * 
@@ -233,6 +355,19 @@ class FiveMinuteMarkCalculator {
         homePeriodArray: any[],
         awayPeriodArray: any[]
     ): boolean {
+        /*
+             7.1. It should never give predictions on games where the teams are under 10 points from each other.
+             
+             7.2. It should never give predictions when the teams are 6 points apart from where they are supposed to be at the 5 minute mark. 
+                For example if at the 5 minute mark the lakers are supposed to be at 17 points and the Knicks are supposed to be at 15 points but in 
+                reality Lakers are at 24 points and Knicks are at 9 points. When the teams are 6 points or more from where they are supposed to be at 
+                the 5 minute mark then it should cancel the prediction. 
+
+             7.3. It should not give predictions on games where In the 4th quarter all of a sudden the teams are not scoring with a consistent flow of 
+                either scoring or missing. For example If the Lakers have been averaging 30 points each quarter and all of a sudden in the 4th quarter they
+                start scoring rapidly and are at there 5 minute mark estimation by the 8th minute then it should cancel that game.
+        
+        */
         // Criterion 7.1: Check if teams are under 10 points apart at 5-minute mark
         const scoreDifferential = Math.abs(homeQ4 - awayQ4);
         if (scoreDifferential < 10) {
@@ -248,33 +383,6 @@ class FiveMinuteMarkCalculator {
             return false;
         }
 
-        // Criterion 7.3: Check for inconsistent scoring patterns in Q4
-        // Calculate average of Q1-Q3 for both teams
-        const homeQ1 = typeof homePeriodArray[0] === 'object' ? homePeriodArray[0].score : homePeriodArray[0];
-        const homeQ2 = typeof homePeriodArray[1] === 'object' ? homePeriodArray[1].score : homePeriodArray[1];
-        const homeQ3 = typeof homePeriodArray[2] === 'object' ? homePeriodArray[2].score : homePeriodArray[2];
-        const homeAverage = (homeQ1 + homeQ2 + homeQ3) / 3;
-
-        const awayQ1 = typeof awayPeriodArray[0] === 'object' ? awayPeriodArray[0].score : awayPeriodArray[0];
-        const awayQ2 = typeof awayPeriodArray[1] === 'object' ? awayPeriodArray[1].score : awayPeriodArray[1];
-        const awayQ3 = typeof awayPeriodArray[2] === 'object' ? awayPeriodArray[2].score : awayPeriodArray[2];
-        const awayAverage = (awayQ1 + awayQ2 + awayQ3) / 3;
-
-        // Check if Q4 scoring is inconsistent with Q1-Q3 trend
-        // If a team is scoring significantly faster than their average, it breaks consistency
-        const homeQ4Pace = homeQ4 / (5 / 12); // Adjust for 5 minutes out of 12
-        const awayQ4Pace = awayQ4 / (5 / 12);
-        
-        // If Q4 pace at 5-minute mark differs by more than 50% from average, it's inconsistent
-        const homeInconsistency = Math.abs(homeQ4Pace - homeAverage) / homeAverage;
-        const awayInconsistency = Math.abs(awayQ4Pace - awayAverage) / awayAverage;
-        
-        if (homeInconsistency > 0.5 || awayInconsistency > 0.5) {
-            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.3): Inconsistent scoring pattern - Home inconsistency: ${(homeInconsistency * 100).toFixed(1)}%, Away inconsistency: ${(awayInconsistency * 100).toFixed(1)}% (threshold: 50%)`);
-            return false;
-        }
-
-        console.log(`[FiveMinuteMarkCalculator] Prediction validated: Score diff: ${scoreDifferential}pts, Home dev: ${homeDeviation}pts, Away dev: ${awayDeviation}pts, Consistency OK`);
         return true;
     }
 
@@ -304,21 +412,18 @@ class FiveMinuteMarkCalculator {
             showPrediction: false, // Show prediction at halftime
         } as BetPrediction);
 
-        if(game && (game.gameStatus === 1 || game.gameStatus === 3)) {
-            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has not started yet, skipping prediction`);
+        if (game && (game.gameStatus === 1 || game.gameStatus === 3)) { 
             return inValidResponse();
         }
 
         // Validate input
-        if (!game || !game.homeTeam) {
-            console.log(`[FiveMinuteMarkCalculator] Invalid game data for game ${game.gameId}`);
+        if (!game || !game.homeTeam) { 
             return inValidResponse();
         }
 
         // Get away team - API returns either awayTeam or visitorTeam
         const awayTeam = game.awayTeam || game.visitorTeam;
-        if (!awayTeam) {
-            console.log(`[FiveMinuteMarkCalculator] No away team data available for game ${game.gameId}`);
+        if (!awayTeam) { 
             return inValidResponse();
         }
 
@@ -328,34 +433,56 @@ class FiveMinuteMarkCalculator {
 
         // Only calculate betting status if we're in Q3 (period 3) or later
 
-        if (!gameClock) {
-            console.log(`[FiveMinuteMarkCalculator] No game clock data available for game ${game.gameId}`);
+        if (!gameClock) { 
             return inValidResponse();
         }
         const clockParts = gameClock.split(':');
         const minutes = parseInt(clockParts[0]) || 0;
 
-      
+        let cacheKey: string | null = null;
+        cacheKey = createCheckAtSevenMinuteMarkCacheKey(
+            game.homeTeam.teamId,
+            awayTeam.teamId,
+            game.gameId);
+
+        // Check cache first
+        const sevenMinutesCheck = getCheckAtSevenMinuteMarkCache(cacheKey);
+
+
+        if (!sevenMinutesCheck && period === 4) {
+            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} failed 7-minute mark check, skipping prediction`);
+            return inValidResponse();
+        }
+
         switch (period) {
-            case 1: 
-            case 2: 
+            case 1:
+            case 2:
             case 3:
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, waiting until 5-minute mark of Q4 for prediction`);
                 return inValidResponse();
             case 4:
-                // Only continue if within 5-7 minute range of Q4
-                if (minutes < 5 || minutes > 7) {
-                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is outside 5-7 minute window of Q4, skipping prediction (minutes: ${minutes})`);
+                // Only continue if within 5-6 minute range of Q4
+                if (minutes < 5 || minutes > 6) {
+                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is outside 5-6 minute window of Q4, skipping prediction (minutes: ${minutes})`);
                     return inValidResponse();
                 }
                 // Send notification at 7 minute mark
-                if (minutes >= 7) {
+                if (minutes >= 7 && minutes < 8) {
                     if (process.env.USE_MOCK_DATA === 'false') {
-                    await webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
+                        await webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
                     }
                     console.log(`\n[FiveMinuteMarkCalculator] Game ${game.gameId} is at 7-minute mark of Q4, sending notification\n`);
+                    await this.checkAtSevenMinuteMark(
+                        game.homeTeam.score,
+                        awayTeam.score,
+                        game.homeTeam.periods || game.homeTeam.linescore,
+                        awayTeam.periods || awayTeam.linescore,
+                        game.homeTeam.teamId,
+                        awayTeam.teamId,
+                        game.gameId
+                    );
                 }
-                // Continue processing for 5-7 minute range
+                // Continue processing for 5-6 minute range
                 break;
             default:
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, skipping prediction`);
@@ -424,7 +551,7 @@ class FiveMinuteMarkCalculator {
                         awayQ4,
                         homeQ4,
                     );
-                   
+
                     // Validate prediction based on criteria 7.1, 7.2, 7.3
                     const showPrediction = FiveMinuteMarkCalculator.shouldShowPrediction(
                         homeCalculated,
@@ -434,24 +561,23 @@ class FiveMinuteMarkCalculator {
                         homePeriodArray,
                         awayPeriodArray
                     ) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';
-                    
+
+                    //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
+
                     return {
                         ...prediction,
                         showPrediction: showPrediction
                     };
                 } else {
-                    // Q4 not yet available
-                    console.log(`[FiveMinuteMarkCalculator] Q4 not yet available for game ${game.gameId}`);
+                    // Q4 not yet available 
                     return inValidResponse();
                 }
             } else {
-                // Not enough data for prediction
-                console.log(`[FiveMinuteMarkCalculator] Not at 5-minute mark of Q3 yet for game ${game.gameId} (Minutes: ${minutes})`);
+                // Not enough data for prediction 
                 return inValidResponse();
             }
         } else {
-            // Before 5-minute mark of Q3
-            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is before 5-minute mark of Q3, skipping prediction`);
+            // Before 5-minute mark of Q3 
             return inValidResponse();
         }
     }

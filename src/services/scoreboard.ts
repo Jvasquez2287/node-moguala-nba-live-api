@@ -168,7 +168,6 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
       rawGames = mockData.createMockScoreboard().games;
       gameDate = mockData.createMockScoreboard().gameDate;
     } 
-     
 
       const transformedData: ScoreboardResponse = {
           scoreboard: {
@@ -188,7 +187,11 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
                 wins: game.homeTeam.wins,
                 losses: game.homeTeam.losses,
                 score: game.homeTeam.score,
-                timeoutsRemaining: game.homeTeam.timeoutsRemaining
+                timeoutsRemaining: game.homeTeam.timeoutsRemaining,
+                periods: (Array.isArray(game.homeTeam.periods) && game.homeTeam.periods.length > 0) ? game.homeTeam.periods.map((p: any) => ({
+                  period: p.period,
+                  score: p.score
+                })) : []
               },
               awayTeam: {
                 teamId: game.awayTeam.teamId,
@@ -198,7 +201,11 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
                 wins: game.awayTeam.wins,
                 losses: game.awayTeam.losses,
                 score: game.awayTeam.score,
-                timeoutsRemaining: game.awayTeam.timeoutsRemaining
+                timeoutsRemaining: game.awayTeam.timeoutsRemaining,
+                periods: (Array.isArray(game.awayTeam.periods) && game.awayTeam.periods.length > 0) ? game.awayTeam.periods.map((p: any) => ({
+                  period: p.period,
+                  score: p.score
+                })) : []
               },
               ...(  game.gameLeaders && (game?.gameLeaders?.awayLeaders?.personId !== 0 ||  game?.gameLeaders?.homeLeaders?.personId !== 0) ? {
                 gameLeaders: {
@@ -228,8 +235,7 @@ export async function getScoreboard(): Promise<ScoreboardResponse> {
             }))
           )}
         };
- 
-      
+  
     return transformedData;
   } catch (error) {
     console.error('Error fetching live scoreboard:', error);

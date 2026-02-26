@@ -11,6 +11,7 @@ exports.calculatePredictionsAccuracyForLastMonth = calculatePredictionsAccuracyF
 exports.predictGamesForDate = predictGamesForDate;
 const axios_1 = __importDefault(require("axios"));
 const schedule_1 = require("../services/schedule");
+const dataCache_1 = require("../services/dataCache");
 const groqClient_1 = require("./groqClient");
 const groqPrompts_1 = require("./groqPrompts");
 // Cache duration in milliseconds (1 hour)
@@ -50,6 +51,18 @@ async function retryAxiosRequest(requestFn, maxRetries = 3, baseDelay = 1000) {
         }
     }
     throw lastError;
+}
+/**
+ * Check if a date is historical (today or in the past)
+ * Only historical predictions are cached to the database
+ */
+function isHistoricalDate(dateString) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const checkDate = new Date(year, month - 1, day);
+    checkDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return checkDate <= today;
 }
 /**
  * Calculate win probability based on team statistics
@@ -660,7 +673,14 @@ async function calculatePredictionsAccuracyForLastMonth() {
  */
 async function predictGamesForDate(date, season) {
     try {
-        // Check cache first (30 minute TTL with LRU eviction)
+        // STEP 0: Check database cache first (persists across server restarts)
+        console.log(`[Predictions] Checking database cache for ${date}...`);
+        const dbCached = await dataCache_1.dataCache.getPredictionsForDate(date);
+        if (dbCached) {
+            console.log(`[Predictions] ✓ Found predictions in database cache for ${date}`);
+            return dbCached;
+        }
+        // STEP 1: Check memory cache (short-term, faster)
         const cacheKey = `${date}_${season}`;
         const cached = predictionsCache.get(cacheKey);
         if (cached) {
@@ -811,18 +831,28 @@ async function predictGamesForDate(date, season) {
             predictions: predictions,
             season: season
         };
-        // Cache the result with LRU eviction
+        // Cache the result in memory with LRU eviction (cacheKey already declared above)
         predictionsCache.set(cacheKey, {
             response: result,
             timestamp: Date.now()
         });
-        // Enforce size limit
+        // Enforce size limit for memory cache
         if (predictionsCache.size > PREDICTIONS_CACHE_MAX_SIZE) {
             const firstKey = predictionsCache.keys().next().value;
             if (firstKey) {
                 predictionsCache.delete(firstKey);
                 console.log(`[Predictions] LRU eviction: removed oldest cache entry ${firstKey}`);
             }
+        }
+        // Cache in database only for historical dates (today or in the past)
+        // This prevents storing predictions for upcoming games that may change
+        if (isHistoricalDate(date)) {
+            console.log(`[Predictions] Storing historical predictions in database cache for ${date}...`);
+            dataCache_1.dataCache.setPredictionsForDate(date, result);
+            console.log(`[Predictions] ✓ Stored ${predictions.length} historical predictions in database cache for ${date}`);
+        }
+        else {
+            console.log(`[Predictions] Skipping database cache for upcoming date ${date} (not historical)`);
         }
         console.log(`[Predictions] Generated ${predictions.length} predictions for ${date} (season ${season})`);
         return result;

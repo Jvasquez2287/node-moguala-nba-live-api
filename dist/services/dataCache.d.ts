@@ -14,6 +14,7 @@ export declare class DataCache {
     private readonly CLEANUP_INTERVAL;
     private readonly CACHE_TTL_24H;
     private readonly CACHE_TTL_10M;
+    private readonly CACHE_TTL_1MONTH;
     private scoreboardTask;
     private playbyplayTask;
     private cleanupTask;
@@ -64,6 +65,19 @@ export declare class DataCache {
     private pollScoreboard;
     private pollPlaybyplay;
     startPolling(): void;
+    /**
+     * Get cached predictions for a specific date
+     * @param date Date in YYYY-MM-DD format
+     * @returns Cached predictions response or null if not found/expired
+     */
+    getPredictionsForDate(date: string): Promise<any | null>;
+    /**
+     * Cache predictions for a specific date
+     * @param date Date in YYYY-MM-DD format
+     * @param data Predictions response data to cache
+     * @param ttl TTL in milliseconds (defaults to 1 month)
+     */
+    setPredictionsForDate(date: string, data: any, ttl?: number): void;
     stopPolling(): Promise<void>;
 }
 export declare const dataCache: DataCache;

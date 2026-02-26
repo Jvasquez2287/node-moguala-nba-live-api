@@ -135,6 +135,7 @@ class DataCache {
         this.CLEANUP_INTERVAL = 300000; // 5 minutes
         this.CACHE_TTL_24H = 24 * 60 * 60 * 1000; // 24 hours
         this.CACHE_TTL_10M = 10 * 60 * 1000; // 10 minutes
+        this.CACHE_TTL_1MONTH = 30 * 24 * 60 * 60 * 1000; // 30 days (1 month)
         this.scoreboardTask = null;
         this.playbyplayTask = null;
         this.cleanupTask = null;
@@ -406,6 +407,23 @@ class DataCache {
         if (!this.cleanupTask) {
             this.periodicCleanup();
         }
+    }
+    /**
+     * Get cached predictions for a specific date
+     * @param date Date in YYYY-MM-DD format
+     * @returns Cached predictions response or null if not found/expired
+     */
+    async getPredictionsForDate(date) {
+        return await this.dbCache.get(`predictions_${date}`);
+    }
+    /**
+     * Cache predictions for a specific date
+     * @param date Date in YYYY-MM-DD format
+     * @param data Predictions response data to cache
+     * @param ttl TTL in milliseconds (defaults to 1 month)
+     */
+    setPredictionsForDate(date, data, ttl = this.CACHE_TTL_1MONTH) {
+        this.dbCache.set(`predictions_${date}`, data, ttl);
     }
     async stopPolling() {
         if (this.scoreboardTask) {

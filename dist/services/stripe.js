@@ -308,6 +308,39 @@ exports.stripeService = {
             console.error('[Stripe] Error getting all subscriptions from Stripe:', error);
             throw error;
         }
+    },
+    /*
+    * update the user stripe customer id in the database for future reference
+     */
+    async updateCustomerId(userId, customerId) {
+        try {
+            await (0, database_1.executeQuery)('UPDATE users SET stripe_customer_id = @customerId WHERE clerk_id = @userId', { customerId, userId });
+            console.log(`[Stripe] Updated user ${userId} with Stripe customer ID: ${customerId}`);
+            // Fetch the updated user to confirm the change
+            const result = await (0, database_1.executeQuery)('SELECT email FROM users WHERE clerk_id = @userId', { userId });
+            const email = result.recordset[0]?.email || null;
+            console.log(`[Stripe] Fetched email for user ${userId}: ${email}`);
+            return email;
+        }
+        catch (error) {
+            console.error(`[Stripe] Error updating customer ID for user ${userId}:`, error);
+            throw error;
+        }
+    },
+    /*
+    * Get Customer ID by clerk user ID
+    */
+    async getCustomerIdByClerkId(clerkId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT stripe_id,first_name,last_name FROM users WHERE clerk_id = @clerkId', { clerkId });
+            const customerId = result.recordset[0]?.stripe_id || null;
+            console.log(`[Stripe] Fetched Stripe customer ID for clerk ID ${clerkId}: ${customerId}`);
+            return customerId;
+        }
+        catch (error) {
+            console.error(`[Stripe] Error fetching customer ID for clerk ID ${clerkId}:`, error);
+            throw error;
+        }
     }
 };
 exports.default = exports.stripeService;

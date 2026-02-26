@@ -532,6 +532,10 @@ router.post('/checkout', async (req, res) => {
             });
         }
         console.log(`[Subscriptions] Creating checkout session for price: ${stripePriceId}`);
+        const cutomerId = await stripe_1.stripeService.getCustomerIdByClerkId(userId);
+        if (!cutomerId) {
+            console.log(`[Subscriptions] No Stripe customer found for userId: ${userId}, creating new customer in Stripe...`);
+        }
         // Determine base URL for redirects - respect incoming request protocol
         let baseUrl = process.env.APP_URL;
         if (!baseUrl) {
@@ -559,6 +563,7 @@ router.post('/checkout', async (req, res) => {
             metadata: {
                 userId: userId,
             },
+            customer: cutomerId || undefined, // Attach existing customer if found, otherwise Stripe will create a new one
         });
         console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
         return res.json({

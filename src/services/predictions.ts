@@ -6,6 +6,7 @@
 import axios from 'axios';
 import { PredictionsResponse, GamePrediction, GamePredictionInsight, KeyDriver, RiskFactor } from '../schemas/predictions';
 import { getGamesForDate } from '../services/schedule';
+import { dataCache } from '../services/dataCache';
 import { callGroqApi } from './groqClient';
 import {
     getSystemMessage,
@@ -79,6 +80,21 @@ async function retryAxiosRequest<T>(
     }
 
     throw lastError!;
+}
+
+/**
+ * Check if a date is historical (today or in the past)
+ * Only historical predictions are cached to the database
+ */
+function isHistoricalDate(dateString: string): boolean {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const checkDate = new Date(year, month - 1, day);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return checkDate <= today;
 }
 
 /**
@@ -846,7 +862,16 @@ export async function calculatePredictionsAccuracyForLastMonth() {
  */
 export async function predictGamesForDate(date: string, season: string): Promise<PredictionsResponse | null> {
     try {
-        // Check cache first (30 minute TTL with LRU eviction)
+        // STEP 0: Check database cache first (persists across server restarts)
+        console.log(`[Predictions] Checking database cache for ${date}...`);
+        const dbCached = await dataCache.getPredictionsForDate(date);
+        
+        if (dbCached) {
+            console.log(`[Predictions] ✓ Found predictions in database cache for ${date}`);
+            return dbCached;
+        }
+
+        // STEP 1: Check memory cache (short-term, faster)
         const cacheKey = `${date}_${season}`;
         const cached = predictionsCache.get(cacheKey);
 
@@ -1032,19 +1057,29 @@ export async function predictGamesForDate(date: string, season: string): Promise
             season: season
         };
 
-        // Cache the result with LRU eviction
+        // Cache the result in memory with LRU eviction (cacheKey already declared above)
         predictionsCache.set(cacheKey, {
             response: result,
             timestamp: Date.now()
         });
 
-        // Enforce size limit
+        // Enforce size limit for memory cache
         if (predictionsCache.size > PREDICTIONS_CACHE_MAX_SIZE) {
             const firstKey = predictionsCache.keys().next().value;
             if (firstKey) {
                 predictionsCache.delete(firstKey);
                 console.log(`[Predictions] LRU eviction: removed oldest cache entry ${firstKey}`);
             }
+        }
+
+        // Cache in database only for historical dates (today or in the past)
+        // This prevents storing predictions for upcoming games that may change
+        if (isHistoricalDate(date)) {
+            console.log(`[Predictions] Storing historical predictions in database cache for ${date}...`);
+            dataCache.setPredictionsForDate(date, result);
+            console.log(`[Predictions] ✓ Stored ${predictions.length} historical predictions in database cache for ${date}`);
+        } else {
+            console.log(`[Predictions] Skipping database cache for upcoming date ${date} (not historical)`);
         }
 
         console.log(`[Predictions] Generated ${predictions.length} predictions for ${date} (season ${season})`);

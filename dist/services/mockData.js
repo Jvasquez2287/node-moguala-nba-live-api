@@ -76,6 +76,78 @@ exports.mockTeams = {
         teamTricode: 'DEN',
         wins: 29,
         losses: 17
+    },
+    PHI: {
+        teamId: 1610612755,
+        teamName: 'Philadelphia 76ers',
+        teamCity: 'Philadelphia',
+        teamTricode: 'PHI',
+        wins: 26,
+        losses: 20
+    },
+    DAL: {
+        teamId: 1610612742,
+        teamName: 'Dallas Mavericks',
+        teamCity: 'Dallas',
+        teamTricode: 'DAL',
+        wins: 28,
+        losses: 18
+    },
+    NOP: {
+        teamId: 1610612740,
+        teamName: 'New Orleans Pelicans',
+        teamCity: 'New Orleans',
+        teamTricode: 'NOP',
+        wins: 24,
+        losses: 22
+    },
+    MIL: {
+        teamId: 1610612749,
+        teamName: 'Milwaukee Bucks',
+        teamCity: 'Milwaukee',
+        teamTricode: 'MIL',
+        wins: 30,
+        losses: 16
+    },
+    CHI: {
+        teamId: 1610612741,
+        teamName: 'Chicago Bulls',
+        teamCity: 'Chicago',
+        teamTricode: 'CHI',
+        wins: 22,
+        losses: 24
+    },
+    MEM: {
+        teamId: 1610612751,
+        teamName: 'Memphis Grizzlies',
+        teamCity: 'Memphis',
+        teamTricode: 'MEM',
+        wins: 27,
+        losses: 19
+    },
+    CLE: {
+        teamId: 1610612739,
+        teamName: 'Cleveland Cavaliers',
+        teamCity: 'Cleveland',
+        teamTricode: 'CLE',
+        wins: 31,
+        losses: 15
+    },
+    HOU: {
+        teamId: 1610612745,
+        teamName: 'Houston Rockets',
+        teamCity: 'Houston',
+        teamTricode: 'HOU',
+        wins: 25,
+        losses: 21
+    },
+    SAS: {
+        teamId: 1610612759,
+        teamName: 'San Antonio Spurs',
+        teamCity: 'San Antonio',
+        teamTricode: 'SAS',
+        wins: 18,
+        losses: 28
     }
 };
 // ============================================================================
@@ -547,6 +619,7 @@ exports.createMockPeriods = createMockPeriods;
 // ============================================================================
 const createMockLiveGames = (gameDate) => {
     return [
+        // Game 1: BOS vs LAL - High-scoring with strong differential
         {
             gameId: '0022500301',
             gameStatus: 2,
@@ -556,95 +629,235 @@ const createMockLiveGames = (gameDate) => {
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...exports.mockTeams.BOS,
-                score: 112,
-                periods: (0, exports.createMockPeriods)()
+                score: 113,
+                periods: [
+                    { period: 1, score: 32 },
+                    { period: 2, score: 30 },
+                    { period: 3, score: 31 },
+                    { period: 4, score: 20 },
+                ]
             },
             awayTeam: {
                 ...exports.mockTeams.LAL,
-                score: 108,
-                periods: (0, exports.createMockPeriods)()
+                score: 101,
+                periods: [
+                    { period: 1, score: 24 },
+                    { period: 2, score: 25 },
+                    { period: 3, score: 26 },
+                    { period: 4, score: 18 },
+                ]
             },
             gameLeaders: (0, exports.createMockGameLeaders)()
         },
+        // Game 2: GSW vs DEN - Balanced high-scoring matchup
         {
             gameId: '0022500302',
             gameStatus: 2,
-            gameStatusText: '4th Qtr 7:00',
+            gameStatusText: '4th Qtr 5:00',
             period: 4,
-            gameClock: '7:00',
+            gameClock: '5:00',
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...exports.mockTeams.GSW,
-                score: 98,
-                periods: (0, exports.createMockPeriods)()
+                score: 107,
+                periods: [
+                    { period: 1, score: 28 },
+                    { period: 2, score: 27 },
+                    { period: 3, score: 29 },
+                    { period: 4, score: 17 },
+                ]
             },
             awayTeam: {
                 ...exports.mockTeams.DEN,
                 score: 95,
-                periods: (0, exports.createMockPeriods)()
+                periods: [
+                    { period: 1, score: 22 },
+                    { period: 2, score: 21 },
+                    { period: 3, score: 23 },
+                    { period: 4, score: 17 },
+                ]
             },
-            gameLeaders: {
-                homeLeaders: {
-                    personId: 201939,
-                    name: 'Stephen Curry',
-                    jerseyNum: '30',
-                    position: 'G',
-                    teamTricode: 'GSW',
-                    points: 31,
-                    rebounds: 4,
-                    assists: 9
-                },
-                awayLeaders: {
-                    personId: 201950,
-                    name: 'Jamal Murray',
-                    jerseyNum: '27',
-                    position: 'G',
-                    teamTricode: 'DEN',
-                    points: 28,
-                    rebounds: 3,
-                    assists: 7
-                }
-            }
+            gameLeaders: (0, exports.createMockGameLeaders)()
         },
+        // Game 3: NYK vs MIA - Strong home advantage
         {
             gameId: '0022500303',
             gameStatus: 2,
-            gameStatusText: '4th Qtr 8:00',
+            gameStatusText: '4th Qtr 5:00',
             period: 4,
-            gameClock: '8:00',
+            gameClock: '5:00',
             gameTimeUTC: new Date().toISOString(),
             homeTeam: {
                 ...exports.mockTeams.NYK,
-                score: 105,
-                periods: (0, exports.createMockPeriods)()
+                score: 112,
+                periods: [
+                    { period: 1, score: 29 },
+                    { period: 2, score: 28 },
+                    { period: 3, score: 30 },
+                    { period: 4, score: 18 },
+                ]
             },
             awayTeam: {
                 ...exports.mockTeams.MIA,
-                score: 102,
-                periods: (0, exports.createMockPeriods)()
+                score: 100,
+                periods: [
+                    { period: 1, score: 21 },
+                    { period: 2, score: 22 },
+                    { period: 3, score: 20 },
+                    { period: 4, score: 19 },
+                ]
             },
-            gameLeaders: {
-                homeLeaders: {
-                    personId: 2544950,
-                    name: 'Jalen Brunson',
-                    jerseyNum: '11',
-                    position: 'G',
-                    teamTricode: 'NYK',
-                    points: 32,
-                    rebounds: 3,
-                    assists: 8
-                },
-                awayLeaders: {
-                    personId: 2544951,
-                    name: 'Jimmy Butler',
-                    jerseyNum: '22',
-                    position: 'F',
-                    teamTricode: 'MIA',
-                    points: 28,
-                    rebounds: 7,
-                    assists: 4
-                }
-            }
+            gameLeaders: (0, exports.createMockGameLeaders)()
+        },
+        // Game 4: PHI vs DAL - Competitive paint battle
+        {
+            gameId: '0022500304',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 5:00',
+            period: 4,
+            gameClock: '5:00',
+            gameTimeUTC: new Date().toISOString(),
+            homeTeam: {
+                ...exports.mockTeams.PHI,
+                score: 109,
+                periods: [
+                    { period: 1, score: 26 },
+                    { period: 2, score: 27 },
+                    { period: 3, score: 25 },
+                    { period: 4, score: 14 },
+                ]
+            },
+            awayTeam: {
+                ...exports.mockTeams.DAL,
+                score: 97,
+                periods: [
+                    { period: 1, score: 23 },
+                    { period: 2, score: 24 },
+                    { period: 3, score: 22 },
+                    { period: 4, score: 6 },
+                ]
+            },
+            gameLeaders: (0, exports.createMockGameLeaders)()
+        },
+        // Game 5: LAL vs NOP - High-scoring showcase
+        {
+            gameId: '0022500305',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 5:00',
+            period: 4,
+            gameClock: '5:00',
+            gameTimeUTC: new Date().toISOString(),
+            homeTeam: {
+                ...exports.mockTeams.LAL,
+                score: 116,
+                periods: [
+                    { period: 1, score: 31 },
+                    { period: 2, score: 29 },
+                    { period: 3, score: 30 },
+                    { period: 4, score: 19 },
+                ]
+            },
+            awayTeam: {
+                ...exports.mockTeams.NOP,
+                score: 104,
+                periods: [
+                    { period: 1, score: 26 },
+                    { period: 2, score: 27 },
+                    { period: 3, score: 25 },
+                    { period: 4, score: 8 },
+                ]
+            },
+            gameLeaders: (0, exports.createMockGameLeaders)()
+        },
+        // Game 6: MIL vs CHI - Guard duel
+        {
+            gameId: '0022500306',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 5:00',
+            period: 4,
+            gameClock: '5:00',
+            gameTimeUTC: new Date().toISOString(),
+            homeTeam: {
+                ...exports.mockTeams.MIL,
+                score: 114,
+                periods: [
+                    { period: 1, score: 30 },
+                    { period: 2, score: 29 },
+                    { period: 3, score: 28 },
+                    { period: 4, score: 17 },
+                ]
+            },
+            awayTeam: {
+                ...exports.mockTeams.CHI,
+                score: 102,
+                periods: [
+                    { period: 1, score: 25 },
+                    { period: 2, score: 24 },
+                    { period: 3, score: 26 },
+                    { period: 4, score: 7 },
+                ]
+            },
+            gameLeaders: (0, exports.createMockGameLeaders)()
+        },
+        // Game 7: MEM vs CLE - Strong perimeter game
+        {
+            gameId: '0022500307',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 5:00',
+            period: 4,
+            gameClock: '5:00',
+            gameTimeUTC: new Date().toISOString(),
+            homeTeam: {
+                ...exports.mockTeams.MEM,
+                score: 110,
+                periods: [
+                    { period: 1, score: 27 },
+                    { period: 2, score: 28 },
+                    { period: 3, score: 26 },
+                    { period: 4, score: 15 },
+                ]
+            },
+            awayTeam: {
+                ...exports.mockTeams.CLE,
+                score: 98,
+                periods: [
+                    { period: 1, score: 23 },
+                    { period: 2, score: 22 },
+                    { period: 3, score: 24 },
+                    { period: 4, score: 6 },
+                ]
+            },
+            gameLeaders: (0, exports.createMockGameLeaders)()
+        },
+        // Game 8: HOU vs SAS - Rising stars matchup
+        {
+            gameId: '0022500308',
+            gameStatus: 2,
+            gameStatusText: '4th Qtr 5:00',
+            period: 4,
+            gameClock: '5:00',
+            gameTimeUTC: new Date().toISOString(),
+            homeTeam: {
+                ...exports.mockTeams.HOU,
+                score: 115,
+                periods: [
+                    { period: 1, score: 30 },
+                    { period: 2, score: 31 },
+                    { period: 3, score: 29 },
+                    { period: 4, score: 18 },
+                ]
+            },
+            awayTeam: {
+                ...exports.mockTeams.SAS,
+                score: 103,
+                periods: [
+                    { period: 1, score: 24 },
+                    { period: 2, score: 25 },
+                    { period: 3, score: 26 },
+                    { period: 4, score: 8 },
+                ]
+            },
+            gameLeaders: (0, exports.createMockGameLeaders)()
         }
     ];
 };

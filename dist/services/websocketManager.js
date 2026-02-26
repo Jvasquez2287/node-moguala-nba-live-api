@@ -113,10 +113,7 @@ class ScoreboardWebSocketManager {
                     }
                     else {
                         this.activeConnections.add(websocket);
-                        console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
                     }
-                    // Send initial data
-                    this.sendInitialData(websocket);
                 }
                 else if (message.type === 'unsubscribe_scoreboard') {
                     this.activeConnections.delete(websocket);
@@ -150,6 +147,10 @@ class ScoreboardWebSocketManager {
                 console.error('[Scoreboard WebSocket] Error logging message:', error);
             }
         });
+        this.activeConnections.add(websocket);
+        console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
+        // Send initial data
+        this.sendInitialData(websocket);
     }
     // END WebSocket connection handling
     // Play-by-play initial data send
@@ -379,7 +380,11 @@ class ScoreboardWebSocketManager {
                 wins: game.homeTeam?.wins || 0,
                 losses: game.homeTeam?.losses || 0,
                 score: game.homeTeam?.score || 0,
-                timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0
+                timeoutsRemaining: game.homeTeam?.timeoutsRemaining || 0,
+                periods: (Array.isArray(game.homeTeam?.periods) && game.homeTeam.periods.length > 0) ? game.homeTeam.periods.map((p) => ({
+                    period: p.period,
+                    score: p.score
+                })) : []
             },
             away_Team: {
                 teamId: game.awayTeam?.teamId,
@@ -389,7 +394,11 @@ class ScoreboardWebSocketManager {
                 wins: game.awayTeam?.wins || 0,
                 losses: game.awayTeam?.losses || 0,
                 score: game.awayTeam?.score || 0,
-                timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0
+                timeoutsRemaining: game.awayTeam?.timeoutsRemaining || 0,
+                periods: (Array.isArray(game.awayTeam?.periods) && game.awayTeam.periods.length > 0) ? game.awayTeam.periods.map((p) => ({
+                    period: p.period,
+                    score: p.score
+                })) : []
             },
             gameLeaders: game.gameLeaders || null
         }));

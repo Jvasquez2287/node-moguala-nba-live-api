@@ -72,6 +72,78 @@ export declare const mockTeams: {
         wins: number;
         losses: number;
     };
+    PHI: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    DAL: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    NOP: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    MIL: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    CHI: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    MEM: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    CLE: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    HOU: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
+    SAS: {
+        teamId: number;
+        teamName: string;
+        teamCity: string;
+        teamTricode: string;
+        wins: number;
+        losses: number;
+    };
 };
 export declare const mockPlayers: {
     LAL: {
@@ -159,6 +231,78 @@ declare const _default: {
             losses: number;
         };
         DEN: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        PHI: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        DAL: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        NOP: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        MIL: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        CHI: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        MEM: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        CLE: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        HOU: {
+            teamId: number;
+            teamName: string;
+            teamCity: string;
+            teamTricode: string;
+            wins: number;
+            losses: number;
+        };
+        SAS: {
             teamId: number;
             teamName: string;
             teamCity: string;

@@ -80,6 +80,8 @@ export declare const stripeService: {
      */
     getSubscriptionFromDB(stripeId: string): Promise<any>;
     getAllSubscriptionsFromStripe(): Promise<Stripe.Subscription[]>;
+    updateCustomerId(userId: string, customerId: string): Promise<any>;
+    getCustomerIdByClerkId(clerkId: string): Promise<string | null>;
 };
 export { getStripeClient };
 export default stripeService;

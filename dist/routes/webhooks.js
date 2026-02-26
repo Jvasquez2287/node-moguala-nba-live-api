@@ -146,6 +146,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                     subscription_cancel_at_period_end: data.cancel_at_period_end || false,
                     product_id: data.items.data[0].plan.product
                 };
+                console.log(`[Webhook] Handling subscription creation for customer: ${data.customer}, subscription ID: ${data.id}, status: ${data.status}`, data);
                 // Check if subscription already exists
                 const existing = await stripe_1.stripeService.getSubscriptionFromDB(data.customer);
                 if (existing) {
