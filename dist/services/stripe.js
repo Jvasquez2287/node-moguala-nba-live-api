@@ -341,6 +341,22 @@ exports.stripeService = {
             console.error(`[Stripe] Error fetching customer ID for clerk ID ${clerkId}:`, error);
             throw error;
         }
+    },
+    /**
+     * Get user Email by Stripe customer ID
+     */
+    async getEmailByCustomerId(customerId) {
+        try {
+            const result = await (0, database_1.executeQuery)('SELECT email FROM users WHERE stripe_id = @customerId', { customerId });
+            const email = result.recordset[0]?.email || null;
+            console.log(`[Stripe] Fetched email for Stripe customer ID ${customerId}: ${email}`);
+            return email;
+        }
+        catch (error) {
+            console.error(`[Stripe] Error fetching email for Stripe customer ID ${customerId}:`, error);
+            throw error;
+        }
+        ;
     }
 };
 exports.default = exports.stripeService;

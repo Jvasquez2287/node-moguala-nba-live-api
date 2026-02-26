@@ -291,29 +291,33 @@ class FiveMinuteMarkCalculator {
             showPrediction: false, // Show prediction at halftime
         });
         if (game && (game.gameStatus === 1 || game.gameStatus === 3)) {
-            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has not started yet, skipping prediction`);
             return inValidResponse();
         }
         // Validate input
         if (!game || !game.homeTeam) {
-            console.log(`[FiveMinuteMarkCalculator] Invalid game data for game ${game.gameId}`);
             return inValidResponse();
         }
         // Get away team - API returns either awayTeam or visitorTeam
         const awayTeam = game.awayTeam || game.visitorTeam;
         if (!awayTeam) {
-            console.log(`[FiveMinuteMarkCalculator] No away team data available for game ${game.gameId}`);
             return inValidResponse();
         }
         const period = game.period;
         const gameClock = game.gameClock;
         // Only calculate betting status if we're in Q3 (period 3) or later
         if (!gameClock) {
-            console.log(`[FiveMinuteMarkCalculator] No game clock data available for game ${game.gameId}`);
             return inValidResponse();
         }
         const clockParts = gameClock.split(':');
         const minutes = parseInt(clockParts[0]) || 0;
+        let cacheKey = null;
+        cacheKey = createCheckAtSevenMinuteMarkCacheKey(game.homeTeam.teamId, awayTeam.teamId, game.gameId);
+        // Check cache first
+        const sevenMinutesCheck = getCheckAtSevenMinuteMarkCache(cacheKey);
+        if (!sevenMinutesCheck && period === 4) {
+            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} failed 7-minute mark check, skipping prediction`);
+            return inValidResponse();
+        }
         switch (period) {
             case 1:
             case 2:
@@ -321,19 +325,20 @@ class FiveMinuteMarkCalculator {
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, waiting until 5-minute mark of Q4 for prediction`);
                 return inValidResponse();
             case 4:
-                // Only continue if within 5-7 minute range of Q4
-                if (minutes < 5 || minutes > 7) {
-                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is outside 5-7 minute window of Q4, skipping prediction (minutes: ${minutes})`);
+                // Only continue if within 5-6 minute range of Q4
+                if (minutes < 5 || minutes > 6) {
+                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is outside 5-6 minute window of Q4, skipping prediction (minutes: ${minutes})`);
                     return inValidResponse();
                 }
                 // Send notification at 7 minute mark
-                if (minutes >= 7) {
+                if (minutes >= 7 && minutes < 8) {
                     if (process.env.USE_MOCK_DATA === 'false') {
                         await websocketManager_1.webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
                     }
                     console.log(`\n[FiveMinuteMarkCalculator] Game ${game.gameId} is at 7-minute mark of Q4, sending notification\n`);
+                    await this.checkAtSevenMinuteMark(game.homeTeam.score, awayTeam.score, game.homeTeam.periods || game.homeTeam.linescore, awayTeam.periods || awayTeam.linescore, game.homeTeam.teamId, awayTeam.teamId, game.gameId);
                 }
-                // Continue processing for 5-7 minute range
+                // Continue processing for 5-6 minute range
                 break;
             default:
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, skipping prediction`);
@@ -392,20 +397,17 @@ class FiveMinuteMarkCalculator {
                     };
                 }
                 else {
-                    // Q4 not yet available
-                    console.log(`[FiveMinuteMarkCalculator] Q4 not yet available for game ${game.gameId}`);
+                    // Q4 not yet available 
                     return inValidResponse();
                 }
             }
             else {
-                // Not enough data for prediction
-                console.log(`[FiveMinuteMarkCalculator] Not at 5-minute mark of Q3 yet for game ${game.gameId} (Minutes: ${minutes})`);
+                // Not enough data for prediction 
                 return inValidResponse();
             }
         }
         else {
-            // Before 5-minute mark of Q3
-            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is before 5-minute mark of Q3, skipping prediction`);
+            // Before 5-minute mark of Q3 
             return inValidResponse();
         }
     }

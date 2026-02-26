@@ -617,7 +617,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
       customer: cutomerId || undefined, // Attach existing customer if found, otherwise Stripe will create a new one
     },);
 
-    console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}`);
+    console.log(`[Subscriptions] ✅ Checkout session created: ${session.id}\n\n\n\n`, session);
 
  
     return res.json({

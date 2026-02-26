@@ -155,7 +155,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 else {
                     await stripe_1.stripeService.createSubscriptionInDB(subscriptionData);
                 }
-                const customerEmail = await stripe_1.stripeService.getCustomerEmailBySubscriptionId(subscriptionData.subscription_id) || subscriptionData.stripe_id;
+                const customerEmail = await stripe_1.stripeService.getEmailByCustomerId(data.customer) || subscriptionData.stripe_id;
                 // Send success email
                 try {
                     if (customerEmail) {

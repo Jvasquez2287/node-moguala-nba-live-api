@@ -82,6 +82,10 @@ export declare const stripeService: {
     getAllSubscriptionsFromStripe(): Promise<Stripe.Subscription[]>;
     updateCustomerId(userId: string, customerId: string): Promise<any>;
     getCustomerIdByClerkId(clerkId: string): Promise<string | null>;
+    /**
+     * Get user Email by Stripe customer ID
+     */
+    getEmailByCustomerId(customerId: string): Promise<string | null>;
 };
 export { getStripeClient };
 export default stripeService;
