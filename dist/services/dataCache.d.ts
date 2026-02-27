@@ -8,6 +8,8 @@ export declare class DataCache {
     private dbCache;
     private lock;
     private activeGameIds;
+    private playByPlayCache;
+    private teamPlayByPlayCache;
     private scoreChangeCallbacks;
     private readonly SCOREBOARD_POLL_INTERVAL;
     private readonly PLAYBYPLAY_POLL_INTERVAL;

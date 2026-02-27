@@ -152,6 +152,10 @@ export class DataCache {
   private lock = false; // Simple lock for async operations
   private activeGameIds = new Set<string>();
 
+  // In-memory stores for play-by-play data (no DB persistence)
+  private playByPlayCache = new Map<string, PlayByPlayResponse>();
+  private teamPlayByPlayCache = new Map<number, PlayByPlayResponse>();
+
   // Callbacks for WebSocket broadcasts
   private scoreChangeCallbacks: (() => Promise<void>)[] = [];
 
@@ -220,7 +224,8 @@ export class DataCache {
   }
 
   async getPlaybyplay(gameId: string): Promise<PlayByPlayResponse | null> {
-    return await this.dbCache.get<PlayByPlayResponse>(`playbyplay_${gameId}`);
+    // Always return from in-memory cache; we intentionally avoid DB storage for play-by-play
+    return this.playByPlayCache.get(gameId) || null;
   }
 
 
@@ -284,11 +289,12 @@ export class DataCache {
 
 
    setTeamPlayByPlay(teamId: number, data: PlayByPlayResponse): void {
-    this.dbCache.set(`team_playbyplay_${teamId}`, data, this.CACHE_TTL_24H);
+    // cache team-level play-by-play in memory only
+    this.teamPlayByPlayCache.set(teamId, data);
   }
 
   async getTeamPlayByPlay(teamId: number): Promise<PlayByPlayResponse | null> {
-    return await this.dbCache.get<PlayByPlayResponse>(`team_playbyplay_${teamId}`);
+    return this.teamPlayByPlayCache.get(teamId) || null;
    }
 
 
@@ -350,9 +356,8 @@ export class DataCache {
 
       let removedCount = 0;
       for (const gameId of finishedGameIds) {
-        const exists = await this.dbCache.get<PlayByPlayResponse>(`playbyplay_${gameId}`);
-        if (exists) {
-          await this.dbCache.delete(`playbyplay_${gameId}`);
+        // remove from in-memory cache
+        if (this.playByPlayCache.delete(gameId)) {
           removedCount++;
         }
         this.activeGameIds.delete(gameId);
@@ -410,7 +415,7 @@ export class DataCache {
           const finishedGames = Array.from(oldActiveGames).filter(id => !this.activeGameIds.has(id));
           if (finishedGames.length > 0) {
             for (const gameId of finishedGames) {
-              await this.dbCache.delete(`playbyplay_${gameId}`);
+              this.playByPlayCache.delete(gameId);
             }
             console.log(`[PlayByPlay] Immediately cleaned up ${finishedGames.length} finished games from play-by-play cache`);
           }
@@ -449,7 +454,8 @@ export class DataCache {
           const game = scoreboardData?.scoreboard?.games?.find((g: any) => g.gameId === gameId);
 
           if (!game || game.gameStatus !== 2) {
-            await this.dbCache.delete(`playbyplay_${gameId}`);
+            // clean up in-memory cache when game is no longer active
+            this.playByPlayCache.delete(gameId);
             this.activeGameIds.delete(gameId);
             continue;
           }
@@ -462,8 +468,9 @@ export class DataCache {
             const currentGame = currentScoreboard?.scoreboard?.games?.find((g: any) => g.gameId === gameId);
 
             if (currentGame && currentGame.gameStatus === 2) {
-              await this.dbCache.set(`playbyplay_${gameId}`, playbyplayData, this.CACHE_TTL_24H);
-              console.log(`[PlayByPlay] Play-by-play cache updated for game ${gameId}`);
+              // store in-memory only
+              this.playByPlayCache.set(gameId, playbyplayData);
+              console.log(`[PlayByPlay] Play-by-play cache (memory) updated for game ${gameId}`);
               // Broadcast custom data to all connected clients
               await webSocketManager.broadcastPBPToAllClients({ playbyplayData, gameId });
             }
