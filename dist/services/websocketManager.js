@@ -139,7 +139,7 @@ class ScoreboardWebSocketManager {
                 }
                 else if (message.type === 'ping') {
                     if (websocket.readyState === ws_1.default.OPEN) {
-                        websocket.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+                        websocket.send(JSON.stringify({ type: 'pong', data: {}, timestamp: new Date().toISOString() }));
                     }
                 }
             }

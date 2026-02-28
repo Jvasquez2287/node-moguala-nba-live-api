@@ -112,7 +112,7 @@ export class ScoreboardWebSocketManager {
 
         else if (message.type === 'ping') {
           if (websocket.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+            websocket.send(JSON.stringify({ type: 'pong', data:{}, timestamp: new Date().toISOString() }));
           }
         }
       } catch (error) {
