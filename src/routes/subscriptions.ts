@@ -658,6 +658,24 @@ router.get('/success', async (req: express.Request, res: express.Response) => {
   }
 });
 
+router.get('/billinghistory', async (req: Request, res: Response) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    const clerkId = req.headers['x-clerk-id'] as string | undefined;
+    console.log(`[Subscriptions] Fetching billing history for clerkId: ${clerkId} with token: ${token}`);
+    if (!clerkId) {
+      return res.json({ error: 'clerkId is required' });
+    }
+    const billingHistory = await subscriptionsService.getBillingHistory(clerkId);
+    return res.json({
+      success: true,
+      data: billingHistory
+    });
+  } catch (error) {
+    console.error('[Subscriptions] Error fetching billing history:', error);
+    res.json({ error: 'Failed to fetch billing history' });
+  }
 
+});
 
 export default router;

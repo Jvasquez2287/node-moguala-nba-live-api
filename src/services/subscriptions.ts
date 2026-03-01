@@ -296,6 +296,226 @@ export const subscriptionsService = {
       console.error('[SubscriptionsService] Error processing checkout success:', error);
       throw error;
     }
+  },
+  /**
+   * Get billing history for a user by their Clerk ID
+   * Fetches invoices from both local database and Stripe
+   * @param clerkId - The Clerk user ID
+   * @returns Billing history with invoices and subscription details
+   */
+  async getBillingHistory(clerkId: string) {
+    try {
+      console.log(`[SubscriptionsService] Fetching billing history for clerkId: ${clerkId}`);
+
+      // Step 1: Find user by clerkId to get stripe_id
+      const userResult = await executeQuery(
+        'SELECT id, clerk_id, email, stripe_id FROM users WHERE clerk_id = @clerk_id',
+        { clerk_id: clerkId }
+      );
+
+      if (!userResult.recordset || userResult.recordset.length === 0) {
+        console.warn(`[SubscriptionsService] User not found for clerkId: ${clerkId}`);
+        return {
+          success: false,
+          error: 'User not found',
+          clerkId,
+          invoices: [],
+          subscriptions: []
+        };
+      }
+
+      const user = userResult.recordset[0];
+
+      if (!user.stripe_id) {
+        console.warn(`[SubscriptionsService] No Stripe ID found for user clerkId: ${clerkId}`);
+        return {
+          success: false,
+          error: 'No Stripe account linked to this user',
+          clerkId,
+          invoices: [],
+          subscriptions: []
+        };
+      }
+
+      console.log(`[SubscriptionsService] Found user stripe_id: ${user.stripe_id}`);
+
+      // Step 2: Get invoices from local database
+      const dbInvoicesResult = await executeQuery(
+        `SELECT 
+          id,
+          stripe_invoice_id,
+          subscription_id,
+          stripe_customer_id,
+          amount,
+          currency,
+          status,
+          due_date,
+          paid_date,
+          pdf_url,
+          created_at
+        FROM invoices
+        WHERE stripe_customer_id = @stripe_customer_id
+        ORDER BY created_at DESC`,
+        { stripe_customer_id: user.stripe_id }
+      );
+
+      const dbInvoices = dbInvoicesResult.recordset || [];
+      console.log(`[SubscriptionsService] Found ${dbInvoices.length} invoices in local database`);
+
+      // Step 3: Get user subscriptions from local database
+      const subscriptionsResult = await executeQuery(
+        `SELECT 
+          id,
+          subscription_id,
+          subscription_title,
+          subscription_status,
+          subscription_start_date,
+          subscription_end_date,
+          subscription_next_billing_date,
+          subscription_latest_invoice_Id,
+          subscription_invoice_pdf_url,
+          subscription_canceled_at,
+          subscription_cancel_at_period_end,
+          product_id,
+          created_at,
+          updated_at
+        FROM subscriptions
+        WHERE stripe_id = @stripe_id
+        ORDER BY created_at DESC`,
+        { stripe_id: user.stripe_id }
+      );
+
+      const dbSubscriptions = subscriptionsResult.recordset || [];
+      console.log(`[SubscriptionsService] Found ${dbSubscriptions.length} subscriptions in local database`);
+
+      // Step 4: Get invoices from Stripe API
+      let stripeInvoices: any[] = [];
+      try {
+        const invoicesResponse = await getStripeClient().invoices.list({
+          customer: user.stripe_id,
+          limit: 100
+        });
+
+        stripeInvoices = invoicesResponse.data.map((invoice: any) => ({
+          id: invoice.id,
+          number: invoice.number,
+          status: invoice.status,
+          amount: invoice.amount_paid,
+          currency: invoice.currency,
+          receipt_number: invoice.receipt_number,
+          period_start: new Date(invoice.period_start * 1000).toISOString(),
+          period_end: new Date(invoice.period_end * 1000).toISOString(),
+          due_date: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
+          paid_at: invoice.paid_at ? new Date(invoice.paid_at * 1000).toISOString() : null,
+          created_at: new Date(invoice.created * 1000).toISOString(),
+          hosting_invoice: invoice.hosted_invoice_url,
+          pdf_url: invoice.invoice_pdf,
+          total: invoice.total,
+          total_excluding_tax: invoice.total_excluding_tax,
+          subtotal: invoice.subtotal,
+          tax: invoice.tax,
+          lines: invoice.lines.data.map((line: any) => ({
+            id: line.id,
+            description: line.description,
+            amount: line.amount,
+            currency: line.currency,
+            quantity: line.quantity,
+            unit_amount: line.unit_amount,
+            period: {
+              start: new Date(line.period.start * 1000).toISOString(),
+              end: new Date(line.period.end * 1000).toISOString()
+            }
+          }))
+        }));
+
+        console.log(`[SubscriptionsService] Retrieved ${stripeInvoices.length} invoices from Stripe API`);
+      } catch (stripeError) {
+        console.error(`[SubscriptionsService] Error fetching invoices from Stripe:`, stripeError);
+      }
+
+      // Step 5: Get current subscription details from Stripe
+      let currentStripeSubscription = null;
+      try {
+        const subscriptionsResponse = await getStripeClient().subscriptions.list({
+          customer: user.stripe_id,
+          status: 'all',
+          limit: 10
+        });
+
+        if (subscriptionsResponse.data.length > 0) {
+          const subscription = subscriptionsResponse.data[0] as any;
+          currentStripeSubscription = {
+            id: subscription.id,
+            status: subscription.status,
+            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+            default_payment_method: subscription.default_payment_method,
+            items: subscription.items.data.map((item: any) => ({
+              id: item.id,
+              product_id: item.price.product,
+              price_id: item.price.id,
+              quantity: item.quantity,
+              billing_cycle_anchor: item.billing_cycle_anchor ? new Date(item.billing_cycle_anchor * 1000).toISOString() : null
+            }))
+          };
+        }
+      } catch (stripeError) {
+        console.error(`[SubscriptionsService] Error fetching current subscription from Stripe:`, stripeError);
+      }
+
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          clerk_id: user.clerk_id,
+          email: user.email,
+          stripe_id: user.stripe_id
+        },
+        billing: {
+          dbInvoices: dbInvoices.map((inv: any) => ({
+            id: inv.id,
+            stripe_invoice_id: inv.stripe_invoice_id,
+            amount: inv.amount,
+            currency: inv.currency,
+            status: inv.status,
+            due_date: inv.due_date,
+            paid_date: inv.paid_date,
+            pdf_url: inv.pdf_url,
+            created_at: inv.created_at
+          })),
+          stripeInvoices: stripeInvoices,
+          currentSubscription: currentStripeSubscription,
+          subscriptions: dbSubscriptions.map((sub: any) => ({
+            id: sub.id,
+            subscription_id: sub.subscription_id,
+            title: sub.subscription_title,
+            status: sub.subscription_status,
+            start_date: sub.subscription_start_date,
+            end_date: sub.subscription_end_date,
+            next_billing_date: sub.subscription_next_billing_date,
+            canceled_at: sub.subscription_canceled_at,
+            cancel_at_period_end: sub.subscription_cancel_at_period_end,
+            pdf_url: sub.subscription_invoice_pdf_url,
+            created_at: sub.created_at,
+            updated_at: sub.updated_at
+          }))
+        },
+        summary: {
+          total_invoices: stripeInvoices.length,
+          total_subscriptions: dbSubscriptions.length,
+          stripe_customer_id: user.stripe_id
+        }
+      };
+    } catch (error) {
+      console.error('[SubscriptionsService] Error fetching billing history:', error);
+      return {
+        success: false,
+        error: 'Failed to fetch billing history',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 };
 
