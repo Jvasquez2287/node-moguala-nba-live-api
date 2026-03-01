@@ -368,9 +368,9 @@ class FiveMinuteMarkCalculator {
                 start scoring rapidly and are at there 5 minute mark estimation by the 8th minute then it should cancel that game.
         
         */
-        // Criterion 7.1: Check if teams are under 10 points apart at 5-minute mark
+        // Criterion 7.1: Check if teams are under 6 points apart at 5-minute mark
         const scoreDifferential = Math.abs(homeQ4 - awayQ4);
-        if (scoreDifferential < 10) {
+        if (scoreDifferential < 6) {
             console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.1): Score differential ${scoreDifferential} is less than 10 points`);
             return false;
         }
