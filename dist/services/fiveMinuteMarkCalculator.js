@@ -211,6 +211,15 @@ class FiveMinuteMarkCalculator {
         // Determine result
         let result = true;
         // Log inconsistency metrics for debugging
+        if (homeInconsistency > 0.5 || awayInconsistency > 0.5) {
+            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.3): Inconsistent scoring pattern - Home inconsistency: ${(homeInconsistency * 100).toFixed(1)}%, Away inconsistency: ${(awayInconsistency * 100).toFixed(1)}% (threshold: 50%)`);
+            result = false;
+        }
+        // Store in cache if cache key is available
+        if (cacheKey && homeTeamId && awayTeamId) {
+            // Store for both teams
+            setCheckAtSevenMinuteMarkCache(cacheKey, homeTeamId, result);
+        }
         return result;
     }
     /**
@@ -245,15 +254,15 @@ class FiveMinuteMarkCalculator {
         */
         // Criterion 7.1: Check if teams are under 6 points apart at 5-minute mark
         const scoreDifferential = Math.abs(homeQ4 - awayQ4);
-        if (scoreDifferential < 6) {
-            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.1): Score differential ${scoreDifferential} is less than 10 points`);
+        if (scoreDifferential < 4) {
+            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.1): Score differential ${scoreDifferential} is less than 4 points`);
             return false;
         }
-        // Criterion 7.2: Check if teams are 6+ points away from predicted score
+        // Criterion 7.2: Check if teams are 4+ points away from predicted score
         const homeDeviation = Math.abs(homeQ4 - homeCalculated);
         const awayDeviation = Math.abs(awayQ4 - awayCalculated);
-        if (homeDeviation >= 6 || awayDeviation >= 6) {
-            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.2): Team deviation too large - Home: ${homeDeviation}pts, Away: ${awayDeviation}pts (threshold: 6)`);
+        if (homeDeviation >= 4 || awayDeviation >= 4) {
+            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.2): Team deviation too large - Home: ${homeDeviation}pts, Away: ${awayDeviation}pts (threshold: 4)`);
             return false;
         }
         return true;
@@ -304,11 +313,14 @@ class FiveMinuteMarkCalculator {
         let cacheKey = null;
         cacheKey = createCheckAtSevenMinuteMarkCacheKey(game.homeTeam.teamId, awayTeam.teamId, game.gameId);
         // Check cache first
-        const sevenMinutesCheck = getCheckAtSevenMinuteMarkCache(cacheKey);
-        if (!sevenMinutesCheck && period === 4) {
-            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} failed 7-minute mark check, skipping prediction`);
-            return inValidResponse();
-        }
+        /* const sevenMinutesCheck = getCheckAtSevenMinuteMarkCache(cacheKey);
+ 
+ 
+         if (!sevenMinutesCheck && period === 4) {
+             console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} failed 7-minute mark check, skipping prediction`);
+             return inValidResponse();
+         }
+ */
         switch (period) {
             case 1:
             case 2:
