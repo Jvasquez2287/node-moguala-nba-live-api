@@ -314,17 +314,7 @@ class FiveMinuteMarkCalculator {
         let result = true;
 
         // Log inconsistency metrics for debugging
-        if (homeInconsistency > 0.5 || awayInconsistency > 0.5) {
-            console.log(`[FiveMinuteMarkCalculator] Prediction rejected (7.3): Inconsistent scoring pattern - Home inconsistency: ${(homeInconsistency * 100).toFixed(1)}%, Away inconsistency: ${(awayInconsistency * 100).toFixed(1)}% (threshold: 50%)`);
-            result = false;
-        }
-
-        // Store in cache if cache key is available
-        if (cacheKey && homeTeamId && awayTeamId) {
-            // Store for both teams
-            setCheckAtSevenMinuteMarkCache(cacheKey, homeTeamId, result);
-        }
-
+        
         return result;
     }
 
