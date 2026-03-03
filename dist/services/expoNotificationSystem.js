@@ -320,6 +320,9 @@ class ExpoNotificationSystem {
         try {
             let title = '';
             let body = '';
+            if (process.env.USE_MOCK_DATA === 'true') {
+                return 0;
+            }
             switch (eventType) {
                 case 'game_started':
                     title = 'Game Started 🏀';

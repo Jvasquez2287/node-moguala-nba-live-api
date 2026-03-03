@@ -392,7 +392,16 @@ class FiveMinuteMarkCalculator {
                     // Calculate betting prediction
                     const prediction = DoMath.calculateAgainstFourScore(homeCalculated, awayCalculated, awayQ4, homeQ4);
                     // Validate prediction based on criteria 7.1, 7.2, 7.3
-                    const showPrediction = FiveMinuteMarkCalculator.shouldShowPrediction(homeCalculated, awayCalculated, homeQ4, awayQ4, homePeriodArray, awayPeriodArray) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';
+                    /*   const showPrediction = FiveMinuteMarkCalculator.shouldShowPrediction(
+                           homeCalculated,
+                           awayCalculated,
+                           homeQ4,
+                           awayQ4,
+                           homePeriodArray,
+                           awayPeriodArray
+                       ) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';*/
+                    const showPrediction = prediction.homeStatus !== 'UNKNOW' &&
+                        prediction.visitorStatus !== 'UNKNOW' && prediction.status !== 'UNKNOW';
                     //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
                     return {
                         ...prediction,

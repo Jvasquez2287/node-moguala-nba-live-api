@@ -412,18 +412,18 @@ class FiveMinuteMarkCalculator {
             showPrediction: false, // Show prediction at halftime
         } as BetPrediction);
 
-        if (game && (game.gameStatus === 1 || game.gameStatus === 3)) { 
+        if (game && (game.gameStatus === 1 || game.gameStatus === 3)) {
             return inValidResponse();
         }
 
         // Validate input
-        if (!game || !game.homeTeam) { 
+        if (!game || !game.homeTeam) {
             return inValidResponse();
         }
 
         // Get away team - API returns either awayTeam or visitorTeam
         const awayTeam = game.awayTeam || game.visitorTeam;
-        if (!awayTeam) { 
+        if (!awayTeam) {
             return inValidResponse();
         }
 
@@ -433,7 +433,7 @@ class FiveMinuteMarkCalculator {
 
         // Only calculate betting status if we're in Q3 (period 3) or later
 
-        if (!gameClock) { 
+        if (!gameClock) {
             return inValidResponse();
         }
         const clockParts = gameClock.split(':');
@@ -446,14 +446,14 @@ class FiveMinuteMarkCalculator {
             game.gameId);
 
         // Check cache first
-       /* const sevenMinutesCheck = getCheckAtSevenMinuteMarkCache(cacheKey);
-
-
-        if (!sevenMinutesCheck && period === 4) {
-            console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} failed 7-minute mark check, skipping prediction`);
-            return inValidResponse();
-        }
-*/
+        /* const sevenMinutesCheck = getCheckAtSevenMinuteMarkCache(cacheKey);
+ 
+ 
+         if (!sevenMinutesCheck && period === 4) {
+             console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} failed 7-minute mark check, skipping prediction`);
+             return inValidResponse();
+         }
+ */
         switch (period) {
             case 1:
             case 2:
@@ -553,15 +553,18 @@ class FiveMinuteMarkCalculator {
                     );
 
                     // Validate prediction based on criteria 7.1, 7.2, 7.3
-                    const showPrediction = FiveMinuteMarkCalculator.shouldShowPrediction(
-                        homeCalculated,
-                        awayCalculated,
-                        homeQ4,
-                        awayQ4,
-                        homePeriodArray,
-                        awayPeriodArray
-                    ) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';
+                    /*   const showPrediction = FiveMinuteMarkCalculator.shouldShowPrediction(
+                           homeCalculated,
+                           awayCalculated,
+                           homeQ4,
+                           awayQ4,
+                           homePeriodArray,
+                           awayPeriodArray
+                       ) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';*/
 
+                    const showPrediction = prediction.homeStatus !== 'UNKNOW' && 
+                    prediction.visitorStatus !== 'UNKNOW' && prediction.status !== 'UNKNOW';
+ 
                     //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
 
                     return {
