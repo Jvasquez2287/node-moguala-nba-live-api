@@ -1,1 +1,1 @@
-{"version":3,"file":"standings.d.ts","sourceRoot":"","sources":["../../src/services/standings.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAGH,OAAO,EAAE,iBAAiB,EAAkB,MAAM,sBAAsB,CAAC;AAoDzE;;GAEG;AACH,wBAAsB,kBAAkB,CAAC,MAAM,EAAE,MAAM,GAAG,OAAO,CAAC,iBAAiB,GAAG,IAAI,CAAC,CAkK1F"}
+{"version":3,"file":"standings.d.ts","sourceRoot":"","sources":["../../src/services/standings.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAGH,OAAO,EAAE,iBAAiB,EAAkB,MAAM,sBAAsB,CAAC;AAqDzE;;GAEG;AACH,wBAAsB,kBAAkB,CAAC,MAAM,EAAE,MAAM,GAAG,OAAO,CAAC,iBAAiB,GAAG,IAAI,CAAC,CAiK1F"}

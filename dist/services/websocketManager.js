@@ -409,33 +409,57 @@ class ScoreboardWebSocketManager {
         const currentTime = Date.now();
         const newMap = new Map(newGames.map(g => [g.gameId, g]));
         const oldMap = new Map(oldGames.map(g => [g.gameId, g]));
+        // Debug logging
+        const debugId = `${new Date().toISOString()}`;
+        let changedGames = [];
+        let throttledGames = [];
         for (const [gameId, newGame] of newMap) {
             if (!oldMap.has(gameId)) {
+                console.log(`[${debugId}] [Game Data Change] NEW GAME detected: ${gameId}`);
+                changedGames.push(gameId);
                 this.sendNotificationOnGameIDChange(newGame);
                 return true;
             }
+            // Game Status codes: 1=Pre-Game, 2=In Progress, 3=Final, 4=OT, 5=Suspended
             // Check for game status change and send notification if changed
-            if (newGame.gameStatus !== oldGames.find((g) => g.gameId === gameId)?.gameStatus) {
-                if (newGame.gameStatus === 1 && oldGames.find((g) => g.gameId === gameId)?.gameStatus !== 1) // Game just started
+            const oldGameStatus = oldGames.find((g) => g.gameId === gameId)?.gameStatus;
+            if (newGame.gameStatus !== oldGameStatus) {
+                if (newGame.gameStatus === 2 && oldGameStatus !== 2) { // Game just started
+                    console.log(`[${debugId}] [Game Data Change] Game STARTED: ${gameId}`);
                     this.sendNotificationOngameStatusChange(newGame, 'game_started');
-                else if (newGame.gameStatus === 3 && oldGames.find((g) => g.gameId === gameId)?.gameStatus !== 3) // Game just ended
+                }
+                else if (newGame.gameStatus === 3 && oldGameStatus !== 3) { // Game just ended
+                    console.log(`[${debugId}] [Game Data Change] Game ENDED: ${gameId}`);
                     this.sendNotificationOngameStatusChange(newGame, 'game_ended');
+                }
             }
             const oldGame = oldMap.get(gameId);
             const lastUpdate = this.lastUpdateTimestamp.get(gameId) || 0;
+            const timeSinceLastUpdate = currentTime - lastUpdate;
+            const meetsThrottle = timeSinceLastUpdate >= this.MIN_UPDATE_INTERVAL;
             // Check if scores, status, or period changed
             const homeScoreChanged = newGame.homeTeam?.score !== oldGame.homeTeam?.score;
             const awayScoreChanged = newGame.awayTeam?.score !== oldGame.awayTeam?.score;
             const statusChanged = newGame.gameStatus !== oldGame.gameStatus;
             const periodChanged = newGame.period !== oldGame.period;
-            const clockChanged = newGame.gameClock !== oldGame.gameClock;
-            if (homeScoreChanged || awayScoreChanged || statusChanged || periodChanged || clockChanged) {
-                // Only update if minimum interval has passed
-                if (currentTime - lastUpdate >= this.MIN_UPDATE_INTERVAL) {
+            const hasAnyChange = homeScoreChanged || awayScoreChanged || statusChanged || periodChanged;
+            if (hasAnyChange) {
+                if (meetsThrottle) {
+                    changedGames.push(gameId);
+                    console.log(`[${debugId}] [Game Data Change] ${gameId} CHANGED: ` +
+                        `homeScore=${homeScoreChanged}, awayScore=${awayScoreChanged}, status=${statusChanged}, period=${periodChanged} `);
                     this.lastUpdateTimestamp.set(gameId, currentTime);
                     return true;
                 }
+                else {
+                    throttledGames.push(gameId);
+                    console.log(`[${debugId}] [Game Data Change] ${gameId} has changes but THROTTLED (${timeSinceLastUpdate}ms < ${this.MIN_UPDATE_INTERVAL}ms)`);
+                }
             }
+        }
+        // Log summary if any games were processed
+        if (changedGames.length > 0 || throttledGames.length > 0) {
+            console.log(`[${debugId}] [Game Data Change] Summary - Changed: ${changedGames.length}, Throttled: ${throttledGames.length}`);
         }
         return false;
     }
@@ -585,40 +609,19 @@ class ScoreboardWebSocketManager {
         }
         // Initialize cleanup task
         this.startCleanupTask();
-        // Initialize key moments broadcasting if NODE_ENV is 'true'
-        if (process.env.NODE_ENV === 'true') {
-            this.startKeyMomentsBroadcasting();
-        }
+        // Initialize key moments broadcasting if NODE_ENV is 'true'  
+        this.startKeyMomentsBroadcasting();
         console.log('[Scoreboard WebSocket] Broadcasting started (on change or every 1 minute)');
     }
     // END Scoreboard Testing Method
     // Scoreboard Testing Method - Broadcast custom data to all clients
-    async broadcastToAllClientsScoreBoard(data) {
+    async broadcastToAllClientsScoreBoard() {
         try {
             if (process.env.USE_MOCK_DATA === 'false') {
                 return 0; // Only allow manual broadcasts when using mock data to prevent interference with live data
             }
+            this.checkAndBroadcast(); // Update currentGames with latest data before broadcasting
             let clientCount = 0;
-            const disconnectedClients = [];
-            console.log(`[Scoreboard WS] Broadcasting custom data to all clients (active connections: ${this.activeConnections.size})`);
-            for (const client of this.activeConnections) {
-                try {
-                    if (client.readyState === ws_1.default.OPEN) {
-                        client.send(JSON.stringify(data));
-                        clientCount++;
-                    }
-                    else {
-                        disconnectedClients.push(client);
-                    }
-                }
-                catch (error) {
-                    console.error('[Scoreboard WS] Error sending to client:', error);
-                    disconnectedClients.push(client);
-                }
-            }
-            // Clean up disconnected clients
-            disconnectedClients.forEach(client => this.activeConnections.delete(client));
-            console.log(`[Scoreboard WS] Broadcast sent to ${clientCount} clients`);
             return clientCount;
         }
         catch (error) {
@@ -755,6 +758,10 @@ class ScoreboardWebSocketManager {
         try {
             let clientCount = 0;
             const disconnectedClients = [];
+            if (this.activeConnectionsPBP.size === 0) {
+                console.log('[PlayByPlay WS] No active connections for play-by-play updates, skipping broadcast');
+                return 0; // No clients subscribed to any game
+            }
             // Iterate through all games and their connected clients
             for (const [gameId, connections] of this.activeConnectionsPBP.entries()) {
                 for (const client of connections) {

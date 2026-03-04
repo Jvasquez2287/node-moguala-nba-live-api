@@ -346,7 +346,8 @@ class DataCache {
                 }
                 // Update scoreboard cache
                 await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
-                await websocketManager_1.webSocketManager.broadcastToAllClientsScoreBoard(scoreboardData);
+                await websocketManager_1.webSocketManager.broadcastToAllClientsScoreBoard();
+                await this.checkGamesStatusAndGameClock(scoreboardData);
                 console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
             }
             catch (error) {
@@ -357,6 +358,37 @@ class DataCache {
         await poll();
         // Set up polling interval
         this.scoreboardTask = setInterval(poll, this.SCOREBOARD_POLL_INTERVAL);
+    }
+    async checkGamesStatusAndGameClock(data) {
+        try {
+            const scoreboardData = data.scoreboard;
+            if (!scoreboardData || !scoreboardData.games)
+                return 0;
+            let notifiedGames = 0;
+            for (const game of scoreboardData.games) {
+                if (game.gameStatus === 2) { // In Progress
+                    const clock = game.gameClock || '00:00';
+                    const [minutes, seconds] = clock.split(':').map(Number);
+                    const gamePeriod = game.period;
+                    if (!isNaN(minutes) && !isNaN(seconds)) {
+                        return 0; // Game clock is running, return 0 to indicate we should poll more frequently
+                    }
+                    if (gamePeriod == 4 && minutes === 7) {
+                        console.log(`[FiveMinuteMark] Detected 7-minute mark in 4th quarter for game ${game.gameId}`);
+                        // At 7-minute mark: send notification and validation
+                        if (process.env.USE_MOCK_DATA === 'false') {
+                            //  await webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
+                            ++notifiedGames; // Add 1 to notifiedGames to indicate we should poll more frequently around this time
+                        }
+                    }
+                }
+            }
+            return notifiedGames;
+        }
+        catch (error) {
+            console.error('[DataCache] Error in checkGamesStatusAndGameClock:', error);
+            return 0;
+        }
     }
     async pollPlaybyplay() {
         console.log('[PlayByPlay] Polling started');

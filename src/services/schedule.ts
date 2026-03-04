@@ -219,7 +219,7 @@ interface ScheduleData {
 // Cache for schedule data
 let scheduleCache: ScheduleData | null = null;
 let scheduleCacheTimestamp: number = 0;
-const SCHEDULE_CACHE_TTL = 3600 * 1000; // 1 hour in milliseconds
+const SCHEDULE_CACHE_TTL = 3600 * 1000; // Memory cache for 1 hour for performance; DB stores permanently
 
 const SCHEDULE_URL = 'https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json';
 
@@ -297,15 +297,14 @@ function parseScheduleData(rawData: RawScheduleData): ScheduleData {
 
 async function getSchedule(): Promise<ScheduleData> {
   const currentTime = Date.now();
-  const DB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-  // 1. Check memory cache first (1 hour TTL)
+  // 1. Check memory cache first (1 hour TTL for performance)
   if (scheduleCache && (currentTime - scheduleCacheTimestamp) < SCHEDULE_CACHE_TTL) {
     console.log('[Schedule] Returning cached schedule data from memory');
     return scheduleCache;
   }
 
-  // 2. Check database cache (24 hour TTL)
+  // 2. Check database cache (permanent storage - no TTL)
   try {
     console.log('[Schedule] Checking database cache...');
     const cachedData = await dataCache.getScheduleData<ScheduleData>();
@@ -327,10 +326,10 @@ async function getSchedule(): Promise<ScheduleData> {
     scheduleCacheTimestamp = currentTime;
     console.log(`[Schedule] Successfully fetched schedule with ${scheduleCache.games.length} games`);
 
-    // 4. Store in database cache for 24 hours
+    // 4. Store in database cache permanently
     try {
       dataCache.setScheduleData(scheduleCache);
-      console.log('[Schedule] Stored schedule data in database cache (24h TTL)');
+      console.log('[Schedule] Stored schedule data in database cache (permanent storage)');
     } catch (cacheError) {
       console.warn('[Schedule] Failed to store in database cache:', cacheError instanceof Error ? cacheError.message : cacheError);
       // Continue anyway - we still have the data in memory
@@ -340,7 +339,7 @@ async function getSchedule(): Promise<ScheduleData> {
   } catch (error) {
     // Return cached data even if expired, as fallback
     if (scheduleCache) {
-      console.warn('[Schedule] Using stale cache as fallback');
+      console.warn('[Schedule] Using cached data as fallback');
       return scheduleCache;
     }
     throw error;

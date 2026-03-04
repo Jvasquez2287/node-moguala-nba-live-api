@@ -437,7 +437,7 @@ class FiveMinuteMarkCalculator {
             return inValidResponse();
         }
         const clockParts = gameClock.split(':');
-        const minutes = parseInt(clockParts[0]) || 0;
+        const [minutes, seconds] = clockParts.split(':').map(Number);
 
         let cacheKey: string | null = null;
         cacheKey = createCheckAtSevenMinuteMarkCacheKey(
@@ -461,13 +461,9 @@ class FiveMinuteMarkCalculator {
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, waiting until 5-minute mark of Q4 for prediction`);
                 return inValidResponse();
             case 4:
-                // Only continue if within 5-6 minute range of Q4
-                if (minutes > 6) {
-                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is outside 5-6 minute window of Q4, skipping prediction (minutes: ${minutes})`);
-                    return inValidResponse();
-                }
-                // Send notification at 7 minute mark
-                if (minutes >= 7 && minutes < 8) {
+
+                if (minutes === 7) {
+                    // At 7-minute mark: send notification and validation
                     if (process.env.USE_MOCK_DATA === 'false') {
                         await webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
                     }
@@ -481,8 +477,17 @@ class FiveMinuteMarkCalculator {
                         awayTeam.teamId,
                         game.gameId
                     );
+                    return inValidResponse();
+                } else if (minutes > 7) {
+                    // More than 7 minutes remaining, not yet at prediction window
+                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 7-minute mark for notification and validation`);
+                    return inValidResponse();
+                } else if (minutes > 5) {
+                    // More than 5 minutes remaining, not yet at prediction window
+                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 5-minute mark for prediction`);
+                    return inValidResponse();
                 }
-                // Continue processing for 5-6 minute range
+
                 break;
             default:
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, skipping prediction`);
@@ -562,9 +567,9 @@ class FiveMinuteMarkCalculator {
                            awayPeriodArray
                        ) && prediction.homeStatus !== 'UNKNOW' && prediction.visitorStatus !== 'UNKNOW';*/
 
-                    const showPrediction = prediction.homeStatus !== 'UNKNOW' && 
-                    prediction.visitorStatus !== 'UNKNOW' && prediction.status !== 'UNKNOW';
- 
+                    const showPrediction = prediction.homeStatus !== 'UNKNOW' &&
+                        prediction.visitorStatus !== 'UNKNOW' && prediction.status !== 'UNKNOW';
+
                     //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
 
                     return {

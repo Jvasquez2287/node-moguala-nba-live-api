@@ -216,7 +216,7 @@ function detectGameTyingShot(
 
   if (isTiedNow && !wasTiedBefore) {
     const actionType = (play.action_type || '').toLowerCase();
-    if (actionType.includes('shot') || actionType.includes('free throw')) {
+    if ( actionType === '3pt') {
       return true;
     }
   }
@@ -270,14 +270,10 @@ function detectScoringRun(
     const playTeam = play.team_tricode || '';
     const actionType = (play.action_type || '').toLowerCase();
 
-    if (playTeam === teamTricode && (actionType.includes('shot') || actionType.includes('free throw'))) {
-      if (actionType.includes('3-pt') || actionType.includes('three')) {
+    if (playTeam === teamTricode && (actionType === '3pt'  )) {
+      if (actionType === '3pt') {
         teamPoints += 3;
-      } else if (actionType.includes('free throw')) {
-        teamPoints += 1;
-      } else {
-        teamPoints += 2;
-      }
+      }  
 
       consecutiveTeamPlays++;
     } else {
@@ -324,7 +320,7 @@ function detectClutchPlay(
 
   // Must be a scoring play
   const actionType = (play.action_type || '').toLowerCase();
-  return actionType.includes('shot') || actionType.includes('free throw');
+  return  actionType === '3pt';
 }
 
 /**
@@ -340,7 +336,7 @@ function detectBigShot(
   const actionType = (play.action_type || '').toLowerCase();
 
   // Must be a 3-pointer
-  if (!actionType.includes('3-pt') && !actionType.includes('three')) {
+  if (actionType !== '3pt') {
     return false;
   }
 
@@ -409,15 +405,15 @@ async function detectKeyMoments(gameId: string): Promise<KeyMoment[]> {
     const newPlays = plays.filter((p: any) => p.action_number > lastChecked);
 
     if (newPlays.length === 0) {
+      // Don't log for every check - only log when there are plays to process
       return [];
     }
-
-    // Remember which plays we've checked
+    
+    console.log(`[KeyMoments] Game ${gameId}: Found ${newPlays.length} new plays to analyze (last checked: ${lastChecked}, max now: ${Math.max(...newPlays.map((p: any) => p.action_number))})`);    // Remember which plays we've checked
     if (newPlays.length > 0) {
       const maxActionNumber = Math.max(...newPlays.map((p: any) => p.action_number));
       lastCheckedPlays.set(gameId, maxActionNumber);
     }
-
     const detectedMoments: KeyMoment[] = [];
 
     // Check each new play
@@ -529,6 +525,7 @@ async function detectKeyMoments(gameId: string): Promise<KeyMoment[]> {
 
     const currentMoments = keyMomentsCache.get(gameId) || [];
     currentMoments.push(...detectedMoments);
+    console.log(`[KeyMoments] Game ${gameId}: Cached ${detectedMoments.length} moments, total now: ${currentMoments.length}`);
 
     // Clean up old moments (older than 5 minutes)
     const cutoffTime = Date.now() - 5 * 60 * 1000;
@@ -536,6 +533,7 @@ async function detectKeyMoments(gameId: string): Promise<KeyMoment[]> {
       (m) => new Date(m.timestamp).getTime() > cutoffTime
     );
     keyMomentsCache.set(gameId, filteredMoments);
+    console.log(`[KeyMoments] Game ${gameId}: After cleanup filter: ${filteredMoments.length} moments in cache`);
 
     return detectedMoments;
   } catch (error) {
@@ -551,6 +549,7 @@ async function getKeyMomentsForGame(gameId: string): Promise<KeyMoment[]> {
   try {
     // Get cached moments
     const moments = keyMomentsCache.get(gameId) || [];
+    console.log(`[KeyMoments] getKeyMomentsForGame(${gameId}): Found ${moments.length} cached moments`);
 
     // Get current game info
     const scoreboardData = await dataCache.getScoreboard();
@@ -674,6 +673,7 @@ async function processLiveGames(): Promise<void> {
 
     const scoreboardData = await dataCache.getScoreboard();
     if (!scoreboardData?.scoreboard?.games) {
+      console.log('[KeyMoments] No scoreboard data available');
       return;
     }
 
@@ -681,6 +681,13 @@ async function processLiveGames(): Promise<void> {
     const liveGames = scoreboardData.scoreboard.games
       .filter((game: any) => game.gameStatus === 2)
       .map((game: any) => game.gameId);
+    
+    if (liveGames.length === 0) {
+      console.log('[KeyMoments] No live games found');
+      return;
+    }
+    
+    console.log(`[KeyMoments] Processing ${liveGames.length} live games`);
 
     // Clean up caches for games no longer live
     const cachedGameIds = Array.from(keyMomentsCache.keys());

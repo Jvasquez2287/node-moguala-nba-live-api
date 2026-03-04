@@ -55,7 +55,7 @@ export declare class ScoreboardWebSocketManager {
     stopCleanupTask(): void;
     getConnectionCount(): number;
     private initializeBroadcasting;
-    broadcastToAllClientsScoreBoard(data: any): Promise<number>;
+    broadcastToAllClientsScoreBoard(): Promise<number>;
     startBroadcasting(): void;
     stopBroadcasting(): void;
     /**

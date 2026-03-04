@@ -9,6 +9,7 @@ import { TeamDetailsResponse, TeamRoster } from '../schemas/team';
 import { executeQuery } from '../config/database';
 import mockData from './mockData';
 import { webSocketManager } from './websocketManager';
+import { min } from 'lodash';
 
 interface CacheEntry<T> {
   data: T;
@@ -206,7 +207,7 @@ export class DataCache {
   }
 
   async getScoreboard(): Promise<ScoreboardResponse | null> {
-  
+
     return await this.dbCache.get<ScoreboardResponse>('scoreboard');
   }
 
@@ -285,17 +286,17 @@ export class DataCache {
 
   async getLastPlayByPlay(gameId: string): Promise<LastPlayByPlayActionNumber | null> {
     return await this.dbCache.get<LastPlayByPlayActionNumber>(`lastPlayActionNumber_${gameId}`);
-   }
+  }
 
 
-   setTeamPlayByPlay(teamId: number, data: PlayByPlayResponse): void {
+  setTeamPlayByPlay(teamId: number, data: PlayByPlayResponse): void {
     // cache team-level play-by-play in memory only
     this.teamPlayByPlayCache.set(teamId, data);
   }
 
   async getTeamPlayByPlay(teamId: number): Promise<PlayByPlayResponse | null> {
     return this.teamPlayByPlayCache.get(teamId) || null;
-   }
+  }
 
 
   ///////////////////////////////////////////
@@ -344,7 +345,7 @@ export class DataCache {
   async getLeagueRoster(): Promise<PlayerSummary[] | null> {
     return await this.dbCache.get<PlayerSummary[]>('league_roster');
   }
- 
+
   private async cleanupFinishedGames(): Promise<void> {
     try {
       const scoreboardData = await this.getScoreboard();
@@ -423,7 +424,9 @@ export class DataCache {
 
         // Update scoreboard cache
         await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
-        await webSocketManager.broadcastToAllClientsScoreBoard(scoreboardData);
+        await webSocketManager.broadcastToAllClientsScoreBoard();
+        await this.checkGamesStatusAndGameClock(scoreboardData);
+        
         console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
       } catch (error) {
         console.warn('[ScoreBoard] Error fetching scoreboard:', error);
@@ -435,8 +438,41 @@ export class DataCache {
 
     // Set up polling interval
     this.scoreboardTask = setInterval(poll, this.SCOREBOARD_POLL_INTERVAL);
-  } 
+  }
 
+
+  private async checkGamesStatusAndGameClock(data: any): Promise<number> {
+    try {
+      const scoreboardData = data.scoreboard;
+      if (!scoreboardData || !scoreboardData.games) return 0;
+
+      let notifiedGames = 0;
+      for (const game of scoreboardData.games) {
+        if (game.gameStatus === 2) { // In Progress
+          const clock = game.gameClock || '00:00';
+          const [minutes, seconds] = clock.split(':').map(Number);
+          const gamePeriod = game.period;
+          if (!isNaN(minutes) && !isNaN(seconds)) {
+            return 0; // Game clock is running, return 0 to indicate we should poll more frequently
+          }
+
+          if (gamePeriod == 4 && minutes === 7) {
+            console.log(`[FiveMinuteMark] Detected 7-minute mark in 4th quarter for game ${game.gameId}`);
+            // At 7-minute mark: send notification and validation
+            if (process.env.USE_MOCK_DATA === 'false') {
+              //  await webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
+              ++notifiedGames; // Add 1 to notifiedGames to indicate we should poll more frequently around this time
+            }
+
+          }
+        }
+      }
+      return notifiedGames;
+    } catch (error) {
+      console.error('[DataCache] Error in checkGamesStatusAndGameClock:', error);
+      return 0;
+    }
+  }
 
 
   private async pollPlaybyplay(): Promise<void> {
@@ -495,15 +531,15 @@ export class DataCache {
 
   startPolling(): void {
     if (!this.scoreboardTask) {
-      this.pollScoreboard(); 
+      this.pollScoreboard();
     }
 
     if (!this.playbyplayTask) {
-      this.pollPlaybyplay(); 
+      this.pollPlaybyplay();
     }
 
     if (!this.cleanupTask) {
-      this.periodicCleanup(); 
+      this.periodicCleanup();
     }
   }
 
@@ -526,7 +562,7 @@ export class DataCache {
     this.dbCache.set(`predictions_${date}`, data, ttl);
   }
 
-  async stopPolling(): Promise<void> { 
+  async stopPolling(): Promise<void> {
     if (this.scoreboardTask) {
       clearInterval(this.scoreboardTask);
       this.scoreboardTask = null;

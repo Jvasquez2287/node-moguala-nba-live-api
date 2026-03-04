@@ -13,7 +13,8 @@ interface CacheEntry<T> {
     timestamp: number;
 }
 
-// Cache duration in milliseconds (1 hour)
+// Cache duration in milliseconds (1 hour for memory cache)
+// Database cache stores permanently with no TTL
 const CACHE_DURATION = 3600000;
 
 // Cache for standings by season
@@ -61,7 +62,6 @@ async function retryAxiosRequest<T>(
  */
 export async function getSeasonStandings(season: string): Promise<StandingsResponse | null> {
     try {
-        const DB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
         const cacheKey = `standings_${season}`;
 
         // 1. Check in-memory cache first (1 hour TTL)
@@ -71,7 +71,7 @@ export async function getSeasonStandings(season: string): Promise<StandingsRespo
             return cached.data;
         }
 
-        // 2. Check database cache (24 hour TTL)
+        // 2. Check database cache (permanent storage - no TTL)
         try {
             console.log(`[Standings] Checking database cache for season ${season}...`);
             const dbCachedData = await dataCache.getStandingsData<StandingsResponse>(season);
@@ -207,10 +207,10 @@ export async function getSeasonStandings(season: string): Promise<StandingsRespo
             timestamp: Date.now()
         });
 
-        // 3. Store in database cache for 24 hours
+        // 3. Store in database cache permanently
         try {
             dataCache.setStandingsData(season, result);
-            console.log(`[Standings] Stored standings data in database cache for season ${season} (24h TTL)`);
+            console.log(`[Standings] Stored standings data in database cache for season ${season} (permanent storage)`);
         } catch (cacheError) {
             console.warn(`[Standings] Failed to store in database cache for season ${season}:`, cacheError instanceof Error ? cacheError.message : cacheError);
             // Continue anyway - we have the data in memory

@@ -47,7 +47,15 @@ app.use(cors({ origin: "*", credentials: true })); // Allow CORS for all origins
 import { dataCache } from "./services/dataCache";
 
 // Health check
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
+
+// Log incoming API requests with method, URL, and IP address
+  console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
+  const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
+  if (!validationResult.valid) {
+    return res.json({ success: false, error: 'Invalid or missing security parameters' });
+  }
+
   return res.json({
     message: "NBA Live API is running",
     timestamp: new Date().toISOString(),

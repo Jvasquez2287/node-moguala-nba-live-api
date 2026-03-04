@@ -65,6 +65,7 @@ export declare class DataCache {
     private cleanupFinishedGames;
     private periodicCleanup;
     private pollScoreboard;
+    private checkGamesStatusAndGameClock;
     private pollPlaybyplay;
     startPolling(): void;
     /**

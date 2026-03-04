@@ -13,11 +13,12 @@ exports.getAllTeams = getAllTeams;
 exports.getTeamPlayerStats = getTeamPlayerStats;
 const axios_1 = __importDefault(require("axios"));
 const dataCache_1 = require("./dataCache");
-// Cache duration in milliseconds (1 hour)
+// Cache duration in milliseconds (1 hour for memory cache)
+// Database cache stores permanently with no TTL
 const CACHE_DURATION = 3600000;
-// Cache for team rosters
+// Cache for team rosters (memory cache: 1 hour; DB cache: permanent)
 const teamRosterCache = new Map();
-// Cache for team player stats
+// Cache for team player stats (memory cache: 1 hour; DB cache: permanent)
 const teamPlayerStatsCache = new Map();
 /**
  * Retry utility for NBA API calls with exponential backoff
@@ -150,11 +151,27 @@ async function getTeamRoster(teamId, season) {
     try {
         const seasonParam = season.includes('-') ? season : `${season}-${(parseInt(season) + 1).toString().slice(-2)}`;
         const cacheKey = `team_roster_${teamId}_${seasonParam}`;
-        // Check cache first
+        // 1. Check memory cache first (1 hour TTL)
         const cached = teamRosterCache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            console.log(`Returning cached team roster for team ${teamId} season ${seasonParam}`);
+            console.log(`Returning cached team roster for team ${teamId} season ${seasonParam} from memory`);
             return cached.data;
+        }
+        // 2. Check database cache (permanent storage - no TTL)
+        try {
+            const dbCached = await dataCache_1.dataCache.get(`roster_${cacheKey}`);
+            if (dbCached) {
+                console.log(`Returning cached team roster for team ${teamId} season ${seasonParam} from database`);
+                // Update memory cache for performance
+                teamRosterCache.set(cacheKey, {
+                    data: dbCached,
+                    timestamp: Date.now()
+                });
+                return dbCached;
+            }
+        }
+        catch (dbError) {
+            console.warn(`Database cache lookup failed for roster ${cacheKey}, will fetch from API`);
         }
         console.log(`Cache miss for team roster ${teamId}, fetching from API`);
         // Get players for the team using NBA API
@@ -220,11 +237,19 @@ async function getTeamRoster(teamId, season) {
             players: players,
             coaches: [] // Coaches not available in NBA API
         };
-        // Cache the result
+        // Cache the result - both memory and database
         teamRosterCache.set(cacheKey, {
             data: roster,
             timestamp: Date.now()
         });
+        // Store in database cache for permanent storage
+        try {
+            await dataCache_1.dataCache.set(`roster_${cacheKey}`, roster);
+            console.log(`Stored team roster for team ${teamId} season ${seasonParam} in database cache (permanent)`);
+        }
+        catch (cacheError) {
+            console.warn(`Failed to store roster in database cache:`, cacheError);
+        }
         return roster;
     }
     catch (error) {
@@ -353,11 +378,27 @@ async function getTeamPlayerStats(teamId, season) {
     try {
         const seasonParam = season.includes('-') ? season : `${season}-${(parseInt(season) + 1).toString().slice(-2)}`;
         const cacheKey = `team_player_stats_${teamId}_${seasonParam}`;
-        // Check cache first
+        // 1. Check memory cache first (1 hour TTL)
         const cached = teamPlayerStatsCache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            console.log(`Returning cached team player stats for team ${teamId} season ${seasonParam}`);
+            console.log(`Returning cached team player stats for team ${teamId} season ${seasonParam} from memory`);
             return cached.data;
+        }
+        // 2. Check database cache (permanent storage - no TTL)
+        try {
+            const dbCached = await dataCache_1.dataCache.get(`stats_${cacheKey}`);
+            if (dbCached) {
+                console.log(`Returning cached team player stats for team ${teamId} season ${seasonParam} from database`);
+                // Update memory cache for performance
+                teamPlayerStatsCache.set(cacheKey, {
+                    data: dbCached,
+                    timestamp: Date.now()
+                });
+                return dbCached;
+            }
+        }
+        catch (dbError) {
+            console.warn(`Database cache lookup failed for stats ${cacheKey}, will fetch from API`);
         }
         console.log(`Cache miss for team player stats ${teamId}, fetching from API`);
         // Get team roster which contains player information
@@ -474,11 +515,19 @@ async function getTeamPlayerStats(teamId, season) {
             season: seasonParam,
             players: players
         };
-        // Cache the result
+        // Cache the result - both memory and database
         teamPlayerStatsCache.set(cacheKey, {
             data: result,
             timestamp: Date.now()
         });
+        // Store in database cache for permanent storage
+        try {
+            await dataCache_1.dataCache.set(`stats_${cacheKey}`, result);
+            console.log(`Stored team player stats for team ${teamId} season ${seasonParam} in database cache (permanent)`);
+        }
+        catch (cacheError) {
+            console.warn(`Failed to store stats in database cache:`, cacheError);
+        }
         return result;
     }
     catch (error) {

@@ -13,7 +13,8 @@ exports.getSeasonLeaders = getSeasonLeaders;
 exports.getLeagueRoster = getLeagueRoster;
 const axios_1 = __importDefault(require("axios"));
 const dataCache_1 = require("./dataCache");
-// Cache duration in milliseconds (1 hour)
+// Cache duration in milliseconds (1 hour for memory cache)
+// Database cache stores permanently with no TTL
 const CACHE_DURATION = 3600000;
 // Cache for individual player lookups
 const playerCache = new Map();
@@ -55,11 +56,27 @@ async function getPlayer(playerId) {
         if (isNaN(playerIdNum)) {
             throw new Error('Invalid player ID');
         }
-        // Check cache first
+        // 1. Check memory cache first (1 hour TTL)
         const cached = playerCache.get(playerId);
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            console.log(`Returning cached player data for player ${playerId}`);
+            console.log(`Returning cached player data for player ${playerId} from memory`);
             return cached.data;
+        }
+        // 2. Check database cache (permanent storage - no TTL)
+        try {
+            const dbCached = await dataCache_1.dataCache.get(`player_${playerId}`);
+            if (dbCached) {
+                console.log(`Returning cached player data for player ${playerId} from database`);
+                // Update memory cache for performance
+                playerCache.set(playerId, {
+                    data: dbCached,
+                    timestamp: Date.now()
+                });
+                return dbCached;
+            }
+        }
+        catch (dbError) {
+            console.warn(`Database cache lookup failed for player ${playerId}, will fetch from API`);
         }
         console.log(`Cache miss for player ${playerId}, fetching from API`);
         const currentDate = new Date();
@@ -194,11 +211,19 @@ async function getPlayer(playerId) {
             TO_YEAR: getValue('TO_YEAR'),
             recent_games: recentGames
         };
-        // Cache the result
+        // Cache the result - both memory and database
         playerCache.set(playerId, {
             data: playerSummary,
             timestamp: Date.now()
         });
+        // Store in database cache for permanent storage
+        try {
+            await dataCache_1.dataCache.set(`player_${playerId}`, playerSummary);
+            console.log(`Stored player data for player ${playerId} in database cache (permanent)`);
+        }
+        catch (cacheError) {
+            console.warn(`Failed to store player data in database cache:`, cacheError);
+        }
         return playerSummary;
     }
     catch (error) {
@@ -234,11 +259,27 @@ async function getPlayer(playerId) {
  */
 async function searchPlayers(query) {
     try {
-        // Check cache first
+        // 1. Check memory cache first (1 hour TTL)
         const cached = playerSearchCache.get(query.toLowerCase());
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            console.log(`Returning cached search results for query "${query}"`);
+            console.log(`Returning cached search results for query "${query}" from memory`);
             return cached.data;
+        }
+        // 2. Check database cache (permanent storage - no TTL)
+        try {
+            const dbCached = await dataCache_1.dataCache.get(`player_search_${query.toLowerCase()}`);
+            if (dbCached) {
+                console.log(`Returning cached search results for query "${query}" from database`);
+                // Update memory cache for performance
+                playerSearchCache.set(query.toLowerCase(), {
+                    data: dbCached,
+                    timestamp: Date.now()
+                });
+                return dbCached;
+            }
+        }
+        catch (dbError) {
+            console.warn(`Database cache lookup failed for player search "${query}", will fetch from API`);
         }
         console.log(`Cache miss for player search "${query}", fetching from API`);
         const currentDate = new Date();
@@ -319,11 +360,19 @@ async function searchPlayers(query) {
                 recent_games: []
             };
         });
-        // Cache the result
+        // Cache the result - both memory and database
         playerSearchCache.set(query.toLowerCase(), {
             data: players,
             timestamp: Date.now()
         });
+        // Store in database cache for permanent storage
+        try {
+            await dataCache_1.dataCache.set(`player_search_${query.toLowerCase()}`, players);
+            console.log(`Stored search results for query "${query}" in database cache (permanent)`);
+        }
+        catch (cacheError) {
+            console.warn(`Failed to store search results in database cache:`, cacheError);
+        }
         return players;
     }
     catch (error) {

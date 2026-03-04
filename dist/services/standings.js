@@ -10,7 +10,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSeasonStandings = getSeasonStandings;
 const axios_1 = __importDefault(require("axios"));
 const dataCache_1 = require("./dataCache");
-// Cache duration in milliseconds (1 hour)
+// Cache duration in milliseconds (1 hour for memory cache)
+// Database cache stores permanently with no TTL
 const CACHE_DURATION = 3600000;
 // Cache for standings by season
 const standingsCache = new Map();
@@ -46,7 +47,6 @@ async function retryAxiosRequest(requestFn, maxRetries = 3, baseDelay = 1000) {
  */
 async function getSeasonStandings(season) {
     try {
-        const DB_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
         const cacheKey = `standings_${season}`;
         // 1. Check in-memory cache first (1 hour TTL)
         const cached = standingsCache.get(season);
@@ -54,7 +54,7 @@ async function getSeasonStandings(season) {
             console.log(`[Standings] Returning cached standings for season ${season} from memory`);
             return cached.data;
         }
-        // 2. Check database cache (24 hour TTL)
+        // 2. Check database cache (permanent storage - no TTL)
         try {
             console.log(`[Standings] Checking database cache for season ${season}...`);
             const dbCachedData = await dataCache_1.dataCache.getStandingsData(season);
@@ -178,10 +178,10 @@ async function getSeasonStandings(season) {
             data: result,
             timestamp: Date.now()
         });
-        // 3. Store in database cache for 24 hours
+        // 3. Store in database cache permanently
         try {
             dataCache_1.dataCache.setStandingsData(season, result);
-            console.log(`[Standings] Stored standings data in database cache for season ${season} (24h TTL)`);
+            console.log(`[Standings] Stored standings data in database cache for season ${season} (permanent storage)`);
         }
         catch (cacheError) {
             console.warn(`[Standings] Failed to store in database cache for season ${season}:`, cacheError instanceof Error ? cacheError.message : cacheError);
