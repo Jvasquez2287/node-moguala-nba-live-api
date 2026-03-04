@@ -462,7 +462,7 @@ class FiveMinuteMarkCalculator {
                 return inValidResponse();
             case 4:
                 // Only continue if within 5-6 minute range of Q4
-                if (minutes < 5 || minutes > 6) {
+                if (minutes > 6) {
                     console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is outside 5-6 minute window of Q4, skipping prediction (minutes: ${minutes})`);
                     return inValidResponse();
                 }
