@@ -798,6 +798,10 @@ export class ScoreboardWebSocketManager {
       let clientCount = 0;
       const disconnectedClients: Array<{ gameId: string, client: WebSocket }> = [];
 
+      if(this.activeConnectionsPBP.size === 0) {
+        console.log('[PlayByPlay WS] No active connections for play-by-play updates, skipping broadcast');
+        return 0; // No clients subscribed to any game
+      }
       // Iterate through all games and their connected clients
       for (const [gameId, connections] of this.activeConnectionsPBP.entries()) {
         for (const client of connections) {
