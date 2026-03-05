@@ -51,8 +51,10 @@ app.get("/", async (req, res) => {
 
 // Log incoming API requests with method, URL, and IP address
   console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
+  sendDebugLog('API', `[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
   const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
   if (!validationResult.valid) {
+    sendDebugLog('API', `[API Request] Invalid or missing security parameters - IP: ${req.ip}`);
     return res.json({ success: false, error: 'Invalid or missing security parameters' });
   }
 
@@ -79,6 +81,7 @@ app.get("/", async (req, res) => {
 app.post("/api/v1/cache/refresh", async (req, res) => {
   try {
     console.log('Manual cache refresh requested');
+    sendDebugLog('API', 'Manual cache refresh requested');
     const scoreboardData = await dataCache.refreshScoreboard();
 
     return res.json({
@@ -89,6 +92,7 @@ app.post("/api/v1/cache/refresh", async (req, res) => {
     });
   } catch (error) {
     console.error('Error refreshing cache:', error);
+    sendDebugLog('API', `Error refreshing cache: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return res.json({
       success: false,
       error: 'Failed to refresh cache',
@@ -112,12 +116,33 @@ app.get("/api/v1/cache/status", async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting cache status:', error);
+
     return res.json({
       cacheStatus: 'error',
       error: 'Failed to get cache status'
     });
   }
 });
+
+// Log server stats endpoint - Check active log server connections
+app.get("/api/v1/logserver/stats", async (req, res) => {
+  try {
+    const stats = getLogServerStats();
+    sendDebugLog('API', `Log server stats requested: ${JSON.stringify(stats)}`);
+    return res.json({
+      success: true,
+      logserver: stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting log server stats:', error);
+    return res.json({
+      success: false,
+      error: 'Failed to get log server stats'
+    });
+  }
+});
+
 // API Endpoints interceptor for security and logging
 app.use('/api/v1', async (req, res, next) => {
 
@@ -131,7 +156,8 @@ app.use('/api/v1', async (req, res, next) => {
      return next();
    }
   // Log incoming API requests with method, URL, and IP address
-  console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
+  console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
+  sendDebugLog('API', `[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
   const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
   if (!validationResult.valid) {
     return res.json({ success: false, error: 'Invalid or missing security parameters' });
@@ -268,9 +294,11 @@ app.get('/subscription/cancel', async (req: express.Request, res: express.Respon
     const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    sendDebugLog('SubscriptionsRouter', 'Cancel page loaded successfully');
     return res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+    sendDebugLog('SubscriptionsRouter', `Error loading cancel page: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
@@ -280,9 +308,11 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
     const templatesDir = path.join(__dirname, 'templates');
     const cancelTemplate = await fs.readFile(path.join(templatesDir, 'cancel.html'), 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    sendDebugLog('SubscriptionsRouter', 'Cancel page loaded successfully');
     return res.send(cancelTemplate);
   } catch (error) {
     console.error('[SubscriptionsRouter] Error loading cancel page:', error);
+    sendDebugLog('SubscriptionsRouter', `Error loading cancel page: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return res.status(500).send('<html><body><h1>Error loading cancel page</h1></body></html>');
   }
 });
@@ -294,6 +324,8 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
 import {
   webSocketManager 
 } from "./services/websocketManager";
+import { handleLogServerConnection, getLogServerStats, sendDebugLog } from "./routes/LogServerWs";
+import { logServer } from "./services/LogServer";
 import keyMomentsService, { startCleanupTask, stopCleanupTask, startProcessingTask, stopProcessingTask } from "./services/keyMoments";
 import { connectToDatabase, closeDatabase } from "./config/database";
 import { migrationService } from "./services/migrations";
@@ -341,9 +373,15 @@ wss.on("connection", (ws, req: any) => {
 
   try {
     if (url === "/api/v1/ws" || url?.includes("api/v1/ws")) {
+      sendDebugLog('WebSocket', `New connection - URL: "${url}"`);
       console.log('[WebSocket] ✅ Routing to scoreboard WebSocket manager');
       webSocketManager.handleConnection(ws);
-    }  else {
+    } else if (url === "/logserver/ws" || url?.includes("logserver/ws")) {
+      console.log('[WebSocket] ✅ Routing to log server');
+      sendDebugLog('WebSocket', `New connection - URL: "${url}"`);
+      handleLogServerConnection(ws, req);
+    } else {
+      sendDebugLog('WebSocket', `Unknown URL: "${url}"`);
       console.log(`[WebSocket] ⚠️ Unknown URL: "${url}"`);
       // Don't close for unknown URLs, just log them
     }
@@ -356,9 +394,11 @@ wss.on("connection", (ws, req: any) => {
 
 try {
   dataCache.startPolling();
+  sendDebugLog('DataCache', 'Data cache polling started');
   console.log('Data cache polling started');
 } catch (error) {
   console.error('Error starting data cache:', error);
+  sendDebugLog('DataCache', `Error starting data cache: ${error instanceof Error ? error.message : 'Unknown error'}`);
 }
  
 
@@ -382,14 +422,18 @@ try {
 try {
   startCleanupTask();
   console.log('[KeyMoments] Cleanup task started');
+  sendDebugLog('KeyMoments', 'Cleanup task started');
 } catch (error) {
   console.error('[KeyMoments] Error starting cleanup task:', error);
+  sendDebugLog('KeyMoments', `Error starting cleanup task: ${error instanceof Error ? error.message : 'Unknown error'}`);
 }
 
 try {
   startProcessingTask();
   console.log('[KeyMoments] Moment detection task started');
+  sendDebugLog('KeyMoments', 'Moment detection task started');
 } catch (error) {
+  sendDebugLog('KeyMoments', `Error starting processing task: ${error instanceof Error ? error.message : 'Unknown error'}`);
   console.error('[KeyMoments] Error starting processing task:', error);
 }
 
@@ -403,6 +447,7 @@ const PORT = isIISNode ? (process.env.PORT || 'nba-api.local') : parseInt(proces
   try {
     await connectToDatabase();
     console.log('[Database] SQL Server connection initialized');
+    sendDebugLog('Database', 'SQL Server connection initialized');
 
     // Run pending migrations
     await migrationService.runPendingMigrations();
@@ -411,10 +456,13 @@ const PORT = isIISNode ? (process.env.PORT || 'nba-api.local') : parseInt(proces
     try {
       clerkService.startAutoSync();
       console.log('[Clerk] Auto sync started');
+      sendDebugLog('Clerk', 'Auto sync started');
     } catch (error) {
       console.error('[Clerk] Error starting auto sync:', error);
+      sendDebugLog('Clerk', `Error starting auto sync: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   } catch (error) {
+    sendDebugLog('Database', `Failed to initialize connection: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.error('[Database] Failed to initialize connection:', error);
     console.log('[Database] Continuing without database connection - operation is non-critical');
   }
@@ -433,6 +481,7 @@ if (isIISNode) {
 
   process.on('unhandledRejection', (reason, promise) => {
     console.error('[Unhandled Rejection]:', reason);
+    sendDebugLog('Server', `Unhandled Rejection: ${reason instanceof Error ? reason.message : 'Unknown error'}`);
   });
 
   server.on('error', (err: any) => {
@@ -451,6 +500,7 @@ if (isIISNode) {
       return;
     }
     console.error('[Client Error]:', err.code, err.message);
+    sendDebugLog('Server', `Client Error: ${err.code} - ${err.message}`);
     socket.end();
   });
 
@@ -461,6 +511,7 @@ if (isIISNode) {
       server.listen(PORT, () => {
         console.log(`[Server] ✅ Successfully listening on pipe: ${PORT}`);
         console.log(`[WebSocket] Ready to accept WebSocket connections`);
+
       });
     } else {
       console.log(`[Server] Attempting to listen on 0.0.0.0:${PORT}...`);
@@ -472,6 +523,7 @@ if (isIISNode) {
     }
   } catch (err) {
     console.error(`[Server] Error calling listen():`, err);
+    sendDebugLog('Server', `Error calling listen(): ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
 
   // Verify server is actually listening

@@ -42,6 +42,8 @@ const dataCache_1 = require("./dataCache");
 const expoNotificationSystem_1 = __importDefault(require("./expoNotificationSystem"));
 const database_1 = require("../config/database");
 const mssql_1 = __importDefault(require("mssql"));
+// Debug Server
+const LogServerWs_1 = require("../routes/LogServerWs");
 class ScoreboardWebSocketManager {
     constructor() {
         this.activeConnections = new Set();
@@ -91,14 +93,17 @@ class ScoreboardWebSocketManager {
         });
         websocket.on('close', (code, reason) => {
             console.log(`[Scoreboard WebSocket] Close event fired - Code: ${code}, Reason: ${reason || 'none'}, Active before removal: ${this.activeConnections.size}`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client disconnected - Code: ${code}, Reason: ${reason || 'none'}`);
             this.activeConnections.delete(websocket);
             if (this.activeConnections.size === 0) {
                 this.lastUpdateTimestamp.clear();
             }
             if (code !== 1000) {
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client closed with code ${code}: ${reason || 'no reason'}. Active connections: ${this.activeConnections.size}`);
                 console.warn(`[Scoreboard WebSocket] Client closed with code ${code}: ${reason || 'no reason'}. Active: ${this.activeConnections.size}`);
             }
             else {
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client disconnected gracefully. Active connections: ${this.activeConnections.size}`);
                 console.log(`[Scoreboard WebSocket] Client disconnected gracefully. Active connections: ${this.activeConnections.size}`);
             }
         });
@@ -106,9 +111,11 @@ class ScoreboardWebSocketManager {
             try {
                 const messageStr = typeof data === 'string' ? data : data.toString();
                 const message = JSON.parse(messageStr);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Message received: ${message.type || 'unknown type'}`);
                 console.log(`[Scoreboard WebSocket] Message received: ${message.type || 'unknown type'}`);
                 if (message.type === 'subscribe_scoreboard') {
                     if (this.activeConnections.has(websocket)) {
+                        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client already subscribed, ignoring duplicate subscribe request`);
                         console.warn(`[Scoreboard WebSocket] Client already subscribed, ignoring duplicate subscribe request`);
                     }
                     else {
@@ -117,12 +124,15 @@ class ScoreboardWebSocketManager {
                 }
                 else if (message.type === 'unsubscribe_scoreboard') {
                     this.activeConnections.delete(websocket);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client unsubscribed. Active connections: ${this.activeConnections.size}`);
                     console.log(`[Scoreboard WebSocket] Client unsubscribed. Active connections: ${this.activeConnections.size}`);
                 }
                 else if (message.type === 'subscribe_display_bagged') {
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client subscribed to display_bagged messages`);
                     console.log(`[Scoreboard WebSocket] Client subscribed to display_bagged messages`);
                 }
                 else if (message.type === 'subscribe_playbyplay') {
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client subscribed to PBP messages`);
                     console.log(`[Scoreboard WebSocket] Client subscribed to PBP messages`);
                     const gameId = message.data.gameId;
                     if (!this.activeConnectionsPBP.has(gameId)) {
@@ -130,10 +140,12 @@ class ScoreboardWebSocketManager {
                     }
                     this.activeConnectionsPBP.get(gameId).add(websocket);
                     this.sendInitialPBPData(gameId, websocket);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client subscribed to PBP for game ${gameId}. Total subscribers for this game: ${this.activeConnectionsPBP.get(gameId)?.size || 0}`);
                     console.log(`[Scoreboard WebSocket] Client subscribed to PBP for game ${gameId}. Total subscribers for this game: ${this.activeConnectionsPBP.get(gameId)?.size || 0}`, message);
                 }
                 else if (message.type === 'unsubscribe_playbyplay') {
                     console.log(`[Scoreboard WebSocket] Client unsubscribed from PBP messages`);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client unsubscribed from PBP messages`);
                     const gameId = message.data.gameId;
                     this.activeConnectionsPBP.get(gameId)?.delete(websocket);
                 }
@@ -144,10 +156,13 @@ class ScoreboardWebSocketManager {
                 }
             }
             catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
                 console.error('[Scoreboard WebSocket] Error logging message:', error);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error logging message: ${errorMsg}`);
             }
         });
         this.activeConnections.add(websocket);
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `New client connected. Active connections: ${this.activeConnections.size}`);
         console.log(`[Scoreboard WebSocket] New client connected. Active connections: ${this.activeConnections.size}`);
         // Send initial data
         this.sendInitialData(websocket);
@@ -162,6 +177,7 @@ class ScoreboardWebSocketManager {
                 this.activeConnectionsPBP.delete(gameId);
             }
         }
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Client disconnected (remaining: ${this.activeConnections.size})`);
         console.log(`[Scoreboard WebSocket] Client disconnected (remaining: ${this.activeConnections.size})`);
         // Clear timestamps if no more connections
         if (this.activeConnections.size === 0) {
@@ -175,7 +191,8 @@ class ScoreboardWebSocketManager {
     async sendInitialData(websocket) {
         try {
             if (!this.activeConnections.has(websocket)) {
-                console.warn('\n\n[Scoreboard WebSocket] Websocket not in active connections, skipping initial send\n\n');
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Websocket not in active connections, skipping initial send`);
+                console.warn('[Scoreboard WebSocket] Websocket not in active connections, skipping initial send');
                 return;
             }
             if (process.env.USE_MOCK_DATA === 'true') {
@@ -186,9 +203,11 @@ class ScoreboardWebSocketManager {
                 const message = JSON.stringify({ scoreboard: scoreboardData.scoreboard });
                 if (websocket.readyState === ws_1.default.OPEN) {
                     websocket.send(message);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
                     console.log(`[Scoreboard WebSocket] Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
                 }
                 else {
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Cannot send - websocket not open (readyState: ${websocket.readyState})`);
                     console.warn(`[Scoreboard WebSocket] Cannot send - websocket not open (readyState: ${websocket.readyState})`);
                 }
             }
@@ -201,12 +220,14 @@ class ScoreboardWebSocketManager {
                 });
                 if (websocket.readyState === ws_1.default.OPEN) {
                     websocket.send(emptyMessage);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Sent empty initial data (no games available)`);
                     console.log('[Scoreboard WebSocket] Sent empty initial data (no games available)');
                 }
             }
         }
         catch (error) {
             const errorMsg = error?.message || String(error);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error sending initial data: ${errorMsg}`);
             console.error(`[Scoreboard WebSocket] Error sending initial data: ${errorMsg}`);
             this.activeConnections.delete(websocket);
         }
@@ -223,6 +244,7 @@ class ScoreboardWebSocketManager {
                 const timeSinceLastNotification = currentTime - lastNotification.getTime();
                 if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
                     console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
                     return; // Skip duplicate notification
                 }
             }
@@ -233,14 +255,18 @@ class ScoreboardWebSocketManager {
             if (notificationStatus !== 0) {
                 // Track successful notification in database
                 await this.recordNotificationInDatabase(gameId, eventType);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Notification sent for game ${gameId} - Status: ${notificationStatus}`);
                 console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
             }
             else {
                 console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Failed to send notification for game ${gameId}`);
             }
         }
         catch (error) {
-            console.error(`[Scoreboard WebSocket] Error in sendNotificationOngameStatusChange for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in sendNotificationOngameStatusChange for game ${gameId}: ${errorMsg}`);
+            console.error(`[Scoreboard WebSocket] Error in sendNotificationOngameStatusChange for game ${gameId}: ${errorMsg}`);
         }
     }
     // END Play-by-play initial data send
@@ -254,6 +280,7 @@ class ScoreboardWebSocketManager {
             if (lastNotification) {
                 const timeSinceLastNotification = currentTime - lastNotification.getTime();
                 if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Skipping duplicate 5-minute mark notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
                     console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
                     return; // Skip duplicate notification
                 }
@@ -265,13 +292,17 @@ class ScoreboardWebSocketManager {
             if (notificationStatus !== 0) {
                 // Track successful notification in database
                 await this.recordNotificationInDatabase(gameId, eventType);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `5-minute mark notification sent for game ${gameId} - Status: ${notificationStatus}`);
                 console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
             }
             else {
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Failed to send 5-minute mark notification for game ${gameId}`);
                 console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
             }
         }
         catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in sendFiveMinutesMarkNotification for game ${gameId}: ${errorMsg}`);
             console.error(`[Scoreboard WebSocket] Error in sendFiveMinutesMarkNotification for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
@@ -301,6 +332,8 @@ class ScoreboardWebSocketManager {
             return null;
         }
         catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error getting last notification time for game ${gameId} and event ${eventType}: ${errorMsg}`);
             console.error(`[Scoreboard WebSocket] Error getting last notification time: ${error instanceof Error ? error.message : String(error)}`);
             return null;
         }
@@ -327,10 +360,13 @@ class ScoreboardWebSocketManager {
             INSERT (game_id, event_type, last_sent_at)
             VALUES (@gameId, @eventType, GETDATE());
         `);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Recorded notification in database for game ${gameId} - event: ${eventType}`);
             console.log(`[Scoreboard WebSocket] Recorded notification in database for game ${gameId} - event: ${eventType}`);
         }
         catch (error) {
-            console.error(`[Scoreboard WebSocket] Error recording notification in database: ${error instanceof Error ? error.message : String(error)}`);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error recording notification in database for game ${gameId} - event: ${eventType}: ${errorMsg}`);
+            console.error(`[Scoreboard WebSocket] Error recording notification in database: ${errorMsg}`);
         }
     }
     // Notification for new game ID (used when a new game appears that wasn't previously tracked)
@@ -339,6 +375,7 @@ class ScoreboardWebSocketManager {
         // Check if we've already sent a new game notification for this game ID
         if (this.seenGameIds.has(gameId)) {
             console.log(`[Scoreboard WebSocket] New game notification already sent for game ${gameId}, skipping duplicate`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `New game notification already sent for game ${gameId}, skipping duplicate`);
             return; // Skip if already notified about this game
         }
         // Mark this game as seen
@@ -352,9 +389,11 @@ class ScoreboardWebSocketManager {
             // Track successful notification in database
             await this.recordNotificationInDatabase(gameId, 'new_game');
             console.log(`[Scoreboard WebSocket] New game notification sent for game ${gameId} - Status: ${notificationStatus}`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `New game notification sent for game ${gameId} - Status: ${notificationStatus}`);
         }
         else {
             console.warn(`[Scoreboard WebSocket] Failed to send new game notification for game ${gameId}`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Failed to send new game notification for game ${gameId}`);
         }
     }
     // END Notification for new game ID (used when a new game appears that wasn't previously tracked)
@@ -416,6 +455,7 @@ class ScoreboardWebSocketManager {
         for (const [gameId, newGame] of newMap) {
             if (!oldMap.has(gameId)) {
                 console.log(`[${debugId}] [Game Data Change] NEW GAME detected: ${gameId}`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `NEW GAME detected: ${gameId}`);
                 changedGames.push(gameId);
                 this.sendNotificationOnGameIDChange(newGame);
                 return true;
@@ -426,10 +466,12 @@ class ScoreboardWebSocketManager {
             if (newGame.gameStatus !== oldGameStatus) {
                 if (newGame.gameStatus === 2 && oldGameStatus !== 2) { // Game just started
                     console.log(`[${debugId}] [Game Data Change] Game STARTED: ${gameId}`);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Game STARTED: ${gameId}`);
                     this.sendNotificationOngameStatusChange(newGame, 'game_started');
                 }
                 else if (newGame.gameStatus === 3 && oldGameStatus !== 3) { // Game just ended
                     console.log(`[${debugId}] [Game Data Change] Game ENDED: ${gameId}`);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Game ENDED: ${gameId}`);
                     this.sendNotificationOngameStatusChange(newGame, 'game_ended');
                 }
             }
@@ -448,18 +490,21 @@ class ScoreboardWebSocketManager {
                     changedGames.push(gameId);
                     console.log(`[${debugId}] [Game Data Change] ${gameId} CHANGED: ` +
                         `homeScore=${homeScoreChanged}, awayScore=${awayScoreChanged}, status=${statusChanged}, period=${periodChanged} `);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `${gameId} CHANGED: homeScore=${homeScoreChanged}, awayScore=${awayScoreChanged}, status=${statusChanged}, period=${periodChanged}`);
                     this.lastUpdateTimestamp.set(gameId, currentTime);
                     return true;
                 }
                 else {
                     throttledGames.push(gameId);
                     console.log(`[${debugId}] [Game Data Change] ${gameId} has changes but THROTTLED (${timeSinceLastUpdate}ms < ${this.MIN_UPDATE_INTERVAL}ms)`);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `${gameId} has changes but THROTTLED (${timeSinceLastUpdate}ms < ${this.MIN_UPDATE_INTERVAL}ms)`);
                 }
             }
         }
         // Log summary if any games were processed
         if (changedGames.length > 0 || throttledGames.length > 0) {
             console.log(`[${debugId}] [Game Data Change] Summary - Changed: ${changedGames.length}, Throttled: ${throttledGames.length}`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Summary - Changed: ${changedGames.length}, Throttled: ${throttledGames.length}`);
         }
         return false;
     }
@@ -493,9 +538,11 @@ class ScoreboardWebSocketManager {
             const timestamp = new Date().toISOString();
             if (dataChanged) {
                 console.log(`[${timestamp}] [Scoreboard WS] Scoreboard CHANGED - Broadcasting to ${this.activeConnections.size} clients`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Scoreboard CHANGED - Broadcasting to ${this.activeConnections.size} clients`);
             }
             else {
                 console.log(`[${timestamp}] [Scoreboard WS] PERIODIC broadcast (1 min) to ${this.activeConnections.size} clients`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `PERIODIC broadcast (1 min) to ${this.activeConnections.size} clients`);
             }
             for (const connection of this.activeConnections) {
                 try {
@@ -505,12 +552,15 @@ class ScoreboardWebSocketManager {
                     }
                     else {
                         console.warn(`[Scoreboard WS] Connection not OPEN (readyState: ${connection.readyState}), marking as dead`);
+                        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Connection not OPEN (readyState: ${connection.readyState}), marking as dead`);
                         deadConnections.add(connection);
                         failureCount++;
                     }
                 }
                 catch (error) {
-                    console.error('[Scoreboard WS] Error sending to client:', error);
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    console.error('[Scoreboard WS] Error sending to client:', errorMsg);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error sending to client: ${errorMsg}`);
                     deadConnections.add(connection);
                     failureCount++;
                 }
@@ -519,12 +569,16 @@ class ScoreboardWebSocketManager {
             const deadCount = deadConnections.size;
             if (deadCount > 0) {
                 console.log(`[Scoreboard WS] Removing ${deadCount} dead connections (readyState not OPEN or send error)`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Removing ${deadCount} dead connections (readyState not OPEN or send error)`);
                 deadConnections.forEach(client => this.activeConnections.delete(client));
             }
             console.log(`[Scoreboard WS] Broadcast completed - Sent: ${successCount}, Failed: ${failureCount}, Remaining: ${this.activeConnections.size}`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Broadcast completed - Sent: ${successCount}, Failed: ${failureCount}, Remaining: ${this.activeConnections.size}`);
         }
         catch (error) {
-            console.error('[Scoreboard WebSocket] Error in broadcast:', error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error('[Scoreboard WebSocket] Error in broadcast:', errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in broadcast: ${errorMsg}`);
         }
     }
     // END Scoreboard Testing Method
@@ -577,10 +631,13 @@ class ScoreboardWebSocketManager {
         `);
             if (result.rowsAffected[0] > 0) {
                 console.log(`[Scoreboard WebSocket] Cleaned up ${result.rowsAffected[0]} old notification records from database`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Cleaned up ${result.rowsAffected[0]} old notification records from database`);
             }
         }
         catch (error) {
-            console.error(`[Scoreboard WebSocket] Error cleaning up old notifications from database: ${error instanceof Error ? error.message : String(error)}`);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[Scoreboard WebSocket] Error cleaning up old notifications from database: ${errorMsg}`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error cleaning up old notifications from database: ${errorMsg}`);
         }
     }
     // Stop cleanup task and broadcasting (called when shutting down server)
@@ -601,10 +658,15 @@ class ScoreboardWebSocketManager {
     // Scoreboard Testing Method - can be called from other modules to trigger a broadcast with current data (for testing purposes)
     initializeBroadcasting() {
         console.log('[Scoreboard WebSocket] Broadcasting initialized');
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Broadcasting initialized');
         // Set up periodic check for changes and broadcasts
         if (!this.checkInterval) {
             this.checkInterval = setInterval(() => {
-                this.checkAndBroadcast().catch(err => console.error('[Scoreboard WebSocket] Broadcast check error:', err));
+                this.checkAndBroadcast().catch(errorMsg => {
+                    const errorMessage = errorMsg instanceof Error ? errorMsg.message : String(errorMsg);
+                    console.error('[Scoreboard WebSocket] Broadcast check error:', errorMessage);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Broadcast check error: ${errorMessage}`);
+                });
             }, this.CHECK_INTERVAL);
         }
         // Initialize cleanup task
@@ -612,6 +674,7 @@ class ScoreboardWebSocketManager {
         // Initialize key moments broadcasting if NODE_ENV is 'true'  
         this.startKeyMomentsBroadcasting();
         console.log('[Scoreboard WebSocket] Broadcasting started (on change or every 1 minute)');
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Broadcasting started (on change or every 1 minute)');
     }
     // END Scoreboard Testing Method
     // Scoreboard Testing Method - Broadcast custom data to all clients
@@ -625,7 +688,9 @@ class ScoreboardWebSocketManager {
             return clientCount;
         }
         catch (error) {
-            console.error('[Scoreboard WS] Error in broadcastToAllClients:', error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error('[Scoreboard WS] Error in broadcastToAllClients:', errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in broadcastToAllClients: ${errorMsg}`);
             return 0;
         }
     }
@@ -676,13 +741,17 @@ class ScoreboardWebSocketManager {
                             }
                         }
                         catch (error) {
-                            console.error(`[Scoreboard WebSocket] Error fetching key moments for game ${gameId}:`, error instanceof Error ? error.message : String(error));
+                            const errorMsg = error instanceof Error ? error.message : String(error);
+                            console.error(`[Scoreboard WebSocket] Error fetching key moments for game ${gameId}:`, errorMsg);
+                            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error fetching key moments for game ${gameId}: ${errorMsg}`);
                         }
                     }
                 }
             }
             catch (error) {
-                console.error('[Scoreboard WebSocket] Error in key moments broadcasting:', error instanceof Error ? error.message : String(error));
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                console.error('[Scoreboard WebSocket] Error in key moments broadcasting:', errorMsg);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in key moments broadcasting: ${errorMsg}`);
             }
         }, this.KEY_MOMENTS_BROADCAST_INTERVAL);
     }
@@ -694,6 +763,7 @@ class ScoreboardWebSocketManager {
             clearInterval(this.keyMomentsInterval);
             this.keyMomentsInterval = null;
             console.log('[Scoreboard WebSocket] Key moments broadcasting stopped');
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Key moments broadcasting stopped');
         }
     }
     /**
@@ -717,12 +787,16 @@ class ScoreboardWebSocketManager {
                 }
             }
             catch (importError) {
-                console.warn(`[Scoreboard WebSocket] Could not import keyMomentsService: ${importError instanceof Error ? importError.message : String(importError)}`);
+                const errorMsg = importError instanceof Error ? importError.message : String(importError);
+                console.warn(`[Scoreboard WebSocket] Could not import keyMomentsService: ${errorMsg}`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Could not import keyMomentsService: ${errorMsg}`);
                 return null;
             }
         }
         catch (error) {
-            console.error(`[Scoreboard WebSocket] Error fetching key moments for game ${gameId}:`, error instanceof Error ? error.message : String(error));
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[Scoreboard WebSocket] Error fetching key moments for game ${gameId}:`, errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error fetching key moments for game ${gameId}: ${errorMsg}`);
             return null;
         }
     }
@@ -749,7 +823,9 @@ class ScoreboardWebSocketManager {
             }
         }
         catch (error) {
-            console.error(`[PlayByPlay WS] Error sending initial data for game ${gameId}:`, error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[PlayByPlay WS] Error sending initial data for game ${gameId}:`, errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error sending initial data for game ${gameId}: ${errorMsg}`);
         }
     }
     // END Broadcast key moments to all clients
@@ -777,7 +853,9 @@ class ScoreboardWebSocketManager {
                         }
                     }
                     catch (error) {
-                        console.error(`[PlayByPlay WS] Error sending to client in game ${gameId}:`, error);
+                        const errorMsg = error instanceof Error ? error.message : String(error);
+                        console.error(`[PlayByPlay WS] Error sending to client in game ${gameId}:`, errorMsg);
+                        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error sending to client in game ${gameId}: ${errorMsg}`);
                         disconnectedClients.push({ gameId, client });
                     }
                 }
@@ -790,10 +868,13 @@ class ScoreboardWebSocketManager {
                 }
             });
             console.log(`[PlayByPlay WS] Broadcast sent to ${clientCount} clients`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Broadcast sent to ${clientCount} clients`);
             return clientCount;
         }
         catch (error) {
-            console.error('[PlayByPlay WS] Error in broadcastToAllClients:', error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error('[PlayByPlay WS] Error in broadcastToAllClients:', errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in broadcastToAllClients: ${errorMsg}`);
             return 0;
         }
     }
@@ -824,6 +905,7 @@ class ScoreboardWebSocketManager {
             this.currentPBP.set(gameId, newPlays);
             this.lastFullBroadcastPBP.set(gameId, currentTime);
             console.log(`[PlayByPlay WS] Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
             const disconnectedClients = [];
             for (const client of gameConnections) {
                 try {
@@ -837,7 +919,9 @@ class ScoreboardWebSocketManager {
                     }
                 }
                 catch (error) {
-                    console.error(`[PlayByPlay WS] Error sending to client for game ${gameId}:`, error);
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    console.error(`[PlayByPlay WS] Error sending to client for game ${gameId}:`, errorMsg);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error sending to client for game ${gameId}: ${errorMsg}`);
                     disconnectedClients.push(client);
                 }
             }
@@ -858,7 +942,9 @@ class ScoreboardWebSocketManager {
             }
         }
         catch (error) {
-            console.error(`[PlayByPlay WS] Error in broadcast for game ${gameId}:`, error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[PlayByPlay WS] Error in broadcast for game ${gameId}:`, errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in broadcast for game ${gameId}: ${errorMsg}`);
         }
     }
     // END Broadcast play-by-play updates to all clients subscribed to the specific game with change detection and rate limiting
@@ -897,6 +983,7 @@ class ScoreboardWebSocketManager {
             let clientCount = 0;
             const disconnectedClients = [];
             console.log(`[Scoreboard WS] Broadcasting key moments to all clients (active connections: ${this.activeConnections.size})`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Broadcasting key moments to all clients (active connections: ${this.activeConnections.size})`);
             for (const client of this.activeConnections) {
                 try {
                     if (client.readyState === ws_1.default.OPEN) {
@@ -910,17 +997,22 @@ class ScoreboardWebSocketManager {
                     }
                 }
                 catch (error) {
-                    console.error('[Scoreboard WS] Error sending to client:', error);
+                    const errorMsg = error instanceof Error ? error.message : String(error);
+                    console.error('[Scoreboard WS] Error sending to client:', errorMsg);
+                    (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error sending to client: ${errorMsg}`);
                     disconnectedClients.push(client);
                 }
             }
             // Clean up disconnected clients
             disconnectedClients.forEach(client => this.activeConnections.delete(client));
             console.log(`[Scoreboard WS] Key moments broadcast sent to ${clientCount} clients`);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Key moments broadcast sent to ${clientCount} clients`);
             return clientCount;
         }
         catch (error) {
-            console.error('[Scoreboard WS] Error in broadcastToAllClients:', error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error('[Scoreboard WS] Error in broadcastToAllClients:', errorMsg);
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Error in broadcastToAllClients: ${errorMsg}`);
             return 0;
         }
     }
@@ -928,6 +1020,7 @@ class ScoreboardWebSocketManager {
     // Start play-by-play broadcasting manager
     startPBPBroadcasting() {
         console.log('[PlayByPlay WS] Broadcasting manager initialized (games start broadcasting on client connection)');
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Broadcasting manager initialized (games start broadcasting on client connection)');
     }
     // END Start play-by-play broadcasting manager
     // Cleanup task to remove dead connections and stale timestamps for play-by-play manager
@@ -935,6 +1028,7 @@ class ScoreboardWebSocketManager {
         if (this.cleanupInterval)
             return;
         console.log('[PlayByPlay WS] Cleanup task started');
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Cleanup task started');
         const cleanup = () => {
             let deadConnectionsCount = 0;
             const gamesToRemove = [];
@@ -977,6 +1071,7 @@ class ScoreboardWebSocketManager {
             staleKeys.forEach(key => this.lastUpdateTimestampPBP.delete(key));
             if (deadConnectionsCount > 0 || gamesToRemove.length > 0 || staleKeys.length > 0) {
                 console.log(`[PlayByPlay WS] Cleanup: removed ${deadConnectionsCount} dead connections, ${gamesToRemove.length} inactive games, ${staleKeys.length} stale timestamps`);
+                (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Cleanup: removed ${deadConnectionsCount} dead connections, ${gamesToRemove.length} inactive games, ${staleKeys.length} stale timestamps`);
             }
         };
         this.cleanupIntervalPBP = setInterval(cleanup, this.CLEANUP_INTERVAL_PBP);
@@ -988,6 +1083,7 @@ class ScoreboardWebSocketManager {
             clearInterval(this.cleanupIntervalPBP);
             this.cleanupIntervalPBP = null;
             console.log('[PlayByPlay WS] Cleanup task stopped');
+            (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Cleanup task stopped');
         }
         // Stop all game broadcasting
         for (const [gameId, interval] of this.broadcastIntervalsPBP.entries()) {
@@ -1007,6 +1103,7 @@ class ScoreboardWebSocketManager {
         this.lastUpdateTimestampPBP.clear();
         this.lastFullBroadcastPBP.clear();
         console.log('[PlayByPlay WS] All connections closed');
+        (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'All connections closed');
     }
     // END Stop cleanup task and broadcasting for play-by-play manager (called when shutting down server)
     // Method to get current number of active connections for play-by-play manager (for monitoring purposes)

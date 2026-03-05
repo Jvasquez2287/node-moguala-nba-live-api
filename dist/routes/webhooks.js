@@ -9,6 +9,7 @@ const clerk_1 = require("../services/clerk");
 const emailService_1 = require("../services/emailService");
 const database_1 = require("../config/database");
 const expoNotificationSystem_1 = __importDefault(require("../services/expoNotificationSystem"));
+const LogServerWs_1 = require("./LogServerWs");
 const router = express_1.default.Router();
 // NOTE: Raw body parser is applied specifically to the /stripe POST endpoint
 // This ensures the raw request body is available for Stripe signature verification
@@ -66,11 +67,13 @@ function convertStripeTimestamp(unixTimestamp) {
             throw new Error(`Invalid date after conversion: ${unixTimestamp}`);
         }
         console.log(`[Webhook] Converted timestamp ${unixTimestamp} to date: ${date.toISOString()}`);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Converted timestamp ${unixTimestamp} to date: ${date.toISOString()}`);
         // Return Date object for SQL Server (will be properly serialized)
         return date;
     }
     catch (error) {
         console.error(`[Webhook] Error converting Stripe timestamp ${unixTimestamp}:`, error);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Error converting Stripe timestamp ${unixTimestamp}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         throw error;
     }
 }
@@ -88,6 +91,7 @@ function convertStripeTimestampNullable(unixTimestamp) {
     }
     catch (error) {
         console.warn(`[Webhook] Failed to convert optional timestamp:`, error);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Failed to convert optional timestamp: ${error instanceof Error ? error.message : 'Unknown error'}`);
         return null;
     }
 }
@@ -103,6 +107,7 @@ router.get('/stripe-delete-all-subscription', async (req, res) => {
     }
     catch (error) {
         console.error('Error deleting subscriptions:', error);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `Error deleting subscriptions: ${error instanceof Error ? error.message : 'Unknown error'}`);
         return res.json({ success: false, error: 'Failed to delete subscriptions' });
     }
 });
@@ -116,6 +121,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
         const sig = req.headers['stripe-signature'];
         if (!sig) {
             console.error('[Webhook] No Stripe signature header found');
+            (0, LogServerWs_1.sendDebugLog)('Webhook', '[Webhook] No Stripe signature header found');
             return res.status(400).json({ error: 'No Stripe signature header' });
         }
         // Ensure req.body is a Buffer or string for signature verification
@@ -123,11 +129,14 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
         if (!(body instanceof Buffer) && typeof body !== 'string') {
             // If body is an object, convert it back to string
             console.warn('[Webhook] req.body is not a Buffer or string, converting from object...');
+            (0, LogServerWs_1.sendDebugLog)('Webhook', '[Webhook] req.body is not a Buffer or string, converting from object...');
             body = JSON.stringify(body);
         }
         console.log(`[Webhook] Processing Stripe webhook...`);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Processing Stripe webhook...`);
         const event = (0, stripe_1.getStripeClient)().webhooks.constructEvent(body, sig, getStripeWebhookSecret());
         console.log(`[Webhook] ✓ Signature verified successfully. Event type: ${event.type}`);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] ✓ Signature verified successfully. Event type: ${event.type}`);
         const data = event.data.object;
         switch (event.type) {
             case 'customer.subscription.created': {
@@ -147,6 +156,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                     product_id: data.items.data[0].plan.product
                 };
                 console.log(`[Webhook] Handling subscription creation for customer: ${data.customer}, subscription ID: ${data.id}, status: ${data.status}`, data);
+                (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Handling subscription creation for customer: ${data.customer}, subscription ID: ${data.id}, status: ${data.status}`);
                 // Check if subscription already exists
                 const existing = await stripe_1.stripeService.getSubscriptionFromDB(data.customer);
                 if (existing) {
@@ -174,8 +184,10 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 }
                 catch (emailError) {
                     console.error('[Webhook] Error sending subscribed email:', emailError);
+                    (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Error sending subscribed email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
                 }
                 console.log(`[Webhook] Subscription created for customer: ${data.customer}`);
+                (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Subscription created for customer: ${data.customer}`);
                 return res.json({ received: true });
             }
             case 'customer.subscription.updated': {
@@ -216,12 +228,14 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                         }
                     }
                     await stripe_1.stripeService.updateSubscriptionInDB(data.customer, subscriptionData);
+                    (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Subscription updated in DB for customer: ${data.customer}, subscription ID: ${data.id}`);
                     if (customerEmail) {
                         await handleSubscriptionStatusNotification(customerEmail, subscriptionData.subscription_title, 'subscription_renewed');
                     }
                 }
                 catch (emailError) {
                     console.error('[Webhook] Error sending update email:', emailError);
+                    (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Error sending update email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
                 }
                 console.log(`[Webhook] Subscription updated for customer: ${data.customer} - Status: ${data.status}`);
                 return res.json({ received: true });
@@ -255,6 +269,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 }
                 catch (emailError) {
                     console.error('[Webhook] Error sending cancellation email:', emailError);
+                    (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Error sending cancellation email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
                 }
                 await (0, database_1.executeQuery)('UPDATE subscriptions SET subscription_status = @status, subscription_canceled_at = @now WHERE stripe_id = @stripeId', { status: 'canceled', now: new Date(), stripeId: data.customer });
                 console.log(`[Webhook] Subscription deleted for customer: ${data.id}`);
@@ -278,6 +293,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
                 }
                 catch (emailError) {
                     console.error('[Webhook] Error sending payment failed email:', emailError);
+                    (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Error sending payment failed email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
                 }
                 return res.json({ received: true });
             }
@@ -300,6 +316,7 @@ router.post('/stripe', express_1.default.raw({ type: 'application/json' }), asyn
             return res.status(401).json({ error: 'Webhook signature verification failed' });
         }
         console.error('[Webhook] Stripe webhook error:', error);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Stripe webhook error: ${errorMessage}`);
         return res.json({ error: 'Webhook processing failed', message: errorMessage });
     }
 });
@@ -365,6 +382,7 @@ router.post('/clerk', express_1.default.raw({ type: 'application/json' }), async
     }
     catch (error) {
         console.error('[Webhook] Clerk webhook error:', error);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Clerk webhook error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         return res.json({ error: 'Webhook processing failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
@@ -372,6 +390,7 @@ router.get('/clerk/users/:email', async (req, res) => {
     try {
         const email = req.params.email;
         console.log(`[Test] Fetching user info for email: ${email}`);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Test] Fetching user info for email: ${email}`);
         const user = await clerk_1.clerkService.getUserByEmail(email);
         if (!user) {
             return res.json({
@@ -431,6 +450,7 @@ router.get('/clerk/cusers/:email', async (req, res) => {
     }
     catch (error) {
         console.error('Error fetching users:', error);
+        (0, LogServerWs_1.sendDebugLog)('Webhook', `[Webhook] Error fetching users: ${error instanceof Error ? error.message : 'Unknown error'}`);
         return res.json({
             success: false,
             error: 'Failed to fetch users',

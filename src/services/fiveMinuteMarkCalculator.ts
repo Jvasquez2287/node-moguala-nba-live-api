@@ -437,7 +437,7 @@ class FiveMinuteMarkCalculator {
             return inValidResponse();
         }
         const clockParts = gameClock.split(':');
-        const [minutes, seconds] = clockParts.split(':').map(Number);
+        const [minutes, seconds] = clockParts.map(Number);
 
         let cacheKey: string | null = null;
         cacheKey = createCheckAtSevenMinuteMarkCacheKey(

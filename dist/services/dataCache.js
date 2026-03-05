@@ -4,6 +4,7 @@ exports.dataCache = exports.DataCache = void 0;
 const scoreboard_1 = require("./scoreboard");
 const database_1 = require("../config/database");
 const websocketManager_1 = require("./websocketManager");
+const LogServerWs_1 = require("../routes/LogServerWs");
 class DatabaseCache {
     constructor() {
         this.CACHE_PREFIX = 'datacache_';
@@ -348,9 +349,12 @@ class DataCache {
                 await this.dbCache.set('scoreboard', scoreboardData, this.CACHE_TTL_10M);
                 await websocketManager_1.webSocketManager.broadcastToAllClientsScoreBoard();
                 await this.checkGamesStatusAndGameClock(scoreboardData);
+                (0, LogServerWs_1.sendDebugLog)('ScoreBoard', `[ScoreBoard] Scoreboard polled and cached: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
                 console.log(`[ScoreBoard] Scoreboard cache updated: ${scoreboardData?.scoreboard?.games?.length || 0} games`);
+                // Trigger score change callbacks for real-time updates
             }
             catch (error) {
+                (0, LogServerWs_1.sendDebugLog)('ScoreBoard', `[ScoreBoard] Error fetching scoreboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 console.warn('[ScoreBoard] Error fetching scoreboard:', error);
             }
         };
@@ -367,8 +371,8 @@ class DataCache {
             let notifiedGames = 0;
             for (const game of scoreboardData.games) {
                 if (game.gameStatus === 2) { // In Progress
-                    const clock = game.gameClock || '00:00';
-                    const [minutes, seconds] = clock.split(':').map(Number);
+                    const clockParts = game.gameClock.split(':');
+                    const [minutes, seconds] = clockParts.map(Number);
                     const gamePeriod = game.period;
                     if (!isNaN(minutes) && !isNaN(seconds)) {
                         return 0; // Game clock is running, return 0 to indicate we should poll more frequently

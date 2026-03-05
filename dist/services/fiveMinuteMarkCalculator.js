@@ -309,7 +309,7 @@ class FiveMinuteMarkCalculator {
             return inValidResponse();
         }
         const clockParts = gameClock.split(':');
-        const [minutes, seconds] = clockParts.split(':').map(Number);
+        const [minutes, seconds] = clockParts.map(Number);
         let cacheKey = null;
         cacheKey = createCheckAtSevenMinuteMarkCacheKey(game.homeTeam.teamId, awayTeam.teamId, game.gameId);
         // Check cache first

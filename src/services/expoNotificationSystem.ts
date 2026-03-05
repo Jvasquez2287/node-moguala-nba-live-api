@@ -436,6 +436,8 @@ class ExpoNotificationSystem {
                 return 0;
             }
 
+            return 0;
+
             switch (eventType) {
                 case 'game_started':
                     title = 'Game Started 🏀';
