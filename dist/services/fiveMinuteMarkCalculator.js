@@ -11,7 +11,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FiveMinuteMarkCalculator = exports.DoMath = void 0;
 const axios_1 = __importDefault(require("axios"));
-const websocketManager_1 = require("./websocketManager");
+const expoNotificationSystem_1 = __importDefault(require("./expoNotificationSystem"));
 // Cache for checkAtSevenMinuteMark results - persists for 2 hours
 const checkAtSevenMinuteMarkCache = new Map();
 const CACHE_TTL_2HOURS = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -328,21 +328,16 @@ class FiveMinuteMarkCalculator {
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, waiting until 5-minute mark of Q4 for prediction`);
                 return inValidResponse();
             case 4:
-                if (minutes === 7) {
+                if (minutes > 5 && minutes <= 7) {
                     // At 7-minute mark: send notification and validation
                     if (process.env.USE_MOCK_DATA === 'false') {
-                        await websocketManager_1.webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
+                        await expoNotificationSystem_1.default.addToNotificationQueue(game.gameId, game, 'game_five_minutes_mark');
                     }
                     console.log(`\n[FiveMinuteMarkCalculator] Game ${game.gameId} is at 7-minute mark of Q4, sending notification\n`);
                     await this.checkAtSevenMinuteMark(game.homeTeam.score, awayTeam.score, game.homeTeam.periods || game.homeTeam.linescore, awayTeam.periods || awayTeam.linescore, game.homeTeam.teamId, awayTeam.teamId, game.gameId);
                     return inValidResponse();
                 }
-                else if (minutes > 7) {
-                    // More than 7 minutes remaining, not yet at prediction window
-                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 7-minute mark for notification and validation`);
-                    return inValidResponse();
-                }
-                else if (minutes > 5) {
+                if (minutes > 5) {
                     // More than 5 minutes remaining, not yet at prediction window
                     console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 5-minute mark for prediction`);
                     return inValidResponse();

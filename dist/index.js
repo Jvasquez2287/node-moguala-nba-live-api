@@ -326,6 +326,7 @@ const database_1 = require("./config/database");
 const migrations_1 = require("./services/migrations");
 const clerk_1 = __importDefault(require("./services/clerk"));
 const tokenCheck_1 = require("./services/tokenCheck");
+const expoNotificationSystem_1 = __importDefault(require("./services/expoNotificationSystem"));
 // Create HTTP server and WebSocket server
 const server = http_1.default.createServer(app);
 const wss = new ws_1.WebSocketServer({ noServer: true });
@@ -404,6 +405,14 @@ try {
 }
 catch (error) {
     console.error('[WebSocket] Error starting cleanup tasks:', error);
+}
+try {
+    expoNotificationSystem_1.default.startQueueCheck();
+    console.log('[Expo] Notification system started');
+}
+catch (error) {
+    console.error('[Expo] Error starting notification system:', error);
+    (0, LogServerWs_1.sendDebugLog)('Expo', `Error starting notification system: ${error instanceof Error ? error.message : 'Unknown error'}`);
 }
 // Key moments service - detects game-tying shots, lead changes, scoring runs, clutch plays, and big shots
 try {
@@ -519,6 +528,7 @@ process.on("SIGTERM", async () => {
     await (0, keyMoments_2.stopProcessingTask)();
     await websocketManager_1.webSocketManager.stopCleanupTask();
     await websocketManager_1.webSocketManager.stopPBPCleanupTask();
+    await expoNotificationSystem_1.default.stopQueueCheck();
     clerk_1.default.stopAutoSync();
     await (0, database_1.closeDatabase)();
     server.close();
@@ -531,6 +541,7 @@ process.on("SIGINT", async () => {
     await (0, keyMoments_2.stopProcessingTask)();
     await websocketManager_1.webSocketManager.stopCleanupTask();
     await websocketManager_1.webSocketManager.stopPBPCleanupTask();
+    await expoNotificationSystem_1.default.stopQueueCheck();
     clerk_1.default.stopAutoSync();
     await (0, database_1.closeDatabase)();
     server.close();

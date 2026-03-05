@@ -10,6 +10,7 @@ export declare class ScoreboardWebSocketManager {
     private initialized;
     private seenGameIds;
     private readonly NOTIFICATION_COOLDOWN;
+    private readonly NOTIFICATION_INTERVAL;
     private readonly CHECK_INTERVAL;
     private readonly PERIODIC_BROADCAST_INTERVAL;
     private readonly CLEANUP_INTERVAL;
@@ -31,8 +32,6 @@ export declare class ScoreboardWebSocketManager {
     connect(websocket: WebSocket): void;
     disconnect(websocket: WebSocket): void;
     private sendInitialData;
-    private sendNotificationOngameStatusChange;
-    sendFiveMinutesMarkNotification(game: any, eventType: 'game_started' | 'score_update' | 'game_ended' | 'game_five_minutes_mark'): Promise<void>;
     /**
      * Get the last time a notification was sent for a game and event type
      * @returns Date of last notification or null if never sent
@@ -42,7 +41,7 @@ export declare class ScoreboardWebSocketManager {
      * Record a notification in the database
      */
     private recordNotificationInDatabase;
-    private sendNotificationOnGameIDChange;
+    private sendNotificationHandler;
     handleConnection(websocket: WebSocket): void;
     private formatGameResponse;
     private hasGameDataChanged;

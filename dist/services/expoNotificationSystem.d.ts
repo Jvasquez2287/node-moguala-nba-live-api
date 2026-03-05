@@ -12,6 +12,8 @@ interface NotificationRecord {
 declare class ExpoNotificationSystem {
     private expoClient;
     private readonly BATCH_SIZE;
+    private readonly NOTIFICATION_INTERVAL;
+    private notificationQueue;
     private tokenValid;
     constructor();
     /**
@@ -94,6 +96,18 @@ declare class ExpoNotificationSystem {
      */
     getUserExpoTokens(clerkId: string): Promise<string[]>;
     sendTestNotificationToAllUsers(): Promise<boolean>;
+    private startNotifications;
+    /**
+     * Add a notification to the queue for processing
+     * Queue key: [timestamp, gameId]
+     */
+    addToNotificationQueue(gameId: string, game: any, eventType: string): void;
+    /**
+     * Start processing the notification queue
+     * Should be called once on application startup
+     */
+    startQueueCheck(): Promise<void>;
+    stopQueueCheck(): Promise<void>;
 }
 declare const _default: ExpoNotificationSystem;
 export default _default;

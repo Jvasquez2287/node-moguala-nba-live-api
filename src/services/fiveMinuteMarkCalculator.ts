@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import { webSocketManager } from './websocketManager';
+import expoNotificationSystem from './expoNotificationSystem';
 
 // Type definitions
 
@@ -462,10 +463,10 @@ class FiveMinuteMarkCalculator {
                 return inValidResponse();
             case 4:
 
-                if (minutes === 7) {
+                if (minutes > 5 && minutes <= 7) {
                     // At 7-minute mark: send notification and validation
                     if (process.env.USE_MOCK_DATA === 'false') {
-                        await webSocketManager.sendFiveMinutesMarkNotification(game, 'game_five_minutes_mark');
+                        await expoNotificationSystem.addToNotificationQueue(game.gameId, game, 'game_five_minutes_mark');
                     }
                     console.log(`\n[FiveMinuteMarkCalculator] Game ${game.gameId} is at 7-minute mark of Q4, sending notification\n`);
                     await this.checkAtSevenMinuteMark(
@@ -478,11 +479,9 @@ class FiveMinuteMarkCalculator {
                         game.gameId
                     );
                     return inValidResponse();
-                } else if (minutes > 7) {
-                    // More than 7 minutes remaining, not yet at prediction window
-                    console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 7-minute mark for notification and validation`);
-                    return inValidResponse();
-                } else if (minutes > 5) {
+                }
+
+                if (minutes > 5) {
                     // More than 5 minutes remaining, not yet at prediction window
                     console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 5-minute mark for prediction`);
                     return inValidResponse();

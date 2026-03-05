@@ -7,7 +7,7 @@ import { connectToDatabase } from '../config/database';
 import sql from 'mssql';
 
 // Debug Server
-import {  sendDebugLog } from "../routes/LogServerWs";
+import { sendDebugLog } from "../routes/LogServerWs";
 
 export class ScoreboardWebSocketManager {
   private activeConnections: Set<WebSocket> = new Set();
@@ -22,6 +22,8 @@ export class ScoreboardWebSocketManager {
   // Notification tracking to prevent duplicates (now stored in database)
   private seenGameIds: Set<string> = new Set();
   private readonly NOTIFICATION_COOLDOWN = 5000; // 5 seconds - minimum time between same notification type for same game
+  private readonly NOTIFICATION_INTERVAL = 20000; // 20 seconds - check for notifications to send
+
 
   // Scoreboard update intervals and thresholds
   private readonly CHECK_INTERVAL = 2000; // 2 seconds - check for changes frequently
@@ -118,14 +120,14 @@ export class ScoreboardWebSocketManager {
         }
         else if (message.type === 'unsubscribe_playbyplay') {
           console.log(`[Scoreboard WebSocket] Client unsubscribed from PBP messages`);
-            sendDebugLog('ScoreboardWebSocketManager', `Client unsubscribed from PBP messages`);
+          sendDebugLog('ScoreboardWebSocketManager', `Client unsubscribed from PBP messages`);
           const gameId = message.data.gameId;
           this.activeConnectionsPBP.get(gameId)?.delete(websocket);
         }
 
         else if (message.type === 'ping') {
           if (websocket.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify({ type: 'pong', data:{}, timestamp: new Date().toISOString() }));
+            websocket.send(JSON.stringify({ type: 'pong', data: {}, timestamp: new Date().toISOString() }));
           }
         }
       } catch (error) {
@@ -191,7 +193,7 @@ export class ScoreboardWebSocketManager {
           sendDebugLog('ScoreboardWebSocketManager', `Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
           console.log(`[Scoreboard WebSocket] Sent initial data: ${scoreboardData.scoreboard.games.length} games`);
         } else {
-            sendDebugLog('ScoreboardWebSocketManager', `Cannot send - websocket not open (readyState: ${websocket.readyState})`);
+          sendDebugLog('ScoreboardWebSocketManager', `Cannot send - websocket not open (readyState: ${websocket.readyState})`);
           console.warn(`[Scoreboard WebSocket] Cannot send - websocket not open (readyState: ${websocket.readyState})`);
         }
       } else {
@@ -216,86 +218,7 @@ export class ScoreboardWebSocketManager {
   }
   // END Scoreboard Testing Method
 
-  // Play-by-play initial data send
-  private async sendNotificationOngameStatusChange(game: any, eventType: 'game_started' | 'score_update' | 'game_ended' | 'game_five_minutes_mark'): Promise<void> {
-    const gameId = game.gameId || 'unknown';
-    const currentTime = Date.now();
-
-    try {
-      // Check if notification has already been sent recently from database
-      const lastNotification = await this.getLastNotificationTime(gameId, eventType);
-
-      if (lastNotification) {
-        const timeSinceLastNotification = currentTime - lastNotification.getTime();
-        if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
-          console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
-          sendDebugLog('ScoreboardWebSocketManager', `Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
-          return; // Skip duplicate notification
-        }
-      }
-
-      const awayTeam = game.awayTeam?.teamName || 'Away Team';
-      const homeTeam = game.homeTeam?.teamName || 'Home Team';
-      const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
-
-      const notificationStatus = await expoNotificationSystem.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, eventType);
-      if (notificationStatus !== 0) {
-        // Track successful notification in database
-        await this.recordNotificationInDatabase(gameId, eventType);
-        sendDebugLog('ScoreboardWebSocketManager', `Notification sent for game ${gameId} - Status: ${notificationStatus}`);
-        console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
-      } else {
-        console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
-        sendDebugLog('ScoreboardWebSocketManager', `Failed to send notification for game ${gameId}`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      sendDebugLog('ScoreboardWebSocketManager', `Error in sendNotificationOngameStatusChange for game ${gameId}: ${errorMsg}`);
-      console.error(`[Scoreboard WebSocket] Error in sendNotificationOngameStatusChange for game ${gameId}: ${errorMsg}`);
-    }
-  }
-  // END Play-by-play initial data send
-
-  // Rate limiting logic for GenAI API requests
-  async sendFiveMinutesMarkNotification(game: any, eventType: 'game_started' | 'score_update' | 'game_ended' | 'game_five_minutes_mark'): Promise<void> {
-    const gameId = game.gameId || 'unknown';
-    const currentTime = Date.now();
-
-    try {
-      // Check if notification has already been sent recently from database
-      const lastNotification = await this.getLastNotificationTime(gameId, eventType);
-
-      if (lastNotification) {
-        const timeSinceLastNotification = currentTime - lastNotification.getTime();
-        if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
-            sendDebugLog('ScoreboardWebSocketManager', `Skipping duplicate 5-minute mark notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
-          console.log(`[Scoreboard WebSocket] Skipping duplicate notification for game ${gameId} - event: ${eventType} (sent ${timeSinceLastNotification}ms ago)`);
-          return; // Skip duplicate notification
-        }
-      }
-
-      const awayTeam = game.awayTeam?.teamName || 'Away Team';
-      const homeTeam = game.homeTeam?.teamName || 'Home Team';
-      const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
-
-      const notificationStatus = await expoNotificationSystem.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, eventType);
-      if (notificationStatus !== 0) {
-        // Track successful notification in database
-        await this.recordNotificationInDatabase(gameId, eventType);
-          sendDebugLog('ScoreboardWebSocketManager', `5-minute mark notification sent for game ${gameId} - Status: ${notificationStatus}`);
-        console.log(`[Scoreboard WebSocket] Notification sent for game ${gameId} - Status: ${notificationStatus}`);
-      } else {
-          sendDebugLog('ScoreboardWebSocketManager', `Failed to send 5-minute mark notification for game ${gameId}`);
-        console.warn(`[Scoreboard WebSocket] Failed to send notification for game ${gameId}`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      sendDebugLog('ScoreboardWebSocketManager', `Error in sendFiveMinutesMarkNotification for game ${gameId}: ${errorMsg}`);
-      console.error(`[Scoreboard WebSocket] Error in sendFiveMinutesMarkNotification for game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-  // END Rate limiting logic for GenAI API requests
-
+   
   /**
    * Get the last time a notification was sent for a game and event type
    * @returns Date of last notification or null if never sent
@@ -351,7 +274,7 @@ export class ScoreboardWebSocketManager {
             VALUES (@gameId, @eventType, GETDATE());
         `);
 
-        sendDebugLog('ScoreboardWebSocketManager', `Recorded notification in database for game ${gameId} - event: ${eventType}`);
+      sendDebugLog('ScoreboardWebSocketManager', `Recorded notification in database for game ${gameId} - event: ${eventType}`);
       console.log(`[Scoreboard WebSocket] Recorded notification in database for game ${gameId} - event: ${eventType}`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -361,35 +284,42 @@ export class ScoreboardWebSocketManager {
   }
 
   // Notification for new game ID (used when a new game appears that wasn't previously tracked)
-  private async sendNotificationOnGameIDChange(game: any): Promise<void> {
+  private async sendNotificationHandler(game: any): Promise<boolean> {
+
     const gameId = game.gameId || 'unknown';
 
-    // Check if we've already sent a new game notification for this game ID
-    if (this.seenGameIds.has(gameId)) {
-      console.log(`[Scoreboard WebSocket] New game notification already sent for game ${gameId}, skipping duplicate`);
-       sendDebugLog ('ScoreboardWebSocketManager', `New game notification already sent for game ${gameId}, skipping duplicate`);
-      return; // Skip if already notified about this game
+    try {
+       
+      const awayTeam = game.awayTeam?.teamName || 'Away Team';
+      const homeTeam = game.homeTeam?.teamName || 'Home Team';
+      const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
+
+      try {
+        // Use consistent 5-parameter signature with 'new_prediction' event type for new games
+        const notificationStatus = await expoNotificationSystem.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, 'new_prediction');
+        if (notificationStatus && notificationStatus !== 0) {
+          // Track successful notification in database with 'new_prediction' event type for tracking
+          await this.recordNotificationInDatabase(gameId, 'new_prediction');
+          console.log(`[Scoreboard WebSocket] New game notification sent: ${homeTeam} vs ${awayTeam} (${score})`);
+          sendDebugLog('ScoreboardWebSocketManager', `New game notification sent for game ${gameId}`);
+          return true;
+        } else {
+          console.warn(`[Scoreboard WebSocket] New game notification returned status 0 for game ${gameId}`);
+          sendDebugLog('ScoreboardWebSocketManager', `New game notification status 0 for game ${gameId}`);
+          return false;
+        }
+      } catch (notificationError) {
+        const notifErrorMsg = notificationError instanceof Error ? notificationError.message : String(notificationError);
+        console.error(`[Scoreboard WebSocket] Error sending new game notification for game ${gameId}:`, notifErrorMsg);
+        sendDebugLog('ScoreboardWebSocketManager', `New game notification failed for game ${gameId}: ${notifErrorMsg}`);
+        return false;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      sendDebugLog('ScoreboardWebSocketManager', `Error in sendNotificationOnGameIDChange for game ${gameId}: ${errorMsg}`);
+      console.error(`[Scoreboard WebSocket] Error in sendNotificationOnGameIDChange for game ${gameId}: ${errorMsg}`);
+      return false;
     }
-
-    // Mark this game as seen
-    this.seenGameIds.add(gameId);
-
-    const awayTeam = game.awayTeam?.teamName || 'Away Team';
-    const homeTeam = game.homeTeam?.teamName || 'Home Team';
-    const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
-    const percentage = "null"; // Placeholder for confidence percentage if available
-
-    const notificationStatus = await expoNotificationSystem.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, 'new_prediction', percentage);
-    if (notificationStatus !== 0) {
-      // Track successful notification in database
-      await this.recordNotificationInDatabase(gameId, 'new_game');
-      console.log(`[Scoreboard WebSocket] New game notification sent for game ${gameId} - Status: ${notificationStatus}`);
-      sendDebugLog ('ScoreboardWebSocketManager', `New game notification sent for game ${gameId} - Status: ${notificationStatus}`);
-    } else {
-      console.warn(`[Scoreboard WebSocket] Failed to send new game notification for game ${gameId}`);
-      sendDebugLog ('ScoreboardWebSocketManager', `Failed to send new game notification for game ${gameId}`);
-    }
-
   }
   // END Notification for new game ID (used when a new game appears that wasn't previously tracked)
 
@@ -451,15 +381,26 @@ export class ScoreboardWebSocketManager {
     const debugId = `${new Date().toISOString()}`;
     let changedGames: any[] = [];
     let throttledGames: any[] = [];
-
+    let newGameDetected = false;
     for (const [gameId, newGame] of newMap) {
       if (!oldMap.has(gameId)) {
         console.log(`[${debugId}] [Game Data Change] NEW GAME detected: ${gameId}`);
         sendDebugLog('ScoreboardWebSocketManager', `NEW GAME detected: ${gameId}`);
         changedGames.push(gameId);
-        this.sendNotificationOnGameIDChange(newGame);
-        return true;
+        newGameDetected = true;
+        expoNotificationSystem.addToNotificationQueue(
+           gameId,
+           newGame, 
+          'new_prediction',
+        );
       }
+    }
+
+    if (newGameDetected) {
+      return true; // If there's a new game, we consider data changed immediately to trigger notifications and updates
+    }
+
+    for (const [gameId, newGame] of newMap) {
 
       // Game Status codes: 1=Pre-Game, 2=In Progress, 3=Final, 4=OT, 5=Suspended
       // Check for game status change and send notification if changed
@@ -468,12 +409,12 @@ export class ScoreboardWebSocketManager {
         if (newGame.gameStatus === 2 && oldGameStatus !== 2) { // Game just started
           console.log(`[${debugId}] [Game Data Change] Game STARTED: ${gameId}`);
           sendDebugLog('ScoreboardWebSocketManager', `Game STARTED: ${gameId}`);
-          this.sendNotificationOngameStatusChange(newGame, 'game_started');
+          expoNotificationSystem.addToNotificationQueue(gameId, newGame, 'game_started');
         }
         else if (newGame.gameStatus === 3 && oldGameStatus !== 3) { // Game just ended
           console.log(`[${debugId}] [Game Data Change] Game ENDED: ${gameId}`);
           sendDebugLog('ScoreboardWebSocketManager', `Game ENDED: ${gameId}`);
-          this.sendNotificationOngameStatusChange(newGame, 'game_ended');
+          expoNotificationSystem.addToNotificationQueue(gameId, newGame, 'game_ended');
         }
       }
 
@@ -486,9 +427,9 @@ export class ScoreboardWebSocketManager {
       const homeScoreChanged = newGame.homeTeam?.score !== oldGame.homeTeam?.score;
       const awayScoreChanged = newGame.awayTeam?.score !== oldGame.awayTeam?.score;
       const statusChanged = newGame.gameStatus !== oldGame.gameStatus;
-      const periodChanged = newGame.period !== oldGame.period; 
+      const periodChanged = newGame.period !== oldGame.period;
 
-      const hasAnyChange = homeScoreChanged || awayScoreChanged || statusChanged || periodChanged  ;
+      const hasAnyChange = homeScoreChanged || awayScoreChanged || statusChanged || periodChanged;
 
       if (hasAnyChange) {
         if (meetsThrottle) {
@@ -526,7 +467,7 @@ export class ScoreboardWebSocketManager {
       if (!scoreboardData?.scoreboard) {
         return;
       }
-  
+
       const newGames = scoreboardData.scoreboard.games || [];
       const currentTime = Date.now();
       const timeSinceLastBroadcast = currentTime - this.lastFullBroadcast;
@@ -535,12 +476,12 @@ export class ScoreboardWebSocketManager {
       const dataChanged = this.hasGameDataChanged(newGames, this.currentGames);
       const shouldBroadcast = dataChanged || timeSinceLastBroadcast >= this.PERIODIC_BROADCAST_INTERVAL;
 
-    
+
       if (!shouldBroadcast) {
         return; // No changes and periodic interval not reached
       }
 
-  
+
       // Update tracking
       this.currentGames = newGames;
       this.lastFullBroadcast = currentTime;
@@ -657,7 +598,7 @@ export class ScoreboardWebSocketManager {
         `);
 
       if (result.rowsAffected[0] > 0) {
-      
+
         console.log(`[Scoreboard WebSocket] Cleaned up ${result.rowsAffected[0]} old notification records from database`);
         sendDebugLog('ScoreboardWebSocketManager', `Cleaned up ${result.rowsAffected[0]} old notification records from database`);
       }
@@ -707,7 +648,7 @@ export class ScoreboardWebSocketManager {
     this.startCleanupTask();
 
     // Initialize key moments broadcasting if NODE_ENV is 'true'  
-      this.startKeyMomentsBroadcasting(); 
+    this.startKeyMomentsBroadcasting();
 
     console.log('[Scoreboard WebSocket] Broadcasting started (on change or every 1 minute)');
     sendDebugLog('ScoreboardWebSocketManager', 'Broadcasting started (on change or every 1 minute)');
@@ -723,7 +664,7 @@ export class ScoreboardWebSocketManager {
       }
 
       this.checkAndBroadcast(); // Update currentGames with latest data before broadcasting
-      let clientCount = 0;  
+      let clientCount = 0;
       return clientCount;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -880,7 +821,7 @@ export class ScoreboardWebSocketManager {
       let clientCount = 0;
       const disconnectedClients: Array<{ gameId: string, client: WebSocket }> = [];
 
-      if(this.activeConnectionsPBP.size === 0) {
+      if (this.activeConnectionsPBP.size === 0) {
         console.log('[PlayByPlay WS] No active connections for play-by-play updates, skipping broadcast');
         return 0; // No clients subscribed to any game
       }
@@ -958,7 +899,7 @@ export class ScoreboardWebSocketManager {
       this.lastFullBroadcastPBP.set(gameId, currentTime);
 
       console.log(`[PlayByPlay WS] Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
-        sendDebugLog('ScoreboardWebSocketManager', `Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
+      sendDebugLog('ScoreboardWebSocketManager', `Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
 
       const disconnectedClients: WebSocket[] = [];
 
@@ -1024,6 +965,7 @@ export class ScoreboardWebSocketManager {
   }
   // END Check if play-by-play data has changed based on action numbers and rate limit updates
 
+ 
   // Start broadcasting play-by-play updates for a specific game at regular intervals
   private startGameBroadcasting(gameId: string): void {
     if (this.broadcastIntervalsPBP.has(gameId)) return;
@@ -1209,351 +1151,4 @@ export class ScoreboardWebSocketManager {
 
 
 
-/*export class PlaybyplayWebSocketManager {
-  private activeConnections: Map<string, Set<WebSocket>> = new Map();
-  private broadcastIntervals: Map<string, NodeJS.Timeout> = new Map();
-  private cleanupInterval: NodeJS.Timeout | null = null;
-  private currentPlaybyplay: Map<string, any[]> = new Map();
-  private lastUpdateTimestamp: Map<string, number> = new Map();
-  private lastFullBroadcast: Map<string, number> = new Map();
-  private readonly BROADCAST_INTERVAL = 30000; // 30 seconds - check for new plays frequently
-  private readonly MAX_BROADCAST_INTERVAL = 120000; // 2 minutes (120 seconds) - maximum time between broadcasts
-  private readonly CLEANUP_INTERVAL = 600000; // 10 minutes - clean up stale data
-  private readonly MIN_UPDATE_INTERVAL = 2000; // Minimum 2 seconds between updates per game
-  private readonly CLEANUP_THRESHOLD = 3600000; // 1 hour - remove stale timestamps older than this
-
-  connect(gameId: string, websocket: WebSocket): void {
-    if (!this.activeConnections.has(gameId)) {
-      this.activeConnections.set(gameId, new Set());
-      console.log(`[PlayByPlay WS] New game tracked: ${gameId}`);
-      this.startGameBroadcasting(gameId);
-    }
-
-    const gameConnections = this.activeConnections.get(gameId)!;
-    gameConnections.add(websocket);
-    console.log(`[PlayByPlay WS] New client for game ${gameId} (total: ${gameConnections.size})`);
-
-    // Send initial data to new client
-    this.sendInitialData(gameId, websocket);
-
-    // Handle client disconnect
-    websocket.on('close', () => {
-      this.disconnect(gameId, websocket);
-    });
-
-    websocket.on('error', (error) => {
-      console.error(`[PlayByPlay WS] Client error for game ${gameId}:`, error);
-      this.disconnect(gameId, websocket);
-    });
-
-    websocket.on('message', (data: WebSocket.Data) => {
-      try {
-        const message = typeof data === 'string' ? data : data.toString();
-        console.log(`[PlayByPlay WS] Message received for game ${gameId}: ${message}`);
-      } catch (error) {
-        console.error(`[PlayByPlay WS] Error logging message for game ${gameId}:`, error);
-      }
-    });
-  }
-
-  private async sendInitialData(gameId: string, websocket: WebSocket): Promise<void> {
-    try {
-      if (websocket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      const playbyplayData = await dataCache.getPlaybyplay(gameId);
-
-      if (playbyplayData) {
-        // Send the full play-by-play data
-        websocket.send(JSON.stringify(playbyplayData));
-      } else {
-        // Send empty structure if no data available yet
-        websocket.send(JSON.stringify({
-          game_id: gameId,
-          plays: []
-        }));
-      }
-    } catch (error) {
-      console.error(`[PlayByPlay WS] Error sending initial data for game ${gameId}:`, error);
-    }
-  }
-
-  disconnect(gameId: string, websocket: WebSocket): void {
-    const gameConnections = this.activeConnections.get(gameId);
-    if (gameConnections) {
-      gameConnections.delete(websocket);
-      console.log(`[PlayByPlay WS] Client disconnected from game ${gameId} (remaining: ${gameConnections.size})`);
-
-      // Remove game if no more connections
-      if (gameConnections.size === 0) {
-        this.activeConnections.delete(gameId);
-        const interval = this.broadcastIntervals.get(gameId);
-        if (interval) {
-          clearInterval(interval);
-          this.broadcastIntervals.delete(gameId);
-          console.log(`[PlayByPlay WS] Stopped broadcasting for game ${gameId}`);
-        }
-        // Clean up data for this game
-        this.currentPlaybyplay.delete(gameId);
-        this.lastUpdateTimestamp.delete(gameId);
-      }
-    }
-  }
-
-  handleConnection(websocket: WebSocket, gameId: string): void {
-    this.connect(gameId, websocket);
-  }
-
-  private hasPlaybyplayChanged(newPlays: any[], oldPlays: any[]): boolean {
-    const currentTime = Date.now();
-    const lastUpdate = this.lastUpdateTimestamp.get('playbyplay') || 0;
-
-    // Check if action numbers match (indicates new plays)
-    const newActionNumbers = new Set(newPlays.map(p => p.actionNumber));
-    const oldActionNumbers = new Set(oldPlays.map(p => p.actionNumber));
-
-    if (newActionNumbers.size !== oldActionNumbers.size) {
-      // New plays detected - check rate limit
-      if (currentTime - lastUpdate >= this.MIN_UPDATE_INTERVAL) {
-        this.lastUpdateTimestamp.set('playbyplay', currentTime);
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private async broadcastPlaybyplayUpdates(gameId: string): Promise<void> {
-    try {
-      const gameConnections = this.activeConnections.get(gameId);
-      if (!gameConnections || gameConnections.size === 0) {
-        return;
-      }
-
-      const playbyplayData = await dataCache.getPlaybyplay(gameId);
-
-      if (!playbyplayData) {
-        return;
-      }
-
-      const newPlays = playbyplayData.plays || [];
-      const oldPlays = this.currentPlaybyplay.get(gameId) || [];
-      const currentTime = Date.now();
-      const lastBroadcast = this.lastFullBroadcast.get(gameId) || 0;
-      const timeSinceLastBroadcast = currentTime - lastBroadcast;
-
-      // Check if plays changed or if max broadcast interval has passed
-      const playsChanged = this.hasPlaybyplayChanged(newPlays, oldPlays);
-      const shouldBroadcast = playsChanged || timeSinceLastBroadcast >= this.MAX_BROADCAST_INTERVAL;
-
-      if (!shouldBroadcast) {
-        return; // No changes and broadcast interval not reached
-      }
-
-      // Update tracking
-      this.currentPlaybyplay.set(gameId, newPlays);
-      this.lastFullBroadcast.set(gameId, currentTime);
-
-      console.log(`[PlayByPlay WS] Broadcasting ${newPlays.length} plays for game ${gameId} (changed: ${playsChanged}, timeSinceLastBroadcast: ${timeSinceLastBroadcast}ms)`);
-
-      const disconnectedClients: WebSocket[] = [];
-
-      for (const client of gameConnections) {
-        try {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(playbyplayData));
-          } else {
-            disconnectedClients.push(client);
-          }
-        } catch (error) {
-          console.error(`[PlayByPlay WS] Error sending to client for game ${gameId}:`, error);
-          disconnectedClients.push(client);
-        }
-      }
-
-      // Clean up disconnected clients
-      disconnectedClients.forEach(client => {
-        gameConnections.delete(client);
-      });
-
-      if (gameConnections.size === 0) {
-        this.activeConnections.delete(gameId);
-        const interval = this.broadcastIntervals.get(gameId);
-        if (interval) {
-          clearInterval(interval);
-          this.broadcastIntervals.delete(gameId);
-        }
-        this.currentPlaybyplay.delete(gameId);
-        this.lastUpdateTimestamp.delete(gameId);
-        this.lastFullBroadcast.delete(gameId);
-      }
-    } catch (error) {
-      console.error(`[PlayByPlay WS] Error in broadcast for game ${gameId}:`, error);
-    }
-  }
-
-  private startGameBroadcasting(gameId: string): void {
-    if (this.broadcastIntervals.has(gameId)) return;
-
-    const broadcast = async () => {
-      await this.broadcastPlaybyplayUpdates(gameId);
-    };
-
-    // Set up periodic check for new plays
-    const interval = setInterval(broadcast, this.BROADCAST_INTERVAL);
-    this.broadcastIntervals.set(gameId, interval);
-  }
-
-  startBroadcasting(): void {
-    console.log('[PlayByPlay WS] Broadcasting manager initialized (games start broadcasting on client connection)');
-  }
-
-  startCleanupTask(): void {
-    if (this.cleanupInterval) return;
-
-    console.log('[PlayByPlay WS] Cleanup task started');
-
-    const cleanup = () => {
-      let deadConnectionsCount = 0;
-      const gamesToRemove: string[] = [];
-
-      for (const [gameId, connections] of this.activeConnections.entries()) {
-        const deadConnections: WebSocket[] = [];
-
-        for (const client of connections) {
-          if (client.readyState !== WebSocket.OPEN) {
-            deadConnections.push(client);
-          }
-        }
-
-        deadConnections.forEach(client => {
-          connections.delete(client);
-          deadConnectionsCount++;
-        });
-
-        // Remove game if no more connections
-        if (connections.size === 0) {
-          gamesToRemove.push(gameId);
-        }
-      }
-
-      // Clean up games with no connections
-      gamesToRemove.forEach(gameId => {
-        this.activeConnections.delete(gameId);
-        const interval = this.broadcastIntervals.get(gameId);
-        if (interval) {
-          clearInterval(interval);
-          this.broadcastIntervals.delete(gameId);
-        }
-        this.currentPlaybyplay.delete(gameId);
-        this.lastUpdateTimestamp.delete(gameId);
-        this.lastFullBroadcast.delete(gameId);
-      });
-
-      // Clean up stale timestamps
-      const currentTime = Date.now();
-      const staleKeys: string[] = [];
-
-      for (const [key, timestamp] of this.lastUpdateTimestamp) {
-        if (currentTime - timestamp > this.CLEANUP_THRESHOLD) {
-          staleKeys.push(key);
-        }
-      }
-
-      staleKeys.forEach(key => this.lastUpdateTimestamp.delete(key));
-
-      if (deadConnectionsCount > 0 || gamesToRemove.length > 0 || staleKeys.length > 0) {
-        console.log(`[PlayByPlay WS] Cleanup: removed ${deadConnectionsCount} dead connections, ${gamesToRemove.length} inactive games, ${staleKeys.length} stale timestamps`);
-      }
-    };
-
-    this.cleanupInterval = setInterval(cleanup, this.CLEANUP_INTERVAL);
-  }
-
-  stopCleanupTask(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-      console.log('[PlayByPlay WS] Cleanup task stopped');
-    }
-
-    // Stop all game broadcasting
-    for (const [gameId, interval] of this.broadcastIntervals.entries()) {
-      clearInterval(interval);
-    }
-    this.broadcastIntervals.clear();
-
-    // Close all connections
-    for (const connections of this.activeConnections.values()) {
-      for (const client of connections) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.close();
-        }
-      }
-    }
-    this.activeConnections.clear();
-    this.currentPlaybyplay.clear();
-    this.lastUpdateTimestamp.clear();
-    this.lastFullBroadcast.clear();
-
-    console.log('[PlayByPlay WS] All connections closed');
-  }
-
-  getConnectionCount(gameId?: string): number {
-    if (gameId) {
-      return this.activeConnections.get(gameId)?.size || 0;
-    }
-    let total = 0;
-    for (const connections of this.activeConnections.values()) {
-      total += connections.size;
-    }
-    return total;
-  }
-
-  getGameCount(): number {
-    return this.activeConnections.size;
-  }
-
-
-  async broadcastToAllClients(data: any): Promise<number> {
-    try {
-      let clientCount = 0;
-      const disconnectedClients: Array<{ gameId: string, client: WebSocket }> = [];
-
-      // Iterate through all games and their connected clients
-      for (const [gameId, connections] of this.activeConnections.entries()) {
-        for (const client of connections) {
-          try {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify(data));
-              clientCount++;
-            } else {
-              disconnectedClients.push({ gameId, client });
-            }
-          } catch (error) {
-            console.error(`[PlayByPlay WS] Error sending to client in game ${gameId}:`, error);
-            disconnectedClients.push({ gameId, client });
-          }
-        }
-      }
-
-      // Clean up disconnected clients
-      disconnectedClients.forEach(({ gameId, client }) => {
-        const connections = this.activeConnections.get(gameId);
-        if (connections) {
-          connections.delete(client);
-        }
-      });
-
-      console.log(`[PlayByPlay WS] Broadcast sent to ${clientCount} clients`);
-      return clientCount;
-    } catch (error) {
-      console.error('[PlayByPlay WS] Error in broadcastToAllClients:', error);
-      return 0;
-    }
-  }
-}
-*/
 export const webSocketManager = new ScoreboardWebSocketManager();
-//export const playbyplayWebSocketManager = new PlaybyplayWebSocketManager();

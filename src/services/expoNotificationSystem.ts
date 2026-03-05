@@ -1,5 +1,7 @@
 import * as Expo from 'expo-server-sdk';
 import { executeQuery } from '../config/database';
+import { LiveGame } from '../types';
+import { env } from 'process';
 
 /**
  * Expo Push Notification Service
@@ -39,9 +41,31 @@ interface NotificationRecord {
     error_message?: string;
 }
 
+interface Team {
+    teamId: number;
+    teamName: string;
+    teamTricode: string;
+    score?: number;
+    periods?: { period: number; score: number }[];
+}
+
+interface NotificationQueueGame {
+    gameId: string;
+    gameDate?: string;
+    gameStatus: number;
+    gameStatusText: string;
+    period: number;
+    gameClock?: string;
+    gameTimeUTC: string;
+    homeTeam: Team;
+    awayTeam: Team;
+}
+
 class ExpoNotificationSystem {
     private expoClient: Expo.Expo;
     private readonly BATCH_SIZE = 100; // Max messages per batch
+    private readonly NOTIFICATION_INTERVAL = 10000; // Check queue every 10 seconds
+    private notificationQueue: Map<[string, string], any> = new Map();
     private tokenValid: boolean = false;
 
     constructor() {
@@ -188,7 +212,7 @@ class ExpoNotificationSystem {
     private async hasDuplicateRecentNotification(
         userId: string,
         notificationType: string,
-        cooldownMinutes: number = 5
+        cooldownMinutes: number = 1
     ): Promise<boolean> {
         try {
             const cutoffTime = new Date();
@@ -206,11 +230,6 @@ class ExpoNotificationSystem {
 
             const duplicateCount = result.recordset[0]?.count || 0;
             if (duplicateCount > 0) {
-                console.log(
-                    `[Expo] Skipping duplicate notification - User: ${userId}, ` +
-                    `Type: ${notificationType}, ` +
-                    `Recent count: ${duplicateCount} (sent within last ${cooldownMinutes} minutes)`
-                );
                 return true;
             }
 
@@ -432,11 +451,6 @@ class ExpoNotificationSystem {
             let title = '';
             let body = '';
 
-            if(process.env.USE_MOCK_DATA === 'true') {
-                return 0;
-            }
-
-            return 0;
 
             switch (eventType) {
                 case 'game_started':
@@ -462,9 +476,9 @@ class ExpoNotificationSystem {
             }
 
             // Get all active users
-            const result = await executeQuery(
-                'SELECT DISTINCT user_id FROM device_tokens WHERE is_active = 1'
-            );
+            const query = 'SELECT DISTINCT user_id FROM device_tokens WHERE is_active = 1';
+            const testQuery = 'SELECT DISTINCT user_id FROM device_tokens WHERE is_active = 1 AND user_id = \'user_2uh0Lz5DUchfzLnz4GyvWBtbd7l\'';
+            const result = await executeQuery(env.USE_MOCK_DATA === 'true' ? testQuery : query);
 
             const userIds = result.recordset.map((row: any) => row.user_id);
 
@@ -781,6 +795,137 @@ class ExpoNotificationSystem {
             console.error('[Expo] Error sending test notification:', error);
             return false;
         }
+    }
+
+    // Start Notifications for game status changes (game started, game ended)
+    private startNotifications(): void {
+        /**
+         * Check notification queue and process pending notifications
+         * Processes notifications asynchronously and removes them after successful send
+         */
+        const checkNotificationQueue = async () => {
+            // Skip if queue is empty
+            if (this.notificationQueue.size === 0) {
+                return;
+            }
+
+            const normalNotificationTime = 5000; // 5 seconds between notifications to avoid rate limits
+            const predictionNotificationTime = 5 * 60 * 1000; // 5 minutes between prediction notifications
+
+            try {
+                // Process all items in the notification queue
+                const entries = Array.from(this.notificationQueue.entries()); 
+                for (const [key, notificationData] of entries) {
+                    try {
+                        // Destructure the tuple key: [eventType, gameId]
+                        const [type, gameId] = key;
+
+                        // Validate notification data
+                        if (!notificationData || !notificationData.game) {
+                            console.warn(`[Expo] Invalid notification data for game ${gameId}`);
+                            this.notificationQueue.delete(key);
+                            continue;
+                        }
+
+                        // Send the notification
+                        const game = notificationData.game;
+                        const eventType = notificationData.eventType || 'score_update';
+                        const homeTeam = game.homeTeam?.teamName || 'Home Team';
+                        const awayTeam = game.awayTeam?.teamName || 'Away Team';
+                        const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
+ 
+                        const status = await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
+
+                        // Remove from queue only if successfully sent
+                        if (status && status !== 0) {
+                            this.notificationQueue.delete(key);
+                            console.log(`[Expo] Notification sent and removed from queue for game ${gameId}`);
+                        } else {
+                            console.warn(`[Expo] Failed to send notification for game ${gameId}`);
+                        }
+                    } catch (itemError) {
+                        const itemErrorMsg = itemError instanceof Error ? itemError.message : String(itemError);
+                        console.error(`[Expo] Error processing queue item:`, itemErrorMsg);
+                        // Continue processing other items even if one fails
+                    }
+
+                    // Add delay between sending each notification based on event type
+                    await new Promise(resolve => setTimeout(resolve, notificationData.eventType === 'new_prediction' ? predictionNotificationTime : normalNotificationTime));
+                }
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                console.error(`[Expo] Error checking notification queue:`, errorMsg);
+            }
+        };
+
+        // Start the periodic queue check
+        setInterval(checkNotificationQueue, this.NOTIFICATION_INTERVAL);
+        console.log(`[Expo] Notification queue processor started (checking every ${this.NOTIFICATION_INTERVAL}ms)`);
+    }
+
+    /**
+     * Add a notification to the queue for processing
+     * Queue key: [timestamp, gameId]
+     */
+    public addToNotificationQueue(gameId: string, game: any, eventType: string): void {
+        try {
+            // Validate inputs
+            if (!gameId || !game) {
+                console.warn('[Expo] Invalid parameters for addToNotificationQueue');
+                return;
+            }
+
+            const gameFormatted: NotificationQueueGame = {
+                gameId: game.gameId,
+                gameDate: game.gameDate,
+                gameStatus: game.gameStatus,
+                gameStatusText: game.gameStatusText,
+                period: game.period,
+                gameClock: game.gameClock,
+                gameTimeUTC: game.gameTimeUTC,
+                homeTeam: {
+                    teamId: game.homeTeam?.teamId,
+                    teamName: game.homeTeam?.teamName,
+                    score: game.homeTeam?.score,
+                    teamTricode: game.homeTeam?.teamTricode
+                },
+                awayTeam: {
+                    teamId: game.awayTeam?.teamId,
+                    teamName: game.awayTeam?.teamName,
+                    score: game.awayTeam?.score,
+                    teamTricode: game.awayTeam?.teamTricode
+                }
+            };
+
+            const key: [string, string] = [eventType, gameId]; // Use eventType + gameId as unique  
+            if (this.notificationQueue.has(key)) {
+                return;
+            }
+            
+            this.notificationQueue.set(key, {
+                game: gameFormatted,
+                eventType,
+                addedAt: new Date()
+            });
+
+            console.log(`[Expo] Added notification to queue for game ${gameId}, event type: ${eventType}`);
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error('[Expo] Error adding notification to queue:', errorMsg);
+        }
+    }
+
+    /**
+     * Start processing the notification queue
+     * Should be called once on application startup
+     */
+    async startQueueCheck(): Promise<void> {
+        this.startNotifications();
+    }
+
+    async stopQueueCheck(): Promise<void> {
+        this.notificationQueue.clear(); 
+        console.log('[Expo] stopQueueCheck called - notification queue cleared and processing stopped'); 
     }
 
 }

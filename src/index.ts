@@ -11,8 +11,8 @@ import { existsSync, mkdirSync } from "fs";
 dotenv.config({ path: path.join(".env") });
 
 // Fivicon and static files will be served from the "public" directory
-const publicDir = path.join(__dirname,'..', '..', 'public');
- if(!existsSync(publicDir)) {
+const publicDir = path.join(__dirname, '..', '..', 'public');
+if (!existsSync(publicDir)) {
   mkdirSync(publicDir);
 }
 
@@ -49,8 +49,8 @@ import { dataCache } from "./services/dataCache";
 // Health check
 app.get("/", async (req, res) => {
 
-// Log incoming API requests with method, URL, and IP address
-  console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
+  // Log incoming API requests with method, URL, and IP address
+  console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
   sendDebugLog('API', `[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
   const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
   if (!validationResult.valid) {
@@ -76,7 +76,7 @@ app.get("/", async (req, res) => {
   });
 });
 
-  
+
 // Cache refresh endpoint
 app.post("/api/v1/cache/refresh", async (req, res) => {
   try {
@@ -146,30 +146,30 @@ app.get("/api/v1/logserver/stats", async (req, res) => {
 // API Endpoints interceptor for security and logging
 app.use('/api/v1', async (req, res, next) => {
 
-  if(app.use('/api/v1/webhooks', webhooksRouter)) {
-     // Skip token validation for webhook routes to allow external services like Stripe to send data without needing a token
-     return next();
-   }
-    //app.use('/api/v1/logo', logoRouter); 
-   if(req.url.includes('logo') ||req.url.includes('logos') || req.url.includes('/scoreboard') || req.url.includes('/schedule') || req.url.includes('/standings') || req.url.includes('/teams') || req.url.includes('/search') || req.url.includes('/league') || req.url.includes('/players')) {
-     // Skip token validation for public data endpoints to allow free access to essential data without requiring a subscription, while still protecting user-specific and premium endpoints
-     return next();
-   }
+  if (app.use('/api/v1/webhooks', webhooksRouter)) {
+    // Skip token validation for webhook routes to allow external services like Stripe to send data without needing a token
+    return next();
+  }
+  //app.use('/api/v1/logo', logoRouter); 
+  if (req.url.includes('logo') || req.url.includes('logos') || req.url.includes('/scoreboard') || req.url.includes('/schedule') || req.url.includes('/standings') || req.url.includes('/teams') || req.url.includes('/search') || req.url.includes('/league') || req.url.includes('/players')) {
+    // Skip token validation for public data endpoints to allow free access to essential data without requiring a subscription, while still protecting user-specific and premium endpoints
+    return next();
+  }
   // Log incoming API requests with method, URL, and IP address
   console.log(`[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
-  sendDebugLog('API', `[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`); 
+  sendDebugLog('API', `[API Request] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
   const validationResult = await tokenCheckService.validateTokenAndCheckSubscription(req);
   if (!validationResult.valid) {
     return res.json({ success: false, error: 'Invalid or missing security parameters' });
   }
 
-  if(validationResult.valid && validationResult.subscription?.subscription_status !== 'active' && 
+  if (validationResult.valid && validationResult.subscription?.subscription_status !== 'active' &&
     validationResult.subscription?.subscription_end_date &&
     new Date(validationResult.subscription.subscription_end_date) < new Date()) {
-      
+
     return res.json({ success: false, error: 'Active subscription required to access this endpoint' });
   }
- 
+
   // Add any authentication or rate limiting logic here if needed
   next();
 });
@@ -322,7 +322,7 @@ app.get('/subscriptions/cancel', async (req: express.Request, res: express.Respo
 
 // Import WebSocket managers and services
 import {
-  webSocketManager 
+  webSocketManager
 } from "./services/websocketManager";
 import { handleLogServerConnection, getLogServerStats, sendDebugLog } from "./routes/LogServerWs";
 import { logServer } from "./services/LogServer";
@@ -400,7 +400,7 @@ try {
   console.error('Error starting data cache:', error);
   sendDebugLog('DataCache', `Error starting data cache: ${error instanceof Error ? error.message : 'Unknown error'}`);
 }
- 
+
 
 try {
   webSocketManager.startBroadcasting();
@@ -416,6 +416,14 @@ try {
   console.log('[WebSocket] Cleanup tasks started');
 } catch (error) {
   console.error('[WebSocket] Error starting cleanup tasks:', error);
+}
+
+try {
+  expoNotificationSystem.startQueueCheck();
+  console.log('[Expo] Notification system started');
+} catch (error) {
+  console.error('[Expo] Error starting notification system:', error);
+  sendDebugLog('Expo', `Error starting notification system: ${error instanceof Error ? error.message : 'Unknown error'}`);
 }
 
 // Key moments service - detects game-tying shots, lead changes, scoring runs, clutch plays, and big shots
@@ -437,8 +445,8 @@ try {
   console.error('[KeyMoments] Error starting processing task:', error);
 }
 
- 
- 
+
+
 // Start server
 const PORT = isIISNode ? (process.env.PORT || 'nba-api.local') : parseInt(process.env.PORT || '8000');
 
@@ -541,6 +549,7 @@ process.on("SIGTERM", async () => {
   await stopProcessingTask();
   await webSocketManager.stopCleanupTask();
   await webSocketManager.stopPBPCleanupTask();
+  await expoNotificationSystem.stopQueueCheck();
   clerkService.stopAutoSync();
   await closeDatabase();
   server.close();
@@ -554,6 +563,7 @@ process.on("SIGINT", async () => {
   await stopProcessingTask();
   await webSocketManager.stopCleanupTask();
   await webSocketManager.stopPBPCleanupTask();
+  await expoNotificationSystem.stopQueueCheck();
   clerkService.stopAutoSync();
   await closeDatabase();
   server.close();
