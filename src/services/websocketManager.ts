@@ -250,79 +250,8 @@ export class ScoreboardWebSocketManager {
       return null;
     }
   }
-
-  /**
-   * Record a notification in the database
-   */
-  private async recordNotificationInDatabase(gameId: string, eventType: string): Promise<void> {
-    try {
-      const pool = await connectToDatabase();
-      if (!pool) return;
-
-      await pool
-        .request()
-        .input('gameId', sql.VarChar(255), gameId)
-        .input('eventType', sql.VarChar(100), eventType)
-        .query(`
-          MERGE game_notification_tracker AS target
-          USING (SELECT @gameId as game_id, @eventType as event_type) AS source
-          ON target.game_id = source.game_id AND target.event_type = source.event_type
-          WHEN MATCHED THEN
-            UPDATE SET last_sent_at = GETDATE()
-          WHEN NOT MATCHED THEN
-            INSERT (game_id, event_type, last_sent_at)
-            VALUES (@gameId, @eventType, GETDATE());
-        `);
-
-      sendDebugLog('ScoreboardWebSocketManager', `Recorded notification in database for game ${gameId} - event: ${eventType}`);
-      console.log(`[Scoreboard WebSocket] Recorded notification in database for game ${gameId} - event: ${eventType}`);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      sendDebugLog('ScoreboardWebSocketManager', `Error recording notification in database for game ${gameId} - event: ${eventType}: ${errorMsg}`);
-      console.error(`[Scoreboard WebSocket] Error recording notification in database: ${errorMsg}`);
-    }
-  }
-
-  // Notification for new game ID (used when a new game appears that wasn't previously tracked)
-  private async sendNotificationHandler(game: any): Promise<boolean> {
-
-    const gameId = game.gameId || 'unknown';
-
-    try {
-       
-      const awayTeam = game.awayTeam?.teamName || 'Away Team';
-      const homeTeam = game.homeTeam?.teamName || 'Home Team';
-      const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
-
-      try {
-        // Use consistent 5-parameter signature with 'new_prediction' event type for new games
-        const notificationStatus = await expoNotificationSystem.sendGameUpdateNotification(gameId, awayTeam, homeTeam, score, 'new_prediction');
-        if (notificationStatus && notificationStatus !== 0) {
-          // Track successful notification in database with 'new_prediction' event type for tracking
-          await this.recordNotificationInDatabase(gameId, 'new_prediction');
-          console.log(`[Scoreboard WebSocket] New game notification sent: ${homeTeam} vs ${awayTeam} (${score})`);
-          sendDebugLog('ScoreboardWebSocketManager', `New game notification sent for game ${gameId}`);
-          return true;
-        } else {
-          console.warn(`[Scoreboard WebSocket] New game notification returned status 0 for game ${gameId}`);
-          sendDebugLog('ScoreboardWebSocketManager', `New game notification status 0 for game ${gameId}`);
-          return false;
-        }
-      } catch (notificationError) {
-        const notifErrorMsg = notificationError instanceof Error ? notificationError.message : String(notificationError);
-        console.error(`[Scoreboard WebSocket] Error sending new game notification for game ${gameId}:`, notifErrorMsg);
-        sendDebugLog('ScoreboardWebSocketManager', `New game notification failed for game ${gameId}: ${notifErrorMsg}`);
-        return false;
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      sendDebugLog('ScoreboardWebSocketManager', `Error in sendNotificationOnGameIDChange for game ${gameId}: ${errorMsg}`);
-      console.error(`[Scoreboard WebSocket] Error in sendNotificationOnGameIDChange for game ${gameId}: ${errorMsg}`);
-      return false;
-    }
-  }
-  // END Notification for new game ID (used when a new game appears that wasn't previously tracked)
-
+ 
+   
   // Rate limiting logic for GenAI API requests
   handleConnection(websocket: WebSocket): void {
     this.connect(websocket);
@@ -387,16 +316,12 @@ export class ScoreboardWebSocketManager {
         console.log(`[${debugId}] [Game Data Change] NEW GAME detected: ${gameId}`);
         sendDebugLog('ScoreboardWebSocketManager', `NEW GAME detected: ${gameId}`);
         changedGames.push(gameId);
-        newGameDetected = true;
-        expoNotificationSystem.addToNotificationQueue(
-           gameId,
-           newGame, 
-          'new_prediction',
-        );
+        newGameDetected = true; 
       }
     }
 
     if (newGameDetected) {
+       expoNotificationSystem.sendGameUpdateNotification(`new_prediction${new Date().toLocaleString()}`, '', '', '', 'new_prediction');
       return true; // If there's a new game, we consider data changed immediately to trigger notifications and updates
     }
 

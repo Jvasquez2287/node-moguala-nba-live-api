@@ -15,6 +15,8 @@ declare class ExpoNotificationSystem {
     private readonly NOTIFICATION_INTERVAL;
     private notificationQueue;
     private tokenValid;
+    private recentNotifications;
+    private readonly DUPLICATE_COOLDOWN_MS;
     constructor();
     /**
      * Register a device token for push notifications
@@ -48,7 +50,7 @@ declare class ExpoNotificationSystem {
     /**
      * Send game update notification
      */
-    sendGameUpdateNotification(gameId: string, homeTeam: string, awayTeam: string, score: string, eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction' | 'game_five_minutes_mark', percentage?: string): Promise<number>;
+    sendGameUpdateNotification(gameId: string, homeTeam: string | undefined, awayTeam: string | undefined, score: string | undefined, eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction' | 'game_five_minutes_mark', percentage?: string): Promise<number>;
     /**
      * Send subscription notification
      */

@@ -37,11 +37,6 @@ export declare class ScoreboardWebSocketManager {
      * @returns Date of last notification or null if never sent
      */
     private getLastNotificationTime;
-    /**
-     * Record a notification in the database
-     */
-    private recordNotificationInDatabase;
-    private sendNotificationHandler;
     handleConnection(websocket: WebSocket): void;
     private formatGameResponse;
     private hasGameDataChanged;

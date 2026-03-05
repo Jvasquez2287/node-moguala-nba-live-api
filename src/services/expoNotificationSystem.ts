@@ -2,6 +2,10 @@ import * as Expo from 'expo-server-sdk';
 import { executeQuery } from '../config/database';
 import { LiveGame } from '../types';
 import { env } from 'process';
+import { logServer } from './LogServer';
+// Debug Server
+import { sendDebugLog } from "../routes/LogServerWs";
+import { date } from 'joi';
 
 /**
  * Expo Push Notification Service
@@ -67,6 +71,8 @@ class ExpoNotificationSystem {
     private readonly NOTIFICATION_INTERVAL = 10000; // Check queue every 10 seconds
     private notificationQueue: Map<[string, string], any> = new Map();
     private tokenValid: boolean = false;
+    private recentNotifications: Map<string, number> = new Map(); // Track sent notifications in memory
+    private readonly DUPLICATE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
 
     constructor() {
         const accessToken = process.env.EXPO_ACCESS_TOKEN;
@@ -440,10 +446,10 @@ class ExpoNotificationSystem {
      * Send game update notification
      */
     async sendGameUpdateNotification(
-        gameId: string,
-        homeTeam: string,
-        awayTeam: string,
-        score: string,
+        gameId: string  ,
+        homeTeam: string = '',
+        awayTeam: string = '',
+        score: string = '',
         eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction' | 'game_five_minutes_mark',
         percentage: string = "",
     ): Promise<number> {
@@ -466,8 +472,9 @@ class ExpoNotificationSystem {
                     body = `Final: ${awayTeam} vs ${homeTeam} - ${score}`;
                     break;
                 case 'new_prediction':
+                    const todayDateNoTime = new Date().toLocaleDateString( undefined, { month: 'short', day: 'numeric', year: 'numeric' }); 
                     title = '✨New Prediction ';
-                    body = `${awayTeam} vs ${homeTeam} - New prediction available! 🔮`;
+                    body = `Predictions available 🔮 - ${todayDateNoTime}` ;
                     break;
                 case 'game_five_minutes_mark':
                     title = '✨Prediction Incoming ';
@@ -814,7 +821,7 @@ class ExpoNotificationSystem {
 
             try {
                 // Process all items in the notification queue
-                const entries = Array.from(this.notificationQueue.entries()); 
+                const entries = Array.from(this.notificationQueue.entries());
                 for (const [key, notificationData] of entries) {
                     try {
                         // Destructure the tuple key: [eventType, gameId]
@@ -833,16 +840,16 @@ class ExpoNotificationSystem {
                         const homeTeam = game.homeTeam?.teamName || 'Home Team';
                         const awayTeam = game.awayTeam?.teamName || 'Away Team';
                         const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
- 
-                        const status = await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
+
+                        await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
 
                         // Remove from queue only if successfully sent
-                        if (status && status !== 0) {
-                            this.notificationQueue.delete(key);
-                            console.log(`[Expo] Notification sent and removed from queue for game ${gameId}`);
-                        } else {
-                            console.warn(`[Expo] Failed to send notification for game ${gameId}`);
-                        }
+
+                        this.notificationQueue.delete(key);
+                        console.log(`[Expo] Notification sent and removed from queue for game ${gameId}`);
+                        console.log(`\n\n\n[Expo] Queue size after processing: ${this.notificationQueue.size}\n\n\n`);
+                        sendDebugLog('Expo', `[Expo] Notification sent for game ${gameId}, event type: ${eventType}, queue size: ${this.notificationQueue.size}`);
+
                     } catch (itemError) {
                         const itemErrorMsg = itemError instanceof Error ? itemError.message : String(itemError);
                         console.error(`[Expo] Error processing queue item:`, itemErrorMsg);
@@ -867,8 +874,15 @@ class ExpoNotificationSystem {
      * Add a notification to the queue for processing
      * Queue key: [timestamp, gameId]
      */
-    public addToNotificationQueue(gameId: string, game: any, eventType: string): void {
+    public addToNotificationQueue(gameId: string , game: any, eventType: string): void {
         try {
+
+            if(eventType === 'new_prediction')
+            {
+                console.log(`[Expo] Skipping adding new_prediction event to queue for game ${gameId} since it's triggered immediately when detected`);
+                return; // Skip adding to queue for new_prediction events since they are triggered immediately when detected and not based on game status changes
+            }
+
             // Validate inputs
             if (!gameId || !game) {
                 console.warn('[Expo] Invalid parameters for addToNotificationQueue');
@@ -901,7 +915,7 @@ class ExpoNotificationSystem {
             if (this.notificationQueue.has(key)) {
                 return;
             }
-            
+
             this.notificationQueue.set(key, {
                 game: gameFormatted,
                 eventType,
@@ -924,8 +938,8 @@ class ExpoNotificationSystem {
     }
 
     async stopQueueCheck(): Promise<void> {
-        this.notificationQueue.clear(); 
-        console.log('[Expo] stopQueueCheck called - notification queue cleared and processing stopped'); 
+        this.notificationQueue.clear();
+        console.log('[Expo] stopQueueCheck called - notification queue cleared and processing stopped');
     }
 
 }

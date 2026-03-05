@@ -36,12 +36,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const Expo = __importStar(require("expo-server-sdk"));
 const database_1 = require("../config/database");
 const process_1 = require("process");
+// Debug Server
+const LogServerWs_1 = require("../routes/LogServerWs");
 class ExpoNotificationSystem {
     constructor() {
         this.BATCH_SIZE = 100; // Max messages per batch
         this.NOTIFICATION_INTERVAL = 10000; // Check queue every 10 seconds
         this.notificationQueue = new Map();
         this.tokenValid = false;
+        this.recentNotifications = new Map(); // Track sent notifications in memory
+        this.DUPLICATE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
         const accessToken = process.env.EXPO_ACCESS_TOKEN;
         // Validate token is set
         if (!accessToken || accessToken.trim() === '') {
@@ -316,7 +320,7 @@ class ExpoNotificationSystem {
     /**
      * Send game update notification
      */
-    async sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType, percentage = "") {
+    async sendGameUpdateNotification(gameId, homeTeam = '', awayTeam = '', score = '', eventType, percentage = "") {
         try {
             let title = '';
             let body = '';
@@ -334,8 +338,9 @@ class ExpoNotificationSystem {
                     body = `Final: ${awayTeam} vs ${homeTeam} - ${score}`;
                     break;
                 case 'new_prediction':
+                    const todayDateNoTime = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                     title = '✨New Prediction ';
-                    body = `${awayTeam} vs ${homeTeam} - New prediction available! 🔮`;
+                    body = `Predictions available 🔮 - ${todayDateNoTime}`;
                     break;
                 case 'game_five_minutes_mark':
                     title = '✨Prediction Incoming ';
@@ -593,15 +598,12 @@ class ExpoNotificationSystem {
                         const homeTeam = game.homeTeam?.teamName || 'Home Team';
                         const awayTeam = game.awayTeam?.teamName || 'Away Team';
                         const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
-                        const status = await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
+                        await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
                         // Remove from queue only if successfully sent
-                        if (status && status !== 0) {
-                            this.notificationQueue.delete(key);
-                            console.log(`[Expo] Notification sent and removed from queue for game ${gameId}`);
-                        }
-                        else {
-                            console.warn(`[Expo] Failed to send notification for game ${gameId}`);
-                        }
+                        this.notificationQueue.delete(key);
+                        console.log(`[Expo] Notification sent and removed from queue for game ${gameId}`);
+                        console.log(`\n\n\n[Expo] Queue size after processing: ${this.notificationQueue.size}\n\n\n`);
+                        (0, LogServerWs_1.sendDebugLog)('Expo', `[Expo] Notification sent for game ${gameId}, event type: ${eventType}, queue size: ${this.notificationQueue.size}`);
                     }
                     catch (itemError) {
                         const itemErrorMsg = itemError instanceof Error ? itemError.message : String(itemError);
@@ -627,6 +629,10 @@ class ExpoNotificationSystem {
      */
     addToNotificationQueue(gameId, game, eventType) {
         try {
+            if (eventType === 'new_prediction') {
+                console.log(`[Expo] Skipping adding new_prediction event to queue for game ${gameId} since it's triggered immediately when detected`);
+                return; // Skip adding to queue for new_prediction events since they are triggered immediately when detected and not based on game status changes
+            }
             // Validate inputs
             if (!gameId || !game) {
                 console.warn('[Expo] Invalid parameters for addToNotificationQueue');
