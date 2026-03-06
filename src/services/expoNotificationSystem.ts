@@ -484,7 +484,7 @@ class ExpoNotificationSystem {
         homeTeam: string = '',
         awayTeam: string = '',
         score: string = '',
-        eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction' | 'game_five_minutes_mark',
+        eventType: 'game_started' | 'score_update' | 'game_ended' | 'new_prediction' | 'game_five_minutes_mark' | 'game_five_minutes_mark_available' = 'score_update',
         percentage: string = "",
     ): Promise<number> {
         try {
@@ -513,6 +513,10 @@ class ExpoNotificationSystem {
                 case 'game_five_minutes_mark':
                     title = '✨Prediction Incoming ';
                     body = `${awayTeam} vs ${homeTeam} - Five minutes mark prediction will be available in 2 minutes! 🔮`;
+                    break;
+                case 'game_five_minutes_mark_available':
+                    title = '✨ Five Minutes Mark ✨';
+                    body = `${awayTeam} vs ${homeTeam} - Five minutes mark prediction is now available! 🔮`;
                     break;
             }
 

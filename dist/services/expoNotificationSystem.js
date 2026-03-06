@@ -349,7 +349,7 @@ class ExpoNotificationSystem {
     /**
      * Send game update notification
      */
-    async sendGameUpdateNotification(gameId, homeTeam = '', awayTeam = '', score = '', eventType, percentage = "") {
+    async sendGameUpdateNotification(gameId, homeTeam = '', awayTeam = '', score = '', eventType = 'score_update', percentage = "") {
         try {
             let title = '';
             let body = '';
@@ -374,6 +374,10 @@ class ExpoNotificationSystem {
                 case 'game_five_minutes_mark':
                     title = '✨Prediction Incoming ';
                     body = `${awayTeam} vs ${homeTeam} - Five minutes mark prediction will be available in 2 minutes! 🔮`;
+                    break;
+                case 'game_five_minutes_mark_available':
+                    title = '✨ Five Minutes Mark ✨';
+                    body = `${awayTeam} vs ${homeTeam} - Five minutes mark prediction is now available! 🔮`;
                     break;
             }
             // Get all active users

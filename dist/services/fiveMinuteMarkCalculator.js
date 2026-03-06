@@ -370,9 +370,11 @@ class FiveMinuteMarkCalculator {
         }
         // Only calculate betting status if we're in Q3 (period 3) or later
         if (period >= 3 && gameClock) {
-            // Parse game clock "mm:ss" format to get minutes
-            const clockParts = gameClock.split(':');
-            const minutes = parseInt(clockParts[0]) || 0;
+            // At 5-minute mark of Q3, send notification that prediction will be available soon
+            if (period === 4 && minutes === 5 && seconds <= 16) {
+                //game_five_minutes_mark_available
+                expoNotificationSystem_1.default.addToNotificationQueue(game.gameId, game, 'game_five_minutes_mark_available');
+            }
             // Check if we've passed the 5-minute mark and have valid Q3 data
             if (minutes <= 5 && homePeriodArray[2] && awayPeriodArray[2]) {
                 // Q3 scores exist, now check Q4
