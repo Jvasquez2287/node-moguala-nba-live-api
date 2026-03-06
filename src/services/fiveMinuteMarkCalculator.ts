@@ -429,15 +429,14 @@ class FiveMinuteMarkCalculator {
         }
 
         const period = game.period;
-        const gameClock = game.gameClock;
+        const gameClock = game.gameClock?.toUpperCase().replace('PT', '').replace('M', ':').replace('S', '');
 
-
-        // Only calculate betting status if we're in Q3 (period 3) or later
 
         if (!gameClock) {
             return inValidResponse();
         }
-        const clockParts = gameClock.split(':');
+
+        const clockParts = gameClock.trimStart().split(':');
         const [minutes, seconds] = clockParts.map(Number);
 
         let cacheKey: string | null = null;
@@ -468,7 +467,7 @@ class FiveMinuteMarkCalculator {
                     if (process.env.USE_MOCK_DATA === 'false') {
                         await expoNotificationSystem.addToNotificationQueue(game.gameId, game, 'game_five_minutes_mark');
                     }
-                    console.log(`\n[FiveMinuteMarkCalculator] Game ${game.gameId} is at 7-minute mark of Q4, sending notification\n`);
+
                     await this.checkAtSevenMinuteMark(
                         game.homeTeam.score,
                         awayTeam.score,

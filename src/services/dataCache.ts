@@ -8,8 +8,7 @@ import { SeasonLeadersResponse } from '../schemas/seasonleaders';
 import { TeamDetailsResponse, TeamRoster } from '../schemas/team';
 import { executeQuery } from '../config/database';
 import mockData from './mockData';
-import { webSocketManager } from './websocketManager';
-import { min } from 'lodash';
+import { webSocketManager } from './websocketManager'; 
 import { send } from 'process';
 import { sendDebugLog } from '../routes/LogServerWs';
 
@@ -454,7 +453,9 @@ export class DataCache {
       let notifiedGames = 0;
       for (const game of scoreboardData.games) {
         if (game.gameStatus === 2) { // In Progress
-          const clockParts = game.gameClock.split(':');
+          // TO upper case Text
+          const clockParts = game.gameClock?.toUpperCase().replace('PT', '').replace('M', ':').replace('S', '').split(':');
+      
           const [minutes, seconds] = clockParts.map(Number);
           const gamePeriod = game.period;
           if (!isNaN(minutes) && !isNaN(seconds)) {

@@ -73,6 +73,8 @@ class ExpoNotificationSystem {
     private tokenValid: boolean = false;
     private recentNotifications: Map<string, number> = new Map(); // Track sent notifications in memory
     private readonly DUPLICATE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
+    private sentQueueNotifications: Map<string, number> = new Map(); // Track sent queue notifications: key = "eventType:gameId"
+    private readonly QUEUE_SENT_TTL = 24 * 60 * 60 * 1000; // 24 hours - don't resend same notification for 24 hours
 
     constructor() {
         const accessToken = process.env.EXPO_ACCESS_TOKEN;
@@ -245,6 +247,38 @@ class ExpoNotificationSystem {
             // On error, allow sending (fail open)
             return false;
         }
+    }
+
+    /**
+     * Check if a queue notification was recently sent (for a specific game+eventType)
+     * Prevents resending the same game notification within 24 hours
+     */
+    private hasQueueNotificationBeenSent(gameId: string, eventType: string): boolean {
+        const cacheKey = `${eventType}:${gameId}`;
+        const lastSentTime = this.sentQueueNotifications.get(cacheKey);
+
+        if (!lastSentTime) {
+            return false;
+        }
+
+        const timeSinceLastSend = Date.now() - lastSentTime;
+        if (timeSinceLastSend < this.QUEUE_SENT_TTL) {
+            console.log(`[Expo] Queue notification for ${eventType}:${gameId} was already sent ${Math.round(timeSinceLastSend / 1000)}s ago, skipping`);
+            return true;
+        }
+
+        // TTL expired, allow resending
+        this.sentQueueNotifications.delete(cacheKey);
+        return false;
+    }
+
+    /**
+     * Record that a queue notification has been sent
+     */
+    private recordQueueNotificationSent(gameId: string, eventType: string): void {
+        const cacheKey = `${eventType}:${gameId}`;
+        this.sentQueueNotifications.set(cacheKey, Date.now());
+        console.log(`[Expo] Recorded queue notification sent for ${cacheKey}`);
     }
 
     /**
@@ -843,6 +877,9 @@ class ExpoNotificationSystem {
 
                         await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
 
+                        // Record this notification as sent to prevent resending
+                        this.recordQueueNotificationSent(gameId, eventType);
+
                         // Remove from queue only if successfully sent
 
                         this.notificationQueue.delete(key);
@@ -872,7 +909,8 @@ class ExpoNotificationSystem {
 
     /**
      * Add a notification to the queue for processing
-     * Queue key: [timestamp, gameId]
+     * Queue key: [eventType, gameId]
+     * Only adds if the notification hasn't been sent recently (within 24 hours)
      */
     public addToNotificationQueue(gameId: string , game: any, eventType: string): void {
         try {
@@ -881,6 +919,12 @@ class ExpoNotificationSystem {
             {
                 console.log(`[Expo] Skipping adding new_prediction event to queue for game ${gameId} since it's triggered immediately when detected`);
                 return; // Skip adding to queue for new_prediction events since they are triggered immediately when detected and not based on game status changes
+            }
+
+            // Check if this notification was recently sent (within 24 hours)
+            if (this.hasQueueNotificationBeenSent(gameId, eventType)) {
+                console.log(`[Expo] Skipping notification for game ${gameId}, event type ${eventType} - already sent recently`);
+                return;
             }
 
             // Validate inputs

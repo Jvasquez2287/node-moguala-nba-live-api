@@ -46,6 +46,8 @@ class ExpoNotificationSystem {
         this.tokenValid = false;
         this.recentNotifications = new Map(); // Track sent notifications in memory
         this.DUPLICATE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
+        this.sentQueueNotifications = new Map(); // Track sent queue notifications: key = "eventType:gameId"
+        this.QUEUE_SENT_TTL = 24 * 60 * 60 * 1000; // 24 hours - don't resend same notification for 24 hours
         const accessToken = process.env.EXPO_ACCESS_TOKEN;
         // Validate token is set
         if (!accessToken || accessToken.trim() === '') {
@@ -167,6 +169,33 @@ class ExpoNotificationSystem {
             // On error, allow sending (fail open)
             return false;
         }
+    }
+    /**
+     * Check if a queue notification was recently sent (for a specific game+eventType)
+     * Prevents resending the same game notification within 24 hours
+     */
+    hasQueueNotificationBeenSent(gameId, eventType) {
+        const cacheKey = `${eventType}:${gameId}`;
+        const lastSentTime = this.sentQueueNotifications.get(cacheKey);
+        if (!lastSentTime) {
+            return false;
+        }
+        const timeSinceLastSend = Date.now() - lastSentTime;
+        if (timeSinceLastSend < this.QUEUE_SENT_TTL) {
+            console.log(`[Expo] Queue notification for ${eventType}:${gameId} was already sent ${Math.round(timeSinceLastSend / 1000)}s ago, skipping`);
+            return true;
+        }
+        // TTL expired, allow resending
+        this.sentQueueNotifications.delete(cacheKey);
+        return false;
+    }
+    /**
+     * Record that a queue notification has been sent
+     */
+    recordQueueNotificationSent(gameId, eventType) {
+        const cacheKey = `${eventType}:${gameId}`;
+        this.sentQueueNotifications.set(cacheKey, Date.now());
+        console.log(`[Expo] Recorded queue notification sent for ${cacheKey}`);
     }
     /**
      * Send a notification to a single user
@@ -599,6 +628,8 @@ class ExpoNotificationSystem {
                         const awayTeam = game.awayTeam?.teamName || 'Away Team';
                         const score = `${game.awayTeam?.score || 0}-${game.homeTeam?.score || 0}`;
                         await this.sendGameUpdateNotification(gameId, homeTeam, awayTeam, score, eventType);
+                        // Record this notification as sent to prevent resending
+                        this.recordQueueNotificationSent(gameId, eventType);
                         // Remove from queue only if successfully sent
                         this.notificationQueue.delete(key);
                         console.log(`[Expo] Notification sent and removed from queue for game ${gameId}`);
@@ -625,13 +656,19 @@ class ExpoNotificationSystem {
     }
     /**
      * Add a notification to the queue for processing
-     * Queue key: [timestamp, gameId]
+     * Queue key: [eventType, gameId]
+     * Only adds if the notification hasn't been sent recently (within 24 hours)
      */
     addToNotificationQueue(gameId, game, eventType) {
         try {
             if (eventType === 'new_prediction') {
                 console.log(`[Expo] Skipping adding new_prediction event to queue for game ${gameId} since it's triggered immediately when detected`);
                 return; // Skip adding to queue for new_prediction events since they are triggered immediately when detected and not based on game status changes
+            }
+            // Check if this notification was recently sent (within 24 hours)
+            if (this.hasQueueNotificationBeenSent(gameId, eventType)) {
+                console.log(`[Expo] Skipping notification for game ${gameId}, event type ${eventType} - already sent recently`);
+                return;
             }
             // Validate inputs
             if (!gameId || !game) {

@@ -17,6 +17,8 @@ declare class ExpoNotificationSystem {
     private tokenValid;
     private recentNotifications;
     private readonly DUPLICATE_COOLDOWN_MS;
+    private sentQueueNotifications;
+    private readonly QUEUE_SENT_TTL;
     constructor();
     /**
      * Register a device token for push notifications
@@ -35,6 +37,15 @@ declare class ExpoNotificationSystem {
      * @returns true if duplicate found, false if ok to send
      */
     private hasDuplicateRecentNotification;
+    /**
+     * Check if a queue notification was recently sent (for a specific game+eventType)
+     * Prevents resending the same game notification within 24 hours
+     */
+    private hasQueueNotificationBeenSent;
+    /**
+     * Record that a queue notification has been sent
+     */
+    private recordQueueNotificationSent;
     /**
      * Send a notification to a single user
      */
@@ -101,7 +112,8 @@ declare class ExpoNotificationSystem {
     private startNotifications;
     /**
      * Add a notification to the queue for processing
-     * Queue key: [timestamp, gameId]
+     * Queue key: [eventType, gameId]
+     * Only adds if the notification hasn't been sent recently (within 24 hours)
      */
     addToNotificationQueue(gameId: string, game: any, eventType: string): void;
     /**
