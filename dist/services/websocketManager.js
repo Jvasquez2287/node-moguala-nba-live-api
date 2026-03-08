@@ -547,7 +547,7 @@ class ScoreboardWebSocketManager {
         // Initialize cleanup task
         this.startCleanupTask();
         // Initialize key moments broadcasting if NODE_ENV is 'true'  
-        this.startKeyMomentsBroadcasting();
+        // this.startKeyMomentsBroadcasting();
         console.log('[Scoreboard WebSocket] Broadcasting started (on change or every 1 minute)');
         (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', 'Broadcasting started (on change or every 1 minute)');
     }
@@ -585,7 +585,7 @@ class ScoreboardWebSocketManager {
             console.log('[Scoreboard WebSocket] Broadcasting stopped');
         }
         // Stop key moments broadcasting
-        this.stopKeyMomentsBroadcasting();
+        // this.stopKeyMomentsBroadcasting();
     }
     /**
      * Start broadcasting key moments every 20 seconds
