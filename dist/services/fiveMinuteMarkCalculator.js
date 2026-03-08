@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FiveMinuteMarkCalculator = exports.DoMath = void 0;
 const axios_1 = __importDefault(require("axios"));
 const expoNotificationSystem_1 = __importDefault(require("./expoNotificationSystem"));
+const dataCache_1 = require("./dataCache");
 // Cache for checkAtSevenMinuteMark results - persists for 2 hours
 const checkAtSevenMinuteMarkCache = new Map();
 const CACHE_TTL_2HOURS = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
@@ -281,6 +282,11 @@ class FiveMinuteMarkCalculator {
      * @returns BetPrediction with status and risk level
      */
     static async calculateBetStatus(game) {
+        const exitingCache = await dataCache_1.dataCache.getFiveMinutesMarkCache(game.gameId);
+        if (exitingCache) {
+            console.log(`[FiveMinuteMarkCalculator] Returning existing cached prediction for game ${game.gameId}:`, exitingCache);
+            return exitingCache;
+        }
         const inValidResponse = () => ({
             visitorOveral: 0,
             homeOveral: 0,
@@ -327,7 +333,7 @@ class FiveMinuteMarkCalculator {
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, waiting until 5-minute mark of Q4 for prediction`);
                 return inValidResponse();
             case 4:
-                if (minutes > 5 && minutes <= 7) {
+                if (minutes > 5 && minutes <= 6) {
                     // At 7-minute mark: send notification and validation
                     if (process.env.USE_MOCK_DATA === 'false') {
                         await expoNotificationSystem_1.default.addToNotificationQueue(game.gameId, game, 'game_five_minutes_mark');
@@ -335,7 +341,7 @@ class FiveMinuteMarkCalculator {
                     await this.checkAtSevenMinuteMark(game.homeTeam.score, awayTeam.score, game.homeTeam.periods || game.homeTeam.linescore, awayTeam.periods || awayTeam.linescore, game.homeTeam.teamId, awayTeam.teamId, game.gameId);
                     return inValidResponse();
                 }
-                if (minutes > 5) {
+                if (minutes > 4) {
                     // More than 5 minutes remaining, not yet at prediction window
                     console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 5-minute mark for prediction`);
                     return inValidResponse();
@@ -403,6 +409,10 @@ class FiveMinuteMarkCalculator {
                     const showPrediction = prediction.homeStatus !== 'UNKNOW' &&
                         prediction.visitorStatus !== 'UNKNOW' && prediction.status !== 'UNKNOW';
                     //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
+                    dataCache_1.dataCache.setFiveMinutesMarkCache(game.gameId, {
+                        ...prediction,
+                        showPrediction
+                    });
                     return {
                         ...prediction,
                         showPrediction: showPrediction

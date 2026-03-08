@@ -132,6 +132,7 @@ class DataCache {
         // In-memory stores for play-by-play data (no DB persistence)
         this.playByPlayCache = new Map();
         this.teamPlayByPlayCache = new Map();
+        this.fiveMinutesMarkCache = new Map();
         // Callbacks for WebSocket broadcasts
         this.scoreChangeCallbacks = [];
         this.SCOREBOARD_POLL_INTERVAL = 8000; // 8 seconds
@@ -140,6 +141,7 @@ class DataCache {
         this.CACHE_TTL_24H = 24 * 60 * 60 * 1000; // 24 hours
         this.CACHE_TTL_10M = 10 * 60 * 1000; // 10 minutes
         this.CACHE_TTL_1MONTH = 30 * 24 * 60 * 60 * 1000; // 30 days (1 month)
+        this.CACHE_TTL_5MINUTES = 5 * 60 * 1000; // 5 minutes in milliseconds
         this.scoreboardTask = null;
         this.playbyplayTask = null;
         this.cleanupTask = null;
@@ -378,7 +380,7 @@ class DataCache {
                     if (!isNaN(minutes) && !isNaN(seconds)) {
                         return 0; // Game clock is running, return 0 to indicate we should poll more frequently
                     }
-                    if (gamePeriod == 4 && minutes === 7) {
+                    if (gamePeriod == 4 && minutes === 6) {
                         console.log(`[FiveMinuteMark] Detected 7-minute mark in 4th quarter for game ${game.gameId}`);
                         // At 7-minute mark: send notification and validation
                         if (process.env.USE_MOCK_DATA === 'false') {
@@ -439,6 +441,18 @@ class DataCache {
         await poll();
         // Set up polling interval
         this.playbyplayTask = setInterval(poll, this.PLAYBYPLAY_POLL_INTERVAL);
+    }
+    // Five minutes mark cache  (we intentionally avoid DB storage for this since it's very time-sensitive and only relevant during the game)
+    async getFiveMinutesMarkCache(gameId) {
+        return this.fiveMinutesMarkCache.get(`five_minutes_mark_${gameId}`) || false;
+    }
+    setFiveMinutesMarkCache(gameId, data) {
+        this.fiveMinutesMarkCache.set(`five_minutes_mark_${gameId}`, data);
+        console.log(`[DataCache] Five minutes mark cache stored for key: five_minutes_mark_${gameId}, result: ${data.showPrediction ? 'Prediction Available' : 'No Prediction'}`);
+    }
+    removeFiveMinutesMarkCache(gameId) {
+        this.fiveMinutesMarkCache.delete(`five_minutes_mark_${gameId}`);
+        console.log(`[DataCache] Five minutes mark cache removed for key: five_minutes_mark_${gameId}`);
     }
     startPolling() {
         if (!this.scoreboardTask) {

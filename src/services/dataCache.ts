@@ -1,5 +1,5 @@
 import { getScoreboard, getPlayByPlay } from './scoreboard';
-import { ScoreboardResponse, PlayByPlayResponse, LastPlayByPlayActionNumber } from '../types';
+import { ScoreboardResponse, PlayByPlayResponse, LastPlayByPlayActionNumber, BetPrediction } from '../types';
 //import { playbyplayWebSocketManager } from './websocketManager';
 import { GamesResponse } from '../schemas/schedule';
 import { LeagueLeadersResponse } from '../schemas/league';
@@ -157,6 +157,7 @@ export class DataCache {
   // In-memory stores for play-by-play data (no DB persistence)
   private playByPlayCache = new Map<string, PlayByPlayResponse>();
   private teamPlayByPlayCache = new Map<number, PlayByPlayResponse>();
+  private fiveMinutesMarkCache = new Map<string, BetPrediction>();
 
   // Callbacks for WebSocket broadcasts
   private scoreChangeCallbacks: (() => Promise<void>)[] = [];
@@ -167,7 +168,8 @@ export class DataCache {
   private readonly CACHE_TTL_24H = 24 * 60 * 60 * 1000; // 24 hours
   private readonly CACHE_TTL_10M = 10 * 60 * 1000; // 10 minutes
   private readonly CACHE_TTL_1MONTH = 30 * 24 * 60 * 60 * 1000; // 30 days (1 month)
-
+  private readonly CACHE_TTL_5MINUTES = 5 * 60 * 1000; // 5 minutes in milliseconds
+  
   private scoreboardTask: NodeJS.Timeout | null = null;
   private playbyplayTask: NodeJS.Timeout | null = null;
   private cleanupTask: NodeJS.Timeout | null = null;
@@ -347,6 +349,10 @@ export class DataCache {
     return await this.dbCache.get<PlayerSummary[]>('league_roster');
   }
 
+
+
+
+
   private async cleanupFinishedGames(): Promise<void> {
     try {
       const scoreboardData = await this.getScoreboard();
@@ -462,7 +468,7 @@ export class DataCache {
             return 0; // Game clock is running, return 0 to indicate we should poll more frequently
           }
 
-          if (gamePeriod == 4 && minutes === 7) {
+          if (gamePeriod == 4 && minutes === 6) {
             console.log(`[FiveMinuteMark] Detected 7-minute mark in 4th quarter for game ${game.gameId}`);
             // At 7-minute mark: send notification and validation
             if (process.env.USE_MOCK_DATA === 'false') {
@@ -533,6 +539,21 @@ export class DataCache {
 
     // Set up polling interval
     this.playbyplayTask = setInterval(poll, this.PLAYBYPLAY_POLL_INTERVAL);
+  }
+
+  // Five minutes mark cache  (we intentionally avoid DB storage for this since it's very time-sensitive and only relevant during the game)
+  async getFiveMinutesMarkCache(gameId: string): Promise<any | null> {
+    return this.fiveMinutesMarkCache.get(`five_minutes_mark_${gameId}`) || false;
+  }
+
+   setFiveMinutesMarkCache(gameId: string, data: any): void {
+    this.fiveMinutesMarkCache.set(`five_minutes_mark_${gameId}`, data);
+    console.log(`[DataCache] Five minutes mark cache stored for key: five_minutes_mark_${gameId}, result: ${data.showPrediction ? 'Prediction Available' : 'No Prediction'}`);
+  }
+
+  removeFiveMinutesMarkCache(gameId: string): void {
+    this.fiveMinutesMarkCache.delete(`five_minutes_mark_${gameId}`);
+    console.log(`[DataCache] Five minutes mark cache removed for key: five_minutes_mark_${gameId}`);
   }
 
   startPolling(): void {

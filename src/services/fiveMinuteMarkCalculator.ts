@@ -8,6 +8,7 @@
 import axios from 'axios';
 import { webSocketManager } from './websocketManager';
 import expoNotificationSystem from './expoNotificationSystem';
+import { dataCache } from './dataCache';
 
 // Type definitions
 
@@ -403,6 +404,12 @@ class FiveMinuteMarkCalculator {
 
     static async calculateBetStatus(game: any): Promise<BetPrediction> {
 
+        const exitingCache = await dataCache.getFiveMinutesMarkCache(game.gameId);
+        if (exitingCache) {
+            console.log(`[FiveMinuteMarkCalculator] Returning existing cached prediction for game ${game.gameId}:`, exitingCache);
+            return exitingCache;
+        }
+  
         const inValidResponse = () => ({
             visitorOveral: 0,
             homeOveral: 0,
@@ -461,8 +468,7 @@ class FiveMinuteMarkCalculator {
                 console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} is in period ${period}, waiting until 5-minute mark of Q4 for prediction`);
                 return inValidResponse();
             case 4:
-
-                if (minutes > 5 && minutes <= 7) {
+                if (minutes > 5 && minutes <= 6) {
                     // At 7-minute mark: send notification and validation
                     if (process.env.USE_MOCK_DATA === 'false') {
                         await expoNotificationSystem.addToNotificationQueue(game.gameId, game, 'game_five_minutes_mark');
@@ -480,7 +486,7 @@ class FiveMinuteMarkCalculator {
                     return inValidResponse();
                 }
 
-                if (minutes > 5) {
+                if (minutes > 4) {
                     // More than 5 minutes remaining, not yet at prediction window
                     console.log(`[FiveMinuteMarkCalculator] Game ${game.gameId} has ${minutes} minutes remaining in Q4, waiting for 5-minute mark for prediction`);
                     return inValidResponse();
@@ -570,7 +576,10 @@ class FiveMinuteMarkCalculator {
                         prediction.visitorStatus !== 'UNKNOW' && prediction.status !== 'UNKNOW';
 
                     //  console.log(`\n\n\n[FiveMinuteMarkCalculator] Game ${game.gameId} - Show Prediction: ${showPrediction}, Prediction:`, prediction);
-
+                    dataCache.setFiveMinutesMarkCache(game.gameId, {
+                        ...prediction,
+                        showPrediction
+                    });
                     return {
                         ...prediction,
                         showPrediction: showPrediction

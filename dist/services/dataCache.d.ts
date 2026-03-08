@@ -10,6 +10,7 @@ export declare class DataCache {
     private activeGameIds;
     private playByPlayCache;
     private teamPlayByPlayCache;
+    private fiveMinutesMarkCache;
     private scoreChangeCallbacks;
     private readonly SCOREBOARD_POLL_INTERVAL;
     private readonly PLAYBYPLAY_POLL_INTERVAL;
@@ -17,6 +18,7 @@ export declare class DataCache {
     private readonly CACHE_TTL_24H;
     private readonly CACHE_TTL_10M;
     private readonly CACHE_TTL_1MONTH;
+    private readonly CACHE_TTL_5MINUTES;
     private scoreboardTask;
     private playbyplayTask;
     private cleanupTask;
@@ -67,6 +69,9 @@ export declare class DataCache {
     private pollScoreboard;
     private checkGamesStatusAndGameClock;
     private pollPlaybyplay;
+    getFiveMinutesMarkCache(gameId: string): Promise<any | null>;
+    setFiveMinutesMarkCache(gameId: string, data: any): void;
+    removeFiveMinutesMarkCache(gameId: string): void;
     startPolling(): void;
     /**
      * Get cached predictions for a specific date

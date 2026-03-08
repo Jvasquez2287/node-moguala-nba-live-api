@@ -340,6 +340,7 @@ export class ScoreboardWebSocketManager {
           console.log(`[${debugId}] [Game Data Change] Game ENDED: ${gameId}`);
           sendDebugLog('ScoreboardWebSocketManager', `Game ENDED: ${gameId}`);
           expoNotificationSystem.addToNotificationQueue(gameId, newGame, 'game_ended');
+          dataCache.removeFiveMinutesMarkCache(gameId); // Clear 5-minute mark cache when game ends
         }
       }
 

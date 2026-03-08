@@ -347,6 +347,7 @@ class ScoreboardWebSocketManager {
                     console.log(`[${debugId}] [Game Data Change] Game ENDED: ${gameId}`);
                     (0, LogServerWs_1.sendDebugLog)('ScoreboardWebSocketManager', `Game ENDED: ${gameId}`);
                     expoNotificationSystem_1.default.addToNotificationQueue(gameId, newGame, 'game_ended');
+                    dataCache_1.dataCache.removeFiveMinutesMarkCache(gameId); // Clear 5-minute mark cache when game ends
                 }
             }
             const oldGame = oldMap.get(gameId);
