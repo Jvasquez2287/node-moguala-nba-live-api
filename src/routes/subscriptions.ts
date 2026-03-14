@@ -587,7 +587,7 @@ router.post('/checkout', async (req: Request, res: Response) => {
 
 
     // Determine base URL for redirects - respect incoming request protocol
-    let baseUrl = process.env.APP_URL;
+    let baseUrl = process.env.API_REMOTE_URL;
     if (!baseUrl) {
       const protocol = req.protocol || (req.secure ? 'https' : 'http');
       const host = req.get('host') || '10.0.0.200:8000';
