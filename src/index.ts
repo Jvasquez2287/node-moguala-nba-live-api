@@ -227,6 +227,15 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       return res.json({ error: 'Invalid session ID' });
     }
 
+    const token = req.query.token as string | undefined;
+    if (token) {
+      if(process.env.API_AUTHORIZATION_HEADER !== token) {
+        return res.json({ error: 'Invalid token' });
+      }
+    }else {
+      return res.json({ error: 'Missing token' });
+    }
+
     const subscriptionsService = await import('./services/subscriptions').then(m => m.default);
     const result = await subscriptionsService.handleCheckoutSuccess(session_id as string);
 

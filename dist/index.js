@@ -234,6 +234,15 @@ const handleSubscriptionSuccess = async (req, res) => {
         if (!session_id) {
             return res.json({ error: 'Invalid session ID' });
         }
+        const token = req.query.token;
+        if (token) {
+            if (process.env.API_AUTHORIZATION_HEADER !== token) {
+                return res.json({ error: 'Invalid token' });
+            }
+        }
+        else {
+            return res.json({ error: 'Missing token' });
+        }
         const subscriptionsService = await Promise.resolve().then(() => __importStar(require('./services/subscriptions'))).then(m => m.default);
         const result = await subscriptionsService.handleCheckoutSuccess(session_id);
         if (!result.success || !result.data) {
