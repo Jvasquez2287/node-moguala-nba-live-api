@@ -220,19 +220,20 @@ app.use('/api/v1/test', testRoutes); // Test routes
 // Both /subscription/success and /subscriptions/success for flexibility
 const handleSubscriptionSuccess = async (req: express.Request, res: express.Response) => {
   try {
-    const { session_id } = req.query; 
+    const { session_id } = req.query;
 
     if (!session_id) {
-      
+
       return res.json({ error: 'Invalid session ID' });
     }
 
-    const token = req.query.token as string | undefined;
-    if (token) {
-      if(process.env.API_AUTHORIZATION_HEADER !== token) {
+    const { Authorization } = req.query;
+    if (Authorization && typeof Authorization === 'string') {
+      let tokenValue = Authorization.replace('Bearer ', '').trim();
+      if (process.env.API_AUTHORIZATION_HEADER !== tokenValue) {
         return res.json({ error: 'Invalid token' });
       }
-    }else {
+    } else {
       return res.json({ error: 'Missing token' });
     }
 
@@ -242,14 +243,14 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
     if (!result.success || !result.data) {
       throw new Error(result.message || 'Failed to process checkout success');
     }
- 
-    
+
+
     return res.json({
       user: result.data.user,
       subscription: result.data.subscription,
     }).end(); // End response early to avoid potential issues with large template rendering in some environments
 
-    
+
   } catch (error) {
     console.error('[SubscriptionsRouter] Error processing checkout success:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
