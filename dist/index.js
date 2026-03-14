@@ -231,19 +231,14 @@ app.use('/api/v1/test', testRoutes_1.default); // Test routes
 const handleSubscriptionSuccess = async (req, res) => {
     try {
         const { session_id } = req.query;
-        const templatesDir = path_1.default.join(__dirname, 'templates');
         if (!session_id) {
-            const invalidTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'invalid.html'), 'utf-8');
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            return res.send(invalidTemplate);
+            return res.json({ error: 'Invalid session ID' });
         }
         const subscriptionsService = await Promise.resolve().then(() => __importStar(require('./services/subscriptions'))).then(m => m.default);
         const result = await subscriptionsService.handleCheckoutSuccess(session_id);
         if (!result.success || !result.data) {
             throw new Error(result.message || 'Failed to process checkout success');
         }
-        // Load success template and replace placeholders
-        let successTemplate = await promises_1.default.readFile(path_1.default.join(templatesDir, 'success.html'), 'utf-8');
         const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
         const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
         const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
@@ -251,20 +246,16 @@ const handleSubscriptionSuccess = async (req, res) => {
         const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
         const invoicePdfUrl = result.data.subscription?.subscription_invoice_pdf_url || '';
         console.log(`[SubscriptionsRouter] Parsed dates - Start: ${periodStart}, End: ${periodEnd}`);
-        successTemplate = successTemplate
-            .replace('{{USER_NAME}}', userName)
-            .replace('{{USER_EMAIL}}', result.data.user.email)
-            .replace('{{USER_CLERK_ID}}', result.data.user.clerk_id)
-            .replace('{{SUBSCRIPTION_STATUS}}', result.data.subscription.status)
-            .replace('{{STATUS_CLASS}}', statusClass)
-            .replace('{{SUBSCRIPTION_ID}}', subscriptionId)
-            .replace('{{PERIOD_START}}', periodStart)
-            .replace('{{PERIOD_END}}', periodEnd)
-            .replace('{{SUBSCRIPTION_INVOICE_PDF_URL}}', invoicePdfUrl ? invoicePdfUrl : '#');
-        res.setHeader("Content-type", "text/html");
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.statusCode = 200;
-        return res.end(successTemplate);
+        return res.json({
+            userName: userName,
+            email: result.data.user.email,
+            subscriptionStatus: result.data.subscription.status,
+            subscriptionId: subscriptionId,
+            periodStart: periodStart,
+            periodEnd: periodEnd,
+            invoicePdfUrl: invoicePdfUrl ? invoicePdfUrl : 'N/A',
+            statusClass: statusClass
+        }).end(); // End response early to avoid potential issues with large template rendering in some environments
     }
     catch (error) {
         console.error('[SubscriptionsRouter] Error processing checkout success:', error);
