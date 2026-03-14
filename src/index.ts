@@ -235,7 +235,8 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
     }
  
     const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
-    const statusClass = result.data.subscription.status === 'active' ? 'status-active' : 'status-trialing';
+    const is_active = result.data.subscription.status === 'active';
+    const statusClass = is_active ? 'status-active' : 'status-trialing';
     const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
     const periodEnd = result.data.subscription.currentPeriodEnd ? new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString() : 'N/A';
     const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
@@ -245,6 +246,7 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
 
     return res.json({
       userName:  userName,
+      isActive: is_active,
       email: result.data.user.email,
       subscriptionStatus: result.data.subscription.status,
       subscriptionId: subscriptionId,
