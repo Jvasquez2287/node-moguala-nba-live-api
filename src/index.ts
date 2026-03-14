@@ -227,9 +227,9 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       return res.json({ error: 'Invalid session ID' });
     }
 
-    const { Authorization } = req.query;
-    if (Authorization && typeof Authorization === 'string') {
-      let tokenValue = Authorization.replace('Bearer ', '').trim();
+    const { authorization } = req.headers;
+    if (authorization && typeof authorization === 'string') {
+      let tokenValue = authorization.replace('Bearer ', '').trim();
       if (process.env.API_AUTHORIZATION_HEADER !== tokenValue) {
         return res.json({ error: 'Invalid token' });
       }
