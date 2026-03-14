@@ -234,26 +234,10 @@ const handleSubscriptionSuccess = async (req: express.Request, res: express.Resp
       throw new Error(result.message || 'Failed to process checkout success');
     }
  
-    const userName = `${result.data.user.first_name || ''} ${result.data.user.last_name || ''}`.trim();
-    const is_active = result.data.subscription.status === 'active';
-    const statusClass = is_active ? 'status-active' : 'status-trialing';
-    const periodStart = result.data.subscription.currentPeriodStart ? new Date(result.data.subscription.currentPeriodStart).toLocaleDateString() : 'N/A';
-    const periodEnd = result.data.subscription.currentPeriodEnd ? new Date(result.data.subscription.currentPeriodEnd).toLocaleDateString() : 'N/A';
-    const subscriptionId = result.data.subscription.id.substring(0, 20) + '...';
-    const invoicePdfUrl = result.data.subscription?.subscription_invoice_pdf_url || '';
-
-    console.log(`[SubscriptionsRouter] Parsed dates - Start: ${periodStart}, End: ${periodEnd}`);
-
+    
     return res.json({
-      userName:  userName,
-      isActive: is_active,
-      email: result.data.user.email,
-      subscriptionStatus: result.data.subscription.status,
-      subscriptionId: subscriptionId,
-      periodStart: periodStart,
-      periodEnd: periodEnd,
-      invoicePdfUrl: invoicePdfUrl ? invoicePdfUrl : 'N/A',
-      statusClass: statusClass
+      user: result.data.user,
+      subscription: result.data.subscription,
     }).end(); // End response early to avoid potential issues with large template rendering in some environments
 
     
